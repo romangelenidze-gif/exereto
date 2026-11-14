@@ -9,15 +9,15 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * LLM-часть поиска: понимание запроса (ru / ka / en / el -> структурированный поиск для BestPrice),
- * обратный перевод названий товаров и фоновый пакетный перевод уникальных сущностей фида (en / ru / ka).
+ * LLM-часть поиска и локализации:
+ * - флагманский пакетный перевод словаря фида (en / ru / ka) через каскад быстрых моделей Google Gemini Flash-Lite с резервом на Groq;
+ * - понимание поискового запроса (ru / ka / en / el -> структурированный поиск).
  */
 class GroqAiService
 {
     protected const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
     protected const SORTS = ['relevance', 'price_asc', 'price_desc'];
 
-    // Увеличивайте при любом изменении промпта: сбрасывает кэш разбора запросов.
     protected const PROMPT_VERSION = 3;
     protected const ANALYSIS_TTL = 2592000;     // 30 дней
     protected const TRANSLATION_TTL = 2592000;  // 30 дней
@@ -25,16 +25,21 @@ class GroqAiService
 
     protected const MAX_TOKENS_ANALYZE = 700;
     protected const MAX_TOKENS_TRANSLATE = 800;
-    protected const MAX_TOKENS_ENTITY_BATCH = 900;
+    protected const MAX_TOKENS_ENTITY_BATCH_GEMINI = 8192;
+    protected const MAX_TOKENS_ENTITY_BATCH_GROQ = 900;
 
     protected string $apiKey;
     protected string $model;
+    protected string $geminiApiKey;
+    protected string $geminiModel;
     protected ?string $lastModel = null;
 
     public function __construct()
     {
         $this->apiKey = (string) config('services.groq.api_key', '');
         $this->model = (string) config('services.groq.model', 'openai/gpt-oss-20b');
+        $this->geminiApiKey = (string) config('services.gemini.api_key', '');
+        $this->geminiModel = (string) config('services.gemini.model', 'gemini-3.5-flash-lite');
     }
 
     /**
@@ -62,7 +67,7 @@ class GroqAiService
         $clean = trim($userQuery);
         $sourceLang = self::detectLanguage($clean);
 
-        if ($clean === '' || $this->apiKey === '') {
+        if ($clean === '' || ($this->apiKey === '' && $this->geminiApiKey === '')) {
             return $this->fallbackAnalysis($clean, $sourceLang);
         }
 
@@ -106,7 +111,7 @@ class GroqAiService
     {
         $titles = array_values($titles);
 
-        if ($titles === [] || $targetLanguage === 'el' || $this->apiKey === '') {
+        if ($titles === [] || $targetLanguage === 'el' || ($this->apiKey === '' && $this->geminiApiKey === '')) {
             return $titles;
         }
 
@@ -175,8 +180,10 @@ class GroqAiService
     }
 
     /**
-     * Пакетный перевод уникальных сущностей фида (spec, category_segment, color, title_prefix)
-     * сразу на 3 языка (en, ru, ka) для сохранения в таблицу entity_translations.
+     * Флагманский пакетный перевод уникальных сущностей фида (spec, category_segment, color, title_prefix)
+     * сразу на 3 языка (en, ru, ka):
+     * 1) Сначала одним пакетом через каскад быстрых моделей Google Gemini Flash-Lite;
+     * 2) При недоступности Gemini — автоматическая нарезка по 8 шт. через каскад моделей Groq.
      *
      * @param string[] $items
      * @return array<int, array{en: string, ru: string, ka: string}>|null
@@ -184,30 +191,74 @@ class GroqAiService
     public function translateEntitiesBatch(array $items, string $entityType = 'spec'): ?array
     {
         $items = array_values($items);
-        if ($items === [] || $this->apiKey === '') {
+        if ($items === []) {
             return null;
         }
 
-        $payload = json_encode([
-            'entity_type' => $entityType,
-            'items' => $items,
-        ], JSON_UNESCAPED_UNICODE);
+        // 1. Флагман: каскад быстрых моделей Google Gemini Flash-Lite (40 фраз за ~1-2 сек)
+        if ($this->geminiApiKey !== '') {
+            $payload = json_encode([
+                'entity_type' => $entityType,
+                'items' => $items,
+            ], JSON_UNESCAPED_UNICODE);
 
-        $decoded = $this->chatJson(
-            $this->entityBatchSystemPrompt(),
-            (string) $payload,
-            $this->translateModel('ka'),
-            self::MAX_TOKENS_ENTITY_BATCH
-        );
+            $decoded = $this->sendGeminiChat(
+                $this->entityBatchSystemPrompt(),
+                (string) $payload,
+                self::MAX_TOKENS_ENTITY_BATCH_GEMINI
+            );
 
+            $parsed = $this->parseEntityTranslations($decoded, $items);
+            if ($parsed !== null) {
+                return $parsed;
+            }
+        }
+
+        // 2. Резерв: каскад Groq (дробим крупный батч на подпачки по 8 штук под лимит TPM/OTPM)
+        if ($this->apiKey === '') {
+            return null;
+        }
+
+        $combined = [];
+        foreach (array_chunk($items, 8) as $subChunk) {
+            $payload = json_encode([
+                'entity_type' => $entityType,
+                'items' => $subChunk,
+            ], JSON_UNESCAPED_UNICODE);
+
+            $decoded = $this->chatJson(
+                $this->entityBatchSystemPrompt(),
+                (string) $payload,
+                $this->translateModel('ka'),
+                self::MAX_TOKENS_ENTITY_BATCH_GROQ
+            );
+
+            $parsedChunk = $this->parseEntityTranslations($decoded, $subChunk);
+            if ($parsedChunk === null) {
+                Log::warning('translateEntitiesBatch failed on both Gemini and Groq', [
+                    'type' => $entityType,
+                    'chunk_size' => count($subChunk),
+                ]);
+
+                return null;
+            }
+
+            foreach ($parsedChunk as $row) {
+                $combined[] = $row;
+            }
+        }
+
+        return $combined;
+    }
+
+    /**
+     * @param string[] $items
+     * @return array<int, array{en: string, ru: string, ka: string}>|null
+     */
+    protected function parseEntityTranslations(?array $decoded, array $items): ?array
+    {
         $translations = $decoded['translations'] ?? null;
         if (!is_array($translations) || count($translations) !== count($items)) {
-            Log::warning('Groq translateEntitiesBatch: count mismatch or invalid output', [
-                'type' => $entityType,
-                'expected' => count($items),
-                'got' => is_array($translations) ? count($translations) : null,
-            ]);
-
             return null;
         }
 
@@ -233,7 +284,7 @@ class GroqAiService
      */
     public function describeProduct(array $facts, string $targetLanguage): ?string
     {
-        if ($this->apiKey === '') {
+        if ($this->apiKey === '' && $this->geminiApiKey === '') {
             return null;
         }
 
@@ -317,26 +368,107 @@ PROMPT;
     }
 
     // ------------------------------------------------------------------ //
-    //  Groq HTTP
+    //  Google Gemini Flash-Lite Cascade (Флагман для пакетных переводов)
     // ------------------------------------------------------------------ //
 
-    protected function chatJson(string $systemPrompt, string $userContent, string $model, int $maxTokens): ?array
+    protected function sendGeminiChat(string $systemPrompt, string $userContent, int $maxTokens): ?array
     {
-        foreach ($this->modelChain($model) as $candidate) {
-            [$data, $status] = $this->sendChat($systemPrompt, $userContent, $candidate, $maxTokens);
+        if ($this->geminiApiKey === '') {
+            return null;
+        }
 
-            if ($data !== null) {
-                $this->lastModel = $candidate;
+        // Каскад из 3 протестированных быстрых моделей Gemini Flash-Lite (отвечают за 0.6-1.6 сек)
+        $configured = trim($this->geminiModel);
+        $fastPool = [
+            'gemini-3.5-flash-lite',
+            'gemini-3.1-flash-lite',
+            'gemini-flash-lite-latest',
+        ];
 
-                return $data;
-            }
+        // Если в .env осталась медленная/зависающая gemini-3.8-flash, ставим быстрые модели вперёд
+        $models = in_array($configured, $fastPool, true)
+            ? array_values(array_unique(array_merge([$configured], $fastPool)))
+            : array_values(array_unique(array_merge($fastPool, $configured !== '' ? [$configured] : [])));
 
-            if (in_array($status, [401, 403], true)) {
-                break;
+        foreach ($models as $geminiModel) {
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/{$geminiModel}:generateContent?key=" . urlencode($this->geminiApiKey);
+
+            try {
+                $response = Http::timeout(15)->post($url, [
+                    'systemInstruction' => [
+                        'parts' => [['text' => $systemPrompt]],
+                    ],
+                    'contents' => [
+                        ['role' => 'user', 'parts' => [['text' => $userContent]]],
+                    ],
+                    'generationConfig' => [
+                        'temperature' => 0.0,
+                        'maxOutputTokens' => $maxTokens,
+                        'responseMimeType' => 'application/json',
+                    ],
+                ]);
+
+                if (!$response->successful()) {
+                    Log::warning('Gemini request failed, trying next model in cascade', [
+                        'model' => $geminiModel,
+                        'status' => $response->status(),
+                        'body' => mb_substr($response->body(), 0, 250),
+                    ]);
+                    continue;
+                }
+
+                $content = trim((string) $response->json('candidates.0.content.parts.0.text', ''));
+                $content = preg_replace('/^```(?:json)?\s*([\s\S]*?)\s*```$/u', '$1', $content);
+                $decoded = json_decode($content, true);
+
+                if (!is_array($decoded) && preg_match('/\{[\s\S]*\}/u', $content, $m)) {
+                    $decoded = json_decode($m[0], true);
+                }
+
+                if (is_array($decoded)) {
+                    $this->lastModel = $geminiModel;
+
+                    return $decoded;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Gemini timeout/exception, switching to next model: ' . $e->getMessage(), [
+                    'model' => $geminiModel,
+                ]);
+                continue;
             }
         }
 
         return null;
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Groq HTTP Cascade
+    // ------------------------------------------------------------------ //
+
+    protected function chatJson(string $systemPrompt, string $userContent, string $model, int $maxTokens): ?array
+    {
+        if ($this->apiKey !== '') {
+            foreach ($this->modelChain($model) as $candidate) {
+                $effectiveMaxTokens = str_contains(strtolower($candidate), 'qwen')
+                    ? min($maxTokens, 700)
+                    : $maxTokens;
+
+                [$data, $status] = $this->sendChat($systemPrompt, $userContent, $candidate, $effectiveMaxTokens);
+
+                if ($data !== null) {
+                    $this->lastModel = $candidate;
+
+                    return $data;
+                }
+
+                if (in_array($status, [401, 403], true)) {
+                    break;
+                }
+            }
+        }
+
+        // Если все модели Groq вернули 429 — прозрачно используем каскад Gemini Flash-Lite
+        return $this->sendGeminiChat($systemPrompt, $userContent, $maxTokens);
     }
 
     protected function modelChain(string $primary): array
@@ -344,7 +476,8 @@ PROMPT;
         $fallbacks = config('services.groq.fallback_models', '');
         $fallbacks = is_array($fallbacks) ? $fallbacks : explode(',', (string) $fallbacks);
 
-        $chain = array_merge([$primary], array_map('trim', $fallbacks));
+        $defaultPool = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'];
+        $chain = array_merge([$primary], $defaultPool, array_map('trim', $fallbacks));
 
         return array_values(array_unique(array_filter($chain, fn ($m) => is_string($m) && $m !== '')));
     }
@@ -366,7 +499,7 @@ PROMPT;
         ] + $this->reasoningParams($model);
 
         try {
-            $response = Http::timeout(25)
+            $response = Http::timeout(20)
                 ->withToken($this->apiKey)
                 ->retry(2, 300, function ($e) {
                     if ($e instanceof ConnectionException) {

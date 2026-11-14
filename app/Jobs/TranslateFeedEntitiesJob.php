@@ -16,9 +16,9 @@ class TranslateFeedEntitiesJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 8;
-    public int $backoff = 20;
-    public int $timeout = 90;
+    public int $tries = 30;
+    public int $maxExceptions = 5;
+    public int $timeout = 120;
 
     /**
      * @param string[] $items
@@ -39,7 +39,7 @@ class TranslateFeedEntitiesJob implements ShouldQueue
         $translated = $groq->translateEntitiesBatch($items, $this->entityType);
         if ($translated === null) {
             if ($this->attempts() < $this->tries) {
-                $this->release(20);
+                $this->release(random_int(15, 35));
             }
 
             return;
@@ -79,9 +79,8 @@ class TranslateFeedEntitiesJob implements ShouldQueue
             );
         }
 
-        // Пауза для соблюдения лимита Groq 8 000 TPM при параллельной работе воркеров
         if ($this->job !== null) {
-            sleep(5);
+            sleep(2);
         }
     }
 }
