@@ -69,7 +69,7 @@ class FeedCategoryController extends Controller
                 $base->where('sizes', 'like', '%"' . addslashes($selectedSize) . '"%');
             }
             if ($selectedColor !== '') {
-                $base->where('colour', 'like', '%' . $selectedColor . '%');
+                $base->whereRaw("TRIM(SUBSTRING_INDEX(colour, '/', 1)) = ?", [$selectedColor]);
             }
             if ($onlyDiscount) {
                 $base->where('discount_percent', '>', 0);

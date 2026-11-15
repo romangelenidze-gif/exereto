@@ -176,122 +176,129 @@ class FeedCategoryTiles
         ], $raw);
     }
 
-    /**
-     * Фасетные фильтры для страницы категории (Бренды, Пол, Размеры, Цвета).
+ /**
+     * Фасетные фильтры для страницы категории (считаем по уникальным моделям, как в выдаче).
      */
     public function buildFacets(array $tile): array
     {
-        $cacheKey = 'category.facets.v3.' . ($tile['slug'] ?? md5(json_encode($tile)));
+        $cacheKey = 'category.facets.v4.' . ($tile['slug'] ?? md5(json_encode($tile)));
 
         return Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($tile) {
-            $base = $this->productsQuery($tile);
-
-            $brands = (clone $base)
-                ->whereNotNull('brand')
-                ->where('brand', '!=', '')
-                ->selectRaw('brand, COUNT(*) as cnt')
-                ->groupBy('brand')
-                ->orderByDesc('cnt')
-                ->limit(25)
-                ->get()
-                ->map(fn ($r) => ['name' => (string) $r->brand, 'count' => (int) $r->cnt])
-                ->all();
-
-            $genders = (clone $base)
-                ->whereNotNull('gender')
-                ->where('gender', '!=', '')
-                ->selectRaw('gender, COUNT(*) as cnt')
-                ->groupBy('gender')
-                ->orderByDesc('cnt')
-                ->get()
-                ->map(fn ($r) => ['code' => (string) $r->gender, 'count' => (int) $r->cnt])
-                ->all();
-
-            // Ограничиваем выборку 800 строками через toBase() (без создания 800 Eloquent-моделей)
-            $sample = (clone $base)
-                ->toBase()
-                ->select(['sizes', 'colour'])
-                ->limit(800)
-                ->get();
-
-            $sizeCounts = [];
-            $colorCounts = [];
-
-            foreach ($sample as $row) {
-                $sizesArr = is_string($row->sizes) ? json_decode($row->sizes, true) : (array) $row->sizes;
-                if (is_array($sizesArr)) {
-                    foreach ($sizesArr as $s) {
-                        $rawSize = is_array($s)
-                            ? ($s['size'] ?? $s['name'] ?? $s['value'] ?? $s['label'] ?? null)
-                            : $s;
-
-                        if (!is_scalar($rawSize)) {
-                            continue;
-                        }
-
-                        $sizeStr = trim((string) $rawSize);
-                        if ($sizeStr !== '' && mb_strlen($sizeStr) <= 12) {
-                            $sizeCounts[$sizeStr] = ($sizeCounts[$sizeStr] ?? 0) + 1;
-                        }
-                    }
-                }
-
-                if (is_string($row->colour) && $row->colour !== '') {
-                    $mainColor = trim(explode('/', $row->colour)[0]);
-                    if ($mainColor !== '' && mb_strlen($mainColor) <= 25) {
-                        $colorCounts[$mainColor] = ($colorCounts[$mainColor] ?? 0) + 1;
-                    }
-                }
-            }
-
-            arsort($sizeCounts);
-            arsort($colorCounts);
-
-            return [
-                'brands' => $brands,
-                'genders' => $genders,
-                'sizes' => array_slice(array_keys($sizeCounts), 0, 18),
-                'colors' => array_slice($colorCounts, 0, 12, true),
-            ];
+            return $this->computeFacetsFromQuery($this->productsQuery($tile));
         });
     }
 
     /**
-     * Формирует фасеты из уже найденного набора карточек товаров (для страницы поиска).
+     * Фасетные фильтры для поискового запроса / бренда по всей базе активных товаров.
      */
-    public function buildFacetsFromCards(array $cards): array
+    public function buildFacetsForSearch(string $query): array
     {
-        $brandCounts = [];
-        $colorCounts = [];
+        $q = trim($query);
+        if ($q === '') {
+            return ['brands' => [], 'genders' => [], 'sizes' => [], 'colors' => []];
+        }
 
-        foreach ($cards as $card) {
-            $b = trim((string) ($card['brand'] ?? ''));
-            if ($b !== '') {
-                $brandCounts[$b] = ($brandCounts[$b] ?? 0) + 1;
+        $cacheKey = 'search.facets.v1.' . md5(mb_strtolower($q));
+
+        return Cache::remember($cacheKey, now()->addHours(2), function () use ($q) {
+            $base = FeedProduct::query()
+                ->where('is_active', true)
+                ->where('in_stock', true);
+
+            $excludedTops = array_filter((array) config('home_categories.excluded_tops', ['Home']));
+            if ($excludedTops !== []) {
+                $base->where(function (Builder $sub) use ($excludedTops) {
+                    $sub->whereNull('category_top')->orWhereNotIn('category_top', $excludedTops);
+                });
             }
 
-            $c = trim((string) ($card['colour'] ?? ''));
-            if ($c !== '') {
-                $mainColor = trim(explode('/', $c)[0]);
-                if ($mainColor !== '' && mb_strlen($mainColor) <= 25) {
-                    $colorCounts[$mainColor] = ($colorCounts[$mainColor] ?? 0) + 1;
+            // Если запрос совпадает с брендом — фильтруем точно по бренду, иначе по названию/бренду
+            $exactBrand = (clone $base)->where('brand', $q)->value('brand');
+            if ($exactBrand !== null) {
+                $base->where('brand', $exactBrand);
+            } else {
+                $like = '%' . $q . '%';
+                $base->where(function (Builder $sub) use ($like) {
+                    $sub->where('name', 'like', $like)
+                        ->orWhere('brand', 'like', $like)
+                        ->orWhere('category_path', 'like', $like);
+                });
+            }
+
+            return $this->computeFacetsFromQuery($base);
+        });
+    }
+
+    private function computeFacetsFromQuery(Builder $base): array
+    {
+        $distinctExpr = "COUNT(DISTINCT COALESCE(NULLIF(model_code, ''), sku))";
+
+        $brands = (clone $base)
+            ->whereNotNull('brand')
+            ->where('brand', '!=', '')
+            ->selectRaw("brand, {$distinctExpr} as cnt")
+            ->groupBy('brand')
+            ->orderByDesc('cnt')
+            ->limit(25)
+            ->get()
+            ->map(fn ($r) => ['name' => (string) $r->brand, 'count' => (int) $r->cnt])
+            ->all();
+
+        $genders = (clone $base)
+            ->whereNotNull('gender')
+            ->where('gender', '!=', '')
+            ->selectRaw("gender, {$distinctExpr} as cnt")
+            ->groupBy('gender')
+            ->orderByDesc('cnt')
+            ->get()
+            ->map(fn ($r) => ['code' => (string) $r->gender, 'count' => (int) $r->cnt])
+            ->all();
+
+        $colors = (clone $base)
+            ->whereNotNull('colour')
+            ->where('colour', '!=', '')
+            ->selectRaw("TRIM(SUBSTRING_INDEX(colour, '/', 1)) as main_color, {$distinctExpr} as cnt")
+            ->groupBy('main_color')
+            ->orderByDesc('cnt')
+            ->limit(15)
+            ->pluck('cnt', 'main_color')
+            ->map(fn ($cnt) => (int) $cnt)
+            ->all();
+
+        $sample = (clone $base)
+            ->toBase()
+            ->select(['sizes'])
+            ->limit(800)
+            ->get();
+
+        $sizeCounts = [];
+        foreach ($sample as $row) {
+            $sizesArr = is_string($row->sizes) ? json_decode($row->sizes, true) : (array) $row->sizes;
+            if (!is_array($sizesArr)) {
+                continue;
+            }
+            foreach ($sizesArr as $s) {
+                $rawSize = is_array($s)
+                    ? ($s['size'] ?? $s['name'] ?? $s['value'] ?? $s['label'] ?? null)
+                    : $s;
+
+                if (!is_scalar($rawSize)) {
+                    continue;
+                }
+
+                $sizeStr = trim((string) $rawSize);
+                if ($sizeStr !== '' && mb_strlen($sizeStr) <= 12) {
+                    $sizeCounts[$sizeStr] = ($sizeCounts[$sizeStr] ?? 0) + 1;
                 }
             }
         }
-
-        arsort($brandCounts);
-        arsort($colorCounts);
-
-        $brands = [];
-        foreach (array_slice($brandCounts, 0, 20, true) as $name => $cnt) {
-            $brands[] = ['name' => $name, 'count' => $cnt];
-        }
+        arsort($sizeCounts);
 
         return [
             'brands' => $brands,
-            'genders' => [],
-            'sizes' => [],
-            'colors' => array_slice($colorCounts, 0, 12, true),
+            'genders' => $genders,
+            'sizes' => array_slice(array_keys($sizeCounts), 0, 18),
+            'colors' => $colors,
         ];
     }
 

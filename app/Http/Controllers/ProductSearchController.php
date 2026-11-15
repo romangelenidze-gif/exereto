@@ -66,13 +66,16 @@ class ProductSearchController extends Controller
             $pagination = (array) ($searchResult['pagination'] ?? $pagination);
         }
 
-        $facets = $tiles->buildFacetsFromCards($products);
+        $facets = $tiles->buildFacetsForSearch($query);
 
         if ($selectedBrands !== []) {
             $products = array_values(array_filter($products, fn ($p) => in_array($p['brand'] ?? '', $selectedBrands, true)));
         }
         if ($selectedColor !== '') {
-            $products = array_values(array_filter($products, fn ($p) => str_contains(mb_strtolower((string) ($p['colour'] ?? '')), mb_strtolower($selectedColor))));
+            $products = array_values(array_filter($products, function ($p) use ($selectedColor) {
+                $main = trim(explode('/', (string) ($p['colour'] ?? ''))[0]);
+                return mb_strtolower($main) === mb_strtolower($selectedColor);
+            }));
         }
         if ($onlyDiscount) {
             $products = array_values(array_filter($products, fn ($p) => (int) ($p['discount_percent'] ?? 0) > 0));
