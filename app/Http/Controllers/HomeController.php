@@ -6,7 +6,6 @@ use App\Models\FeedProduct;
 use App\Services\FeedCategoryTiles;
 use App\Services\Feeds\FeedEntityLocalizer;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
@@ -16,28 +15,26 @@ class HomeController extends Controller
     {
         $locale = app()->getLocale();
 
-        // 1. Мультибрендовые рекомендации (чередуем бренды и магазины, исключая Home-мусор)
-        $rawPopular = $this->fetchBalancedProducts(onlyDiscounts: false, limit: 8);
-
-        $popularProducts = collect(
-            $localizer->localizeCardTitles(
-                $rawPopular->map(fn (FeedProduct $p) => $p->toCard())->all(),
-                $locale
-            )
+        // 1. Мультибрендовые рекомендации (кэшируем карточки в Redis на 60 мин)
+        $rawPopularCards = Cache::remember(
+            'home.popular_cards.v2',
+            now()->addMinutes(60),
+            fn () => $this->fetchBalancedCards(onlyDiscounts: false, limit: 10)
         );
 
-        // 2. Лучшие скидки по всем брендам
-        $rawDiscounts = $this->fetchBalancedProducts(onlyDiscounts: true, limit: 8);
+        $popularProducts = collect($localizer->localizeCardTitles($rawPopularCards, $locale));
 
-        $discountProducts = collect(
-            $localizer->localizeCardTitles(
-                $rawDiscounts->map(fn (FeedProduct $p) => $p->toCard())->all(),
-                $locale
-            )
+        // 2. Лучшие скидки по всем брендам (кэшируем карточки в Redis на 60 мин)
+        $rawDiscountCards = Cache::remember(
+            'home.discount_cards.v2',
+            now()->addMinutes(60),
+            fn () => $this->fetchBalancedCards(onlyDiscounts: true, limit: 10)
         );
 
-        // 3. Популярные бренды из каталога (ведут на мгновенный поиск по бренду) + флагманские магазины Греции
-        $brands = Cache::remember('home.top_brands.v1', now()->addHours(2), function () {
+        $discountProducts = collect($localizer->localizeCardTitles($rawDiscountCards, $locale));
+
+        // 3. Популярные бренды из каталога
+        $brands = Cache::remember('home.top_brands.v2', now()->addHours(6), function () {
             $dbBrands = FeedProduct::query()
                 ->where('is_active', true)
                 ->where('in_stock', true)
@@ -62,17 +59,16 @@ class HomeController extends Controller
             return $list;
         });
 
-        // 4. Сетка категорий с картинками (из config/home_categories.php)
+        // 4. Сетка категорий с картинками
         $tiles = $categoryTiles->get();
 
         return view('public.home', compact('popularProducts', 'discountProducts', 'brands', 'tiles'));
     }
 
     /**
-     * Выбирает товары из разных магазинов и брендов, чередуя их по принципу round-robin,
-     * чтобы ни один бренд не занимал всю витрину.
+     * @return array<int, array<string, mixed>>
      */
-    private function fetchBalancedProducts(bool $onlyDiscounts, int $limit): Collection
+    private function fetchBalancedCards(bool $onlyDiscounts, int $limit): array
     {
         $excludedTops = array_filter((array) config('home_categories.excluded_tops', ['Home']));
 
@@ -91,12 +87,10 @@ class HomeController extends Controller
             $base->where('discount_percent', '>=', 15)
                  ->orderByDesc('discount_percent');
         } else {
-            $base->orderByRaw('rating IS NULL')
-                 ->orderByDesc('rating')
+            $base->orderByDesc('rating')
                  ->orderByDesc('id');
         }
 
-        // Берём пул из разных фидов и группируем по бренду для равномерного чередования
         $pool = collect();
         foreach (['notos', 'adidas'] as $feed) {
             $chunk = (clone $base)
@@ -108,10 +102,10 @@ class HomeController extends Controller
         }
 
         $byBrand = $pool->groupBy(fn (FeedProduct $p) => mb_strtolower((string) ($p->brand ?: $p->feed)));
-        $balanced = collect();
+        $balanced = [];
         $usedModels = [];
 
-        while ($balanced->count() < $limit && $byBrand->isNotEmpty()) {
+        while (count($balanced) < $limit && $byBrand->isNotEmpty()) {
             foreach ($byBrand->keys()->all() as $brandKey) {
                 $items = $byBrand->get($brandKey);
                 if (!$items || $items->isEmpty()) {
@@ -124,7 +118,7 @@ class HomeController extends Controller
                 $dedupKey = mb_strtolower((string) ($item->model_code ?: $item->name));
                 if (!isset($usedModels[$dedupKey])) {
                     $usedModels[$dedupKey] = true;
-                    $balanced->push($item);
+                    $balanced[] = $item->toCard();
                 }
 
                 if ($items->isEmpty()) {
@@ -133,7 +127,7 @@ class HomeController extends Controller
                     $byBrand->put($brandKey, $items);
                 }
 
-                if ($balanced->count() >= $limit) {
+                if (count($balanced) >= $limit) {
                     break;
                 }
             }

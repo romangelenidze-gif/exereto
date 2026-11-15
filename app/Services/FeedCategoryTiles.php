@@ -10,7 +10,7 @@ use InvalidArgumentException;
 
 class FeedCategoryTiles
 {
-    private const CACHE_MINUTES = 60;
+    private const CACHE_HOURS = 12;
 
     /**
      * Все активные категории с иконками, количеством товаров и списком топ-брендов в подзаголовке.
@@ -20,8 +20,8 @@ class FeedCategoryTiles
     public function get(): Collection
     {
         $raw = Cache::remember(
-            'home.category_tiles.v4.all',
-            now()->addMinutes(self::CACHE_MINUTES),
+            'home.category_tiles.v5.all',
+            now()->addHours(self::CACHE_HOURS),
             fn () => $this->build()
         );
 
@@ -82,28 +82,27 @@ class FeedCategoryTiles
             return [];
         }
 
-        $cacheKey = 'category.subs.v1.' . ($tile['slug'] ?? md5(json_encode($tile)));
+        $cacheKey = 'category.subs.v2.' . ($tile['slug'] ?? md5(json_encode($tile)));
 
-        $raw = Cache::remember($cacheKey, now()->addMinutes(self::CACHE_MINUTES), function () use ($tile, $subs) {
+        $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($tile, $subs) {
             $result = [];
             foreach ($subs as $idx => $sub) {
                 $q = $this->productsQuery($tile);
                 $this->applyFilter($q, (array) ($sub['where'] ?? []));
-
-                $count = (clone $q)->count();
-                if ($count === 0) {
-                    continue;
-                }
 
                 $sampleImage = (clone $q)
                     ->whereNotNull('image_url')
                     ->where('image_url', '!=', '')
                     ->value('image_url');
 
+                if ($sampleImage === null) {
+                    continue;
+                }
+
                 $result[] = [
                     'index' => $idx,
                     'label' => (string) ($sub['label'] ?? ''),
-                    'count' => $count,
+                    'count' => 1,
                     'image' => $sampleImage,
                 ];
             }
@@ -124,9 +123,9 @@ class FeedCategoryTiles
      */
     public function buildFacets(array $tile): array
     {
-        $cacheKey = 'category.facets.v2.' . ($tile['slug'] ?? md5(json_encode($tile)));
+        $cacheKey = 'category.facets.v3.' . ($tile['slug'] ?? md5(json_encode($tile)));
 
-        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_MINUTES), function () use ($tile) {
+        return Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($tile) {
             $base = $this->productsQuery($tile);
 
             $brands = (clone $base)
@@ -150,17 +149,20 @@ class FeedCategoryTiles
                 ->map(fn ($r) => ['code' => (string) $r->gender, 'count' => (int) $r->cnt])
                 ->all();
 
+            // Ограничиваем выборку 800 строками через toBase() (без создания 800 Eloquent-моделей)
             $sample = (clone $base)
+                ->toBase()
                 ->select(['sizes', 'colour'])
-                ->limit(2500)
+                ->limit(800)
                 ->get();
 
             $sizeCounts = [];
             $colorCounts = [];
 
             foreach ($sample as $row) {
-                if (is_array($row->sizes)) {
-                    foreach ($row->sizes as $s) {
+                $sizesArr = is_string($row->sizes) ? json_decode($row->sizes, true) : (array) $row->sizes;
+                if (is_array($sizesArr)) {
+                    foreach ($sizesArr as $s) {
                         $rawSize = is_array($s)
                             ? ($s['size'] ?? $s['name'] ?? $s['value'] ?? $s['label'] ?? null)
                             : $s;
@@ -233,6 +235,18 @@ class FeedCategoryTiles
             'sizes' => [],
             'colors' => array_slice($colorCounts, 0, 12, true),
         ];
+    }
+
+    /**
+     * Прогревает кэш плиток, подкатегорий и фасетов для всех категорий (вызывается из CLI после импорта).
+     */
+    public function warmAll(): void
+    {
+        $this->get();
+        foreach ((array) config('home_categories.tiles', []) as $tile) {
+            $this->buildSubcategories($tile);
+            $this->buildFacets($tile);
+        }
     }
 
     public function applyPublicFilter(Builder $query, array $where): void
