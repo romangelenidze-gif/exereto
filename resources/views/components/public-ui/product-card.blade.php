@@ -27,32 +27,32 @@
                  alt="{{ $name }}"
                  loading="{{ $isFirst ? 'eager' : 'lazy' }}"
                  decoding="async"
-                 class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500">
+                 class="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500">
         @endif
         @if($discount > 0)
-            <span class="absolute top-3 left-3 z-20 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow">
+            <span class="absolute top-3 left-3 z-20 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-xs">
                 -{{ $discount }}%
             </span>
         @endif
     </div>
 
     <div class="adidas-product-bottom">
-        <div class="space-y-1 mb-3">
+        <div class="space-y-1 mb-2.5">
             @if($brand)
-                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider truncate">{{ $brand }}</div>
+                <div class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider truncate">{{ $brand }}</div>
             @endif
-            <h3 class="font-semibold text-zinc-900 text-xs sm:text-sm line-clamp-2">
+            <h3 class="font-semibold text-zinc-900 text-xs sm:text-sm line-clamp-2 leading-snug">
                 {{ $name }}
             </h3>
 
             @if(!empty($colour))
-                <div class="pt-1">
+                <div class="pt-0.5">
                     <x-public-ui.color-dots :colour="$colour" :only-dots="true" />
                 </div>
             @endif
         </div>
 
-        <div class="flex items-end justify-between pt-2.5 sm:pt-3 border-t border-zinc-100">
+        <div class="flex items-end justify-between pt-2.5 border-t border-zinc-100">
             <div>
                 <div class="text-base sm:text-lg font-bold text-zinc-900">€{{ number_format((float)$price, 2) }}</div>
                 @if(!empty($oldPrice))

@@ -159,7 +159,7 @@
     <x-public-ui.categories-drawer :categories="$allCategories" />
 
     <!-- Полноширинный контейнер Apple -->
-    <div class="w-full px-4 sm:px-6 lg:px-10 2xl:px-14 pt-4 sm:pt-6 space-y-5 sm:space-y-6">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-4 sm:pt-6 space-y-5 sm:space-y-6">
 
         <!-- Поисковая строка с кнопкой меню категорий справа -->
         <div class="max-w-4xl mx-auto relative" @click.outside="openSuggestions = false; activeIndex = -1">
