@@ -125,7 +125,7 @@ class FeedCategoryTiles
      */
     public function buildFacets(array $tile): array
     {
-        $cacheKey = 'category.facets.v1.' . ($tile['slug'] ?? md5(json_encode($tile)));
+        $cacheKey = 'category.facets.v2.' . ($tile['slug'] ?? md5(json_encode($tile)));
 
         return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_MINUTES), function () use ($tile) {
             $base = $this->productsQuery($tile);
@@ -165,9 +165,17 @@ class FeedCategoryTiles
             foreach ($sample as $row) {
                 if (is_array($row->sizes)) {
                     foreach ($row->sizes as $s) {
-                        $s = trim((string) $s);
-                        if ($s !== '' && mb_strlen($s) <= 12) {
-                            $sizeCounts[$s] = ($sizeCounts[$s] ?? 0) + 1;
+                        $rawSize = is_array($s)
+                            ? ($s['size'] ?? $s['name'] ?? $s['value'] ?? $s['label'] ?? null)
+                            : $s;
+
+                        if (!is_scalar($rawSize)) {
+                            continue;
+                        }
+
+                        $sizeStr = trim((string) $rawSize);
+                        if ($sizeStr !== '' && mb_strlen($sizeStr) <= 12) {
+                            $sizeCounts[$sizeStr] = ($sizeCounts[$sizeStr] ?? 0) + 1;
                         }
                     }
                 }
