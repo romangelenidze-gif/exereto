@@ -2,21 +2,23 @@
 
 @php
     if ($product instanceof \Illuminate\Database\Eloquent\Model) {
-        $card = method_exists($product, 'toCard') ? $product->toCard() :$product->toArray();
+        $card = method_exists($product, 'toCard') ? $product->toCard() : $product->toArray();
     } else {
-        $card = (array)$product;
+        $card = (array) $product;
     }
 
     $name = $card['title'] ?? $card['name'] ?? '';
-    $imgUrl =$card['image_url'] ?? $card['image'] ?? '';$price = $card['price'] ?? $card['price_amount'] ?? 0;
-    $oldPrice =$card['old_price'] ?? null;
-    $discount = (int) ($card['discount_percent'] ?? 0);$colour = $card['colour'] ?? $card['color'] ?? $card['attributes']['colour'] ?? $card['attributes']['color'] ?? null;
+    $imgUrl = $card['image_url'] ?? $card['image'] ?? '';
+    $price = $card['price'] ?? $card['price_amount'] ?? 0;
+    $oldPrice = $card['old_price'] ?? null;
+    $discount = (int) ($card['discount_percent'] ?? 0);
+    $colour = $card['colour'] ?? $card['color'] ?? $card['attributes']['colour'] ?? $card['attributes']['color'] ?? null;
     $detailUrl = $card['detail_url'] ?? $card['product_url'] ?? '#';
-    $brand =$card['brand'] ?? null;
+    $brand = $card['brand'] ?? null;
 @endphp
 
 <div class="adidas-product-card group relative">
-    
+
     <a href="{{ $detailUrl }}" class="absolute inset-0 z-10" aria-label="{{ $name }}"></a>
 
     <div class="adidas-product-top">
@@ -42,7 +44,7 @@
             <h3 class="font-semibold text-zinc-900 text-sm line-clamp-2">
                 {{ $name }}
             </h3>
-            
+
             @if(!empty($colour))
                 <div class="pt-1">
                     <x-public-ui.color-dots :colour="$colour" :only-dots="true" />
@@ -55,7 +57,6 @@
                 <div class="text-lg font-bold text-zinc-900">€{{ number_format((float)$price, 2) }}</div>
                 @if(!empty($oldPrice))
                     <div class="text-xs text-zinc-400 line-through">€{{ number_format((float)$oldPrice, 2) }}</div>
-                </div>
                 @endif
             </div>
 
