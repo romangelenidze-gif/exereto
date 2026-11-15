@@ -14,8 +14,6 @@ class FeedCategoryTiles
 
     /**
      * Все активные категории с иконками, количеством товаров и списком топ-брендов в подзаголовке.
-     *
-     * @return Collection<int, array{slug: string, label: string, subtitle: string, img: string, count: int, url: string}>
      */
     public function get(): Collection
     {
@@ -36,21 +34,19 @@ class FeedCategoryTiles
     }
 
     /**
-     * Категории, в которых реально присутствуют товары указанного бренда,
-     * со ссылками сразу на категорию с фильтром ?brands[]=Brand.
-     *
-     * @return Collection<int, array{slug: string, label: string, img: string, url: string}>
+     * Категории, в которых реально присутствуют товары указанного бренда/запроса (с учётом выбранного пола).
      */
-    public function getForBrand(string $brand): Collection
+    public function getForBrand(string $brand, array $genders = []): Collection
     {
         $normalized = mb_strtolower(trim($brand));
         if ($normalized === '') {
             return collect();
         }
 
-        $cacheKey = 'brand.category_tiles.v1.' . md5($normalized);
+        sort($genders);
+        $cacheKey = 'brand.category_tiles.v2.' . md5($normalized . ':' . implode(',', $genders));
 
-        $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($brand) {
+        $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($brand, $genders) {
             $exactBrand = FeedProduct::query()
                 ->where('is_active', true)
                 ->where('in_stock', true)
@@ -63,11 +59,12 @@ class FeedCategoryTiles
 
             $tiles = [];
             foreach ((array) config('home_categories.tiles', []) as $tile) {
-                $hasProducts = $this->productsQuery($tile)
-                    ->where('brand', $exactBrand)
-                    ->exists();
+                $q = $this->productsQuery($tile)->where('brand', $exactBrand);
+                if ($genders !== []) {
+                    $q->whereIn('gender', $genders);
+                }
 
-                if (!$hasProducts) {
+                if (!$q->exists()) {
                     continue;
                 }
 
@@ -86,10 +83,11 @@ class FeedCategoryTiles
             'slug' => $tile['slug'],
             'label' => __($tile['label']),
             'img' => $tile['img'],
-            'url' => route('feed-category.show', [
+            'url' => route('feed-category.show', array_filter([
                 'slug' => $tile['slug'],
                 'brands' => [$tile['brand']],
-            ]),
+                'genders' => $genders !== [] ? $genders : null,
+            ])),
         ]);
     }
 
@@ -105,8 +103,8 @@ class FeedCategoryTiles
         return null;
     }
 
-    /** Базовый запрос товаров категории (по всем активным фидам, исключая мусорные разделы). */
-    public function productsQuery(array $tile): Builder
+    /** Базовый запрос активных товаров (общий фундамент для категорий и поиска). */
+    public function baseActiveQuery(): Builder
     {
         $query = FeedProduct::query()
             ->where('is_active', true)
@@ -125,13 +123,93 @@ class FeedCategoryTiles
             });
         }
 
+        return $query;
+    }
+
+    /** Базовый запрос товаров конкретной категории. */
+    public function productsQuery(array $tile): Builder
+    {
+        $query = $this->baseActiveQuery();
         $this->applyFilter($query, (array) ($tile['where'] ?? []));
 
         return $query;
     }
 
+    /** Базовый запрос для поиска / страницы бренда. */
+    public function searchBaseQuery(string $searchQuery): Builder
+    {
+        $base = $this->baseActiveQuery();
+        $q = trim($searchQuery);
+        if ($q === '') {
+            return $base;
+        }
+
+        // Проверяем, является ли запрос точным названием бренда
+        $exactBrand = (clone $base)->where('brand', $q)->value('brand');
+        if ($exactBrand !== null) {
+            return $base->where('brand', $exactBrand);
+        }
+
+        $words = preg_split('/\s+/u', $q, -1, PREG_SPLIT_NO_EMPTY) ?: [$q];
+        foreach ($words as $word) {
+            if (mb_strlen($word) < 2) {
+                continue;
+            }
+            $like = '%' . $word . '%';
+            $base->where(function (Builder $sub) use ($like) {
+                $sub->where('name', 'like', $like)
+                    ->orWhere('brand', 'like', $like)
+                    ->orWhere('category_path', 'like', $like)
+                    ->orWhere('sku', 'like', $like)
+                    ->orWhere('model_code', 'like', $like);
+            });
+        }
+
+        return $base;
+    }
+
     /**
-     * Подкатегории для верхней карусели страницы категории с реальным фото товара и счётчиком.
+     * Применяет пользовательские фильтры из сайдбара к запросу.
+     * Параметр $except позволяет не применять фильтр к самому себе при подсчёте его фасета.
+     */
+    public function applyUserFilters(Builder $query, array $filters, ?string $except = null): Builder
+    {
+        $q = clone $query;
+
+        if ($except !== 'price') {
+            if (!empty($filters['min_price']) && (float) $filters['min_price'] > 0) {
+                $q->where('price', '>=', (float) $filters['min_price']);
+            }
+            if (!empty($filters['max_price']) && (float) $filters['max_price'] > 0) {
+                $q->where('price', '<=', (float) $filters['max_price']);
+            }
+        }
+
+        if ($except !== 'discount' && !empty($filters['discount'])) {
+            $q->where('discount_percent', '>', 0);
+        }
+
+        if ($except !== 'brands' && !empty($filters['brands'])) {
+            $q->whereIn('brand', (array) $filters['brands']);
+        }
+
+        if ($except !== 'genders' && !empty($filters['genders'])) {
+            $q->whereIn('gender', (array) $filters['genders']);
+        }
+
+        if ($except !== 'size' && !empty($filters['size'])) {
+            $q->where('sizes', 'like', '%"' . addslashes((string) $filters['size']) . '"%');
+        }
+
+        if ($except !== 'color' && !empty($filters['color'])) {
+            $q->whereRaw("TRIM(SUBSTRING_INDEX(colour, '/', 1)) = ?", [(string) $filters['color']]);
+        }
+
+        return $q;
+    }
+
+    /**
+     * Подкатегории для верхней карусели страницы категории.
      */
     public function buildSubcategories(array $tile): array
     {
@@ -176,64 +254,49 @@ class FeedCategoryTiles
         ], $raw);
     }
 
- /**
-     * Фасетные фильтры для страницы категории (считаем по уникальным моделям, как в выдаче).
+    /**
+     * Считает фасеты (Бренды, Пол, Размеры, Цвета) с учётом текущих активных фильтров!
+     * Благодаря этому цифры возле брендов, полов и цветов всегда на 100% совпадают с заголовком «N товаров».
      */
-    public function buildFacets(array $tile): array
+    public function buildFacets(array $tile, array $activeFilters = []): array
     {
-        $cacheKey = 'category.facets.v4.' . ($tile['slug'] ?? md5(json_encode($tile)));
+        $base = $this->productsQuery($tile);
+        if (isset($activeFilters['sub']) && $activeFilters['sub'] !== null && isset($tile['subcategories'][$activeFilters['sub']])) {
+            $this->applyFilter($base, (array) ($tile['subcategories'][$activeFilters['sub']]['where'] ?? []));
+        }
 
-        return Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($tile) {
-            return $this->computeFacetsFromQuery($this->productsQuery($tile));
+        $cacheKey = 'category.facets.v5.' . ($tile['slug'] ?? '') . '.' . md5(json_encode($activeFilters));
+
+        return Cache::remember($cacheKey, now()->addHours(2), function () use ($base, $activeFilters) {
+            return $this->computeContextualFacets($base, $activeFilters);
         });
     }
 
     /**
-     * Фасетные фильтры для поискового запроса / бренда по всей базе активных товаров.
+     * Фасетные фильтры для страницы поиска / бренда с учётом выбранных фильтров (пол, бренд, цена и т.д.).
      */
-    public function buildFacetsForSearch(string $query): array
+    public function buildFacetsForSearch(string $query, array $activeFilters = []): array
     {
         $q = trim($query);
         if ($q === '') {
             return ['brands' => [], 'genders' => [], 'sizes' => [], 'colors' => []];
         }
 
-        $cacheKey = 'search.facets.v1.' . md5(mb_strtolower($q));
+        $cacheKey = 'search.facets.v5.' . md5(mb_strtolower($q) . ':' . json_encode($activeFilters));
 
-        return Cache::remember($cacheKey, now()->addHours(2), function () use ($q) {
-            $base = FeedProduct::query()
-                ->where('is_active', true)
-                ->where('in_stock', true);
-
-            $excludedTops = array_filter((array) config('home_categories.excluded_tops', ['Home']));
-            if ($excludedTops !== []) {
-                $base->where(function (Builder $sub) use ($excludedTops) {
-                    $sub->whereNull('category_top')->orWhereNotIn('category_top', $excludedTops);
-                });
-            }
-
-            // Если запрос совпадает с брендом — фильтруем точно по бренду, иначе по названию/бренду
-            $exactBrand = (clone $base)->where('brand', $q)->value('brand');
-            if ($exactBrand !== null) {
-                $base->where('brand', $exactBrand);
-            } else {
-                $like = '%' . $q . '%';
-                $base->where(function (Builder $sub) use ($like) {
-                    $sub->where('name', 'like', $like)
-                        ->orWhere('brand', 'like', $like)
-                        ->orWhere('category_path', 'like', $like);
-                });
-            }
-
-            return $this->computeFacetsFromQuery($base);
+        return Cache::remember($cacheKey, now()->addHours(2), function () use ($q, $activeFilters) {
+            $base = $this->searchBaseQuery($q);
+            return $this->computeContextualFacets($base, $activeFilters);
         });
     }
 
-    private function computeFacetsFromQuery(Builder $base): array
+    private function computeContextualFacets(Builder $base, array $filters): array
     {
         $distinctExpr = "COUNT(DISTINCT COALESCE(NULLIF(model_code, ''), sku))";
 
-        $brands = (clone $base)
+        // Бренды считаем с учётом всех активных фильтров, кроме самих brands
+        $brandsQuery = $this->applyUserFilters($base, $filters, except: 'brands');
+        $brands = $brandsQuery
             ->whereNotNull('brand')
             ->where('brand', '!=', '')
             ->selectRaw("brand, {$distinctExpr} as cnt")
@@ -244,7 +307,9 @@ class FeedCategoryTiles
             ->map(fn ($r) => ['name' => (string) $r->brand, 'count' => (int) $r->cnt])
             ->all();
 
-        $genders = (clone $base)
+        // Пол считаем с учётом всех активных фильтров, кроме самого genders
+        $gendersQuery = $this->applyUserFilters($base, $filters, except: 'genders');
+        $genders = $gendersQuery
             ->whereNotNull('gender')
             ->where('gender', '!=', '')
             ->selectRaw("gender, {$distinctExpr} as cnt")
@@ -254,7 +319,9 @@ class FeedCategoryTiles
             ->map(fn ($r) => ['code' => (string) $r->gender, 'count' => (int) $r->cnt])
             ->all();
 
-        $colors = (clone $base)
+        // Цвета считаем с учётом всех активных фильтров (включая выбранный Пол и Бренд!), кроме самого color
+        $colorsQuery = $this->applyUserFilters($base, $filters, except: 'color');
+        $colors = $colorsQuery
             ->whereNotNull('colour')
             ->where('colour', '!=', '')
             ->selectRaw("TRIM(SUBSTRING_INDEX(colour, '/', 1)) as main_color, {$distinctExpr} as cnt")
@@ -265,7 +332,9 @@ class FeedCategoryTiles
             ->map(fn ($cnt) => (int) $cnt)
             ->all();
 
-        $sample = (clone $base)
+        // Размеры собираем с учётом всех активных фильтров, кроме самого size
+        $sizesQuery = $this->applyUserFilters($base, $filters, except: 'size');
+        $sample = $sizesQuery
             ->toBase()
             ->select(['sizes'])
             ->limit(800)
@@ -303,14 +372,89 @@ class FeedCategoryTiles
     }
 
     /**
-     * Прогревает кэш плиток, подкатегорий и фасетов для всех категорий (вызывается из CLI после импорта).
+     * Выполняет группировку по уникальным моделям, считает точный $total и возвращает карточки страницы.
+     * Используется и в FeedCategoryController, и в ProductSearchController!
+     *
+     * @return array{0: array<int, array<string, mixed>>, 1: int}
+     */
+    public function paginateGroupedCards(Builder $filteredBase, string $sort, int $page, int $perPage, string $cachePrefix): array
+    {
+        $pageCacheKey = "catalog_page:v5:{$cachePrefix}:{$sort}:p{$page}";
+
+        return Cache::remember($pageCacheKey, now()->addHours(2), function () use ($filteredBase, $sort, $page, $perPage, $cachePrefix) {
+            $grouped = (clone $filteredBase)
+                ->selectRaw("COALESCE(NULLIF(model_code, ''), sku) as group_key, MIN(id) as primary_id, MIN(price) as min_price, MAX(rating) as max_rating, MAX(discount_percent) as max_discount, COUNT(DISTINCT feed) as stores_count, COUNT(*) as colorways_count")
+                ->groupBy('group_key');
+
+            $total = Cache::remember("catalog_total:v5:{$cachePrefix}", now()->addHours(2), function () use ($grouped) {
+                return \Illuminate\Support\Facades\DB::query()->fromSub($grouped, 'g')->count();
+            });
+
+            if ($sort === 'price_asc') {
+                $grouped->orderBy('min_price');
+            } elseif ($sort === 'price_desc') {
+                $grouped->orderByDesc('min_price');
+            } elseif ($sort === 'discount_desc') {
+                $grouped->orderByDesc('max_discount')->orderBy('min_price');
+            } else {
+                $grouped->orderByRaw('COALESCE(MAX(rating), -1) DESC')
+                        ->orderByDesc('max_discount')
+                        ->orderBy('primary_id');
+            }
+
+            $rows = $grouped
+                ->offset(($page - 1) * $perPage)
+                ->limit($perPage)
+                ->get();
+
+            $primaryIds = $rows->pluck('primary_id')->all();
+            $metaMap = $rows->keyBy('primary_id');
+
+            $productsMap = $primaryIds !== []
+                ? FeedProduct::query()->whereIn('id', $primaryIds)->get()->keyBy('id')
+                : collect();
+
+            $cards = [];
+            foreach ($primaryIds as $id) {
+                /** @var FeedProduct|null $p */
+                $p = $productsMap->get($id);
+                if (!$p) {
+                    continue;
+                }
+
+                $meta = $metaMap->get($id);
+                $bestPrice = (float) ($meta->min_price ?? $p->price);
+                $storesCount = (int) ($meta->stores_count ?? 1);
+                $store = (string) config("feeds.feeds.{$p->feed}.store_name", $p->brand ?: $p->feed);
+                $formatted = '€' . number_format($bestPrice, 2, '.', ' ');
+
+                $cards[] = $p->toCard() + [
+                    'price' => $bestPrice,
+                    'price_amount' => $bestPrice,
+                    'original_title' => $p->name,
+                    'merchant' => $storesCount > 1 ? ($storesCount . ' ' . __('магазина')) : $store,
+                    'price_from' => $bestPrice,
+                    'price_formatted' => $formatted,
+                    'price_note' => $formatted,
+                    'formatted_price' => $formatted,
+                    'offers_count' => $storesCount,
+                    'colorways_count' => (int) ($meta->colorways_count ?? 1),
+                ];
+            }
+
+            return [$cards, $total];
+        });
+    }
+
+    /**
+     * Прогревает кэш плиток, подкатегорий и базовых фасетов для всех категорий.
      */
     public function warmAll(): void
     {
         $this->get();
         foreach ((array) config('home_categories.tiles', []) as $tile) {
             $this->buildSubcategories($tile);
-            $this->buildFacets($tile);
+            $this->buildFacets($tile, []);
         }
     }
 

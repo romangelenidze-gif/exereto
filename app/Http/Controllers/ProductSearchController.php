@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Services\CategoryMatcher;
 use App\Services\FeedCategoryTiles;
+use App\Services\Feeds\FeedEntityLocalizer;
 use App\Services\ProductAutocompleteService;
-use App\Services\SmartProductSearchManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,32 +14,35 @@ use Illuminate\View\View;
 
 class ProductSearchController extends Controller
 {
-    public function __construct(protected SmartProductSearchManager $searchManager)
-    {
-    }
-
-    public function index(Request $request, CategoryMatcher $categories, FeedCategoryTiles $tiles): View|RedirectResponse|JsonResponse
-    {
+    public function index(
+        Request $request,
+        CategoryMatcher $categories,
+        FeedCategoryTiles $tiles,
+        FeedEntityLocalizer $localizer
+    ): View|RedirectResponse|JsonResponse {
         $query = trim((string) $request->input('q', ''));
         $page = max(1, (int) $request->input('page', 1));
+        $perPage = (int) config('feeds.search_limit', 24);
 
-        $selectedBrands = array_values(array_filter((array) $request->input('brands', [])));
-        $selectedGenders = array_values(array_filter((array) $request->input('genders', [])));
-        $selectedSize = trim((string) $request->input('size', ''));
-        $selectedColor = trim((string) $request->input('color', ''));
-        $onlyDiscount = $request->boolean('discount');
-        $minPrice = $request->filled('min_price') ? (float) $request->input('min_price') : null;
-        $maxPrice = $request->filled('max_price') ? (float) $request->input('max_price') : null;
-        $sort = in_array($request->input('sort'), ['relevance', 'price_asc', 'price_desc', 'discount_desc'], true)
-            ? $request->input('sort')
-            : 'relevance';
+        $filters = [
+            'min_price' => $request->filled('min_price') ? (float) $request->input('min_price') : null,
+            'max_price' => $request->filled('max_price') ? (float) $request->input('max_price') : null,
+            'brands' => array_values(array_filter((array) $request->input('brands', []))),
+            'genders' => array_values(array_filter((array) $request->input('genders', []))),
+            'size' => trim((string) $request->input('size', '')),
+            'color' => trim((string) $request->input('color', '')),
+            'discount' => $request->boolean('discount'),
+            'sort' => in_array($request->input('sort'), ['relevance', 'price_asc', 'price_desc', 'discount_desc'], true)
+                ? $request->input('sort')
+                : 'relevance',
+        ];
 
-        $hasAnyExtraFilter = $minPrice !== null || $maxPrice !== null
-            || $selectedBrands !== [] || $selectedGenders !== []
-            || $selectedSize !== '' || $selectedColor !== '' || $onlyDiscount;
+        $hasAnyExtraFilter = $filters['min_price'] !== null || $filters['max_price'] !== null
+            || $filters['brands'] !== [] || $filters['genders'] !== []
+            || $filters['size'] !== '' || $filters['color'] !== '' || $filters['discount'];
 
         $products = [];
-        $pagination = ['total' => 0, 'per_page' => 24, 'current_page' => 1, 'last_page' => 1];
+        $total = 0;
 
         if ($query !== '') {
             $query = mb_substr($query, 0, 200);
@@ -51,42 +54,31 @@ class ProductSearchController extends Controller
             if (!$hasAnyExtraFilter && !$request->expectsJson() && ($slug = $categories->resolve($query))) {
                 return redirect()->route('feed-category.show', array_filter([
                     'slug' => $slug,
-                    'sort' => in_array($sort, ['price_asc', 'price_desc'], true) ? $sort : null,
+                    'sort' => in_array($filters['sort'], ['price_asc', 'price_desc'], true) ? $filters['sort'] : null,
                 ]));
             }
 
-            $searchFilters = array_filter([
-                'min_price' => $minPrice,
-                'max_price' => $maxPrice,
-                'sort' => in_array($sort, ['relevance', 'price_asc', 'price_desc'], true) ? $sort : 'relevance',
-            ], fn ($v) => $v !== null && $v !== '');
+            $base = $tiles->searchBaseQuery($query);
+            $filteredBase = $tiles->applyUserFilters($base, $filters);
+            $cachePrefix = 'search:' . md5(mb_strtolower($query) . ':' . json_encode($filters));
 
-            $searchResult = $this->searchManager->search($query, app()->getLocale(), $searchFilters, $page);
-            $products = (array) ($searchResult['products'] ?? []);
-            $pagination = (array) ($searchResult['pagination'] ?? $pagination);
-        }
+            [$rawCards, $total] = $tiles->paginateGroupedCards(
+                $filteredBase,
+                $filters['sort'],
+                $page,
+                $perPage,
+                $cachePrefix
+            );
 
-        $facets = $tiles->buildFacetsForSearch($query);
-
-        if ($selectedBrands !== []) {
-            $products = array_values(array_filter($products, fn ($p) => in_array($p['brand'] ?? '', $selectedBrands, true)));
-        }
-        if ($selectedColor !== '') {
-            $products = array_values(array_filter($products, function ($p) use ($selectedColor) {
-                $main = trim(explode('/', (string) ($p['colour'] ?? ''))[0]);
-                return mb_strtolower($main) === mb_strtolower($selectedColor);
-            }));
-        }
-        if ($onlyDiscount) {
-            $products = array_values(array_filter($products, fn ($p) => (int) ($p['discount_percent'] ?? 0) > 0));
-        }
-        if ($sort === 'discount_desc') {
-            usort($products, fn ($a, $b) => (int) ($b['discount_percent'] ?? 0) <=> (int) ($a['discount_percent'] ?? 0));
+            $products = $localizer->localizeCardTitles($rawCards, app()->getLocale());
         }
 
-        if ($hasAnyExtraFilter && $query !== '') {
-            $pagination['total'] = count($products);
-        }
+        $pagination = [
+            'total' => $total,
+            'per_page' => $perPage,
+            'current_page' => $page,
+            'last_page' => max(1, (int) ceil($total / $perPage)),
+        ];
 
         if ($request->expectsJson()) {
             $html = '';
@@ -105,10 +97,9 @@ class ProductSearchController extends Controller
 
         $allCategories = $tiles->get();
 
-        // Если запрос — бренд, показываем только категории, где есть товары этого бренда,
-        // со ссылкой сразу на категорию с фильтром ?brands[]=Brand
+        // Плитки категорий сверху также учитывают выбранный пол (если отмечен «Мужское», не покажет «Женские кроссовки»)
         $sourceTiles = $query !== ''
-            ? $tiles->getForBrand($query)
+            ? $tiles->getForBrand($query, $filters['genders'])
             : $allCategories->take(12);
 
         $subcategories = $sourceTiles->values()->map(fn ($cat, $idx) => [
@@ -132,19 +123,10 @@ class ProductSearchController extends Controller
             'allCategories' => $allCategories,
             'subcategories' => $subcategories,
             'activeSubIndex' => null,
-            'facets' => $facets,
+            'facets' => $tiles->buildFacetsForSearch($query, $filters),
             'products' => $products,
             'pagination' => $pagination,
-            'filters' => [
-                'min_price' => $minPrice,
-                'max_price' => $maxPrice,
-                'brands' => $selectedBrands,
-                'genders' => $selectedGenders,
-                'size' => $selectedSize,
-                'color' => $selectedColor,
-                'discount' => $onlyDiscount,
-                'sort' => $sort,
-            ],
+            'filters' => $filters,
         ]);
     }
 
