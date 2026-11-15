@@ -9,6 +9,7 @@
 <template x-teleport="body">
     <div x-show="categoriesDrawerOpen"
          x-cloak
+         x-effect="document.body.classList.toggle('overflow-hidden', categoriesDrawerOpen)"
          @keydown.escape.window="categoriesDrawerOpen = false"
          class="fixed inset-0 z-[9998] flex justify-end bg-black/40 backdrop-blur-xs"
          @click.self="categoriesDrawerOpen = false"
@@ -97,7 +98,7 @@
                                     </div>
                                     @if(!empty($cat['subtitle']))
                                         <div class="app-text-sub text-xs text-[#86868b] truncate">
-                                            {{ $cat['subtitle'] }}
+                                            {!! mb_strimwidth(strip_tags($cat['subtitle']), 0, 45, '...') !!}
                                         </div>
                                     @endif
                                 </div>
