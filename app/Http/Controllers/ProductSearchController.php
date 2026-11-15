@@ -48,7 +48,6 @@ class ProductSearchController extends Controller
                 $this->trackQueryHit($query);
             }
 
-            // Если запрос совпадает с чистой категорией без доп. фильтров — ведём на страницу категории
             if (!$hasAnyExtraFilter && !$request->expectsJson() && ($slug = $categories->resolve($query))) {
                 return redirect()->route('feed-category.show', array_filter([
                     'slug' => $slug,
@@ -69,7 +68,6 @@ class ProductSearchController extends Controller
 
         $facets = $tiles->buildFacetsFromCards($products);
 
-        // Применяем фасетные фильтры поверх выдачи поиска
         if ($selectedBrands !== []) {
             $products = array_values(array_filter($products, fn ($p) => in_array($p['brand'] ?? '', $selectedBrands, true)));
         }
@@ -104,11 +102,16 @@ class ProductSearchController extends Controller
 
         $allCategories = $tiles->get();
 
-        // Для пустого поиска или как быстрая навигация сверху показываем карточки категорий
-        $subcategories = $allCategories->take(12)->values()->map(fn ($cat, $idx) => [
+        // Если запрос — бренд, показываем только категории, где есть товары этого бренда,
+        // со ссылкой сразу на категорию с фильтром ?brands[]=Brand
+        $sourceTiles = $query !== ''
+            ? $tiles->getForBrand($query)
+            : $allCategories->take(12);
+
+        $subcategories = $sourceTiles->values()->map(fn ($cat, $idx) => [
             'index' => $idx,
             'label' => $cat['label'],
-            'count' => $cat['count'],
+            'count' => $cat['count'] ?? 0,
             'image' => file_exists(public_path('images/categories/' . $cat['img']))
                 ? asset('images/categories/' . $cat['img'])
                 : null,

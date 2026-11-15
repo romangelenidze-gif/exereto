@@ -35,6 +35,64 @@ class FeedCategoryTiles
         ]);
     }
 
+    /**
+     * Категории, в которых реально присутствуют товары указанного бренда,
+     * со ссылками сразу на категорию с фильтром ?brands[]=Brand.
+     *
+     * @return Collection<int, array{slug: string, label: string, img: string, url: string}>
+     */
+    public function getForBrand(string $brand): Collection
+    {
+        $normalized = mb_strtolower(trim($brand));
+        if ($normalized === '') {
+            return collect();
+        }
+
+        $cacheKey = 'brand.category_tiles.v1.' . md5($normalized);
+
+        $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($brand) {
+            $exactBrand = FeedProduct::query()
+                ->where('is_active', true)
+                ->where('in_stock', true)
+                ->where('brand', $brand)
+                ->value('brand');
+
+            if ($exactBrand === null) {
+                return [];
+            }
+
+            $tiles = [];
+            foreach ((array) config('home_categories.tiles', []) as $tile) {
+                $hasProducts = $this->productsQuery($tile)
+                    ->where('brand', $exactBrand)
+                    ->exists();
+
+                if (!$hasProducts) {
+                    continue;
+                }
+
+                $tiles[] = [
+                    'slug' => (string) $tile['slug'],
+                    'label' => (string) $tile['label'],
+                    'img' => (string) ($tile['img'] ?? ($tile['slug'] . '.png')),
+                    'brand' => $exactBrand,
+                ];
+            }
+
+            return $tiles;
+        });
+
+        return collect($raw)->map(fn (array $tile) => [
+            'slug' => $tile['slug'],
+            'label' => __($tile['label']),
+            'img' => $tile['img'],
+            'url' => route('feed-category.show', [
+                'slug' => $tile['slug'],
+                'brands' => [$tile['brand']],
+            ]),
+        ]);
+    }
+
     /** Описание категории по slug или null. */
     public function tile(string $slug): ?array
     {
