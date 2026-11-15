@@ -3,10 +3,12 @@
 namespace App\Console\Commands;
 
 use App\Models\FeedProduct;
+use App\Services\FeedCategoryTiles;
 use App\Services\Feeds\AwinFeedImporter;
 use App\Services\Feeds\FeedEntityLocalizer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -19,7 +21,7 @@ class ImportFeedCommand extends Command
 
     protected $description = 'Импорт партнёрского продуктового фида в таблицу feed_products';
 
-    public function handle(AwinFeedImporter $importer, FeedEntityLocalizer $localizer): int
+    public function handle(AwinFeedImporter $importer, FeedEntityLocalizer $localizer, FeedCategoryTiles $categoryTiles): int
     {
         $feed = (string) $this->argument('feed');
         $limit = max(0, (int) $this->option('limit'));
@@ -37,8 +39,41 @@ class ImportFeedCommand extends Command
             return self::FAILURE;
         }
 
+        // Отсекаем нецелевые разделы (Home, посуда, декор, канцелярия) после импорта
+        $excludedTops = array_filter((array) config('home_categories.excluded_tops', ['Home']));
+        if ($excludedTops !== []) {
+            $deactivatedJunk = DB::table('feed_products')
+                ->where('feed', $feed)
+                ->where('is_active', true)
+                ->where(function ($q) use ($excludedTops) {
+                    $q->whereIn('category_top', $excludedTops);
+                    foreach ($excludedTops as $top) {
+                        $q->orWhere('category_path', 'like', $top . ',%')
+                          ->orWhere('category_path', $top);
+                    }
+                })
+                ->update(['is_active' => false]);
+
+            if ($deactivatedJunk > 0) {
+                $this->info("Отсечено нецелевых товаров ({$feed}): {$deactivatedJunk}.");
+            }
+        }
+
+        // Сброс кэша главной, брендов, автокомплита и плиток категорий
         Cache::forget("home.category_chips.v2.{$feed}");
+        Cache::forget('home.category_tiles.v5.all');
+        Cache::forget('home.popular_cards.v2');
+        Cache::forget('home.discount_cards.v2');
+        Cache::forget('home.top_brands.v2');
         Cache::forget('autocomplete.brands.all.v1');
+
+        foreach ((array) config('home_categories.tiles', []) as $tile) {
+            $slug = (string) ($tile['slug'] ?? '');
+            if ($slug !== '') {
+                Cache::forget("category.subs.v2.{$slug}");
+                Cache::forget("category.facets.v3.{$slug}");
+            }
+        }
 
         $this->table(
             ['Строк прочитано', 'Загружено', 'Пропущено', 'Деактивировано'],
@@ -61,6 +96,11 @@ class ImportFeedCommand extends Command
         if (config('scout.driver') === 'meilisearch') {
             $this->call('scout:import', ['model' => FeedProduct::class]);
         }
+
+        // Прогреваем кэш всех категорий и фасетов в Redis
+        $this->info('Прогрев кэша категорий и фасетов...');
+        $categoryTiles->warmAll();
+        $this->info('Кэш категорий успешно обновлён.');
 
         return self::SUCCESS;
     }

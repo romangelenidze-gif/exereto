@@ -9,8 +9,9 @@ Schedule::command('quotes:expire')->hourly();
 
 Schedule::command('autocomplete:sync-hits')->everyTenMinutes();
 Schedule::command('feeds:import adidas')->dailyAt('04:30')->withoutOverlapping();
+Schedule::command('feeds:import notos')->dailyAt('04:45')->withoutOverlapping();
 
-// Ежемесячная чистка и продвижение популярный запросов автокомплита
+// Ежемесячная чистка и продвижение популярных запросов автокомплита
 Schedule::call(function () {
     // 1. Автоматически переводим в постоянные запросы с частыми переходами (hits > 5)
     DB::table('learned_autocomplete')
