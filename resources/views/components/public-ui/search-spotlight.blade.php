@@ -1,6 +1,6 @@
 @props(['categories' => []])
 
-<section class="pt-2 sm:pt-4 lg:pt-3 pb-8 px-4 sm:px-6 lg:px-10 text-center w-full space-y-8 sm:space-y-10"
+<section class="pt-2 sm:pt-4 lg:pt-3 pb-6 px-4 sm:px-6 lg:px-10 text-center w-full space-y-8 sm:space-y-10"
          x-data="{ categoriesDrawerOpen: false }">
     <div class="space-y-3 max-w-4xl mx-auto">
         <h1 class="app-text-logo truncate px-2">
@@ -110,12 +110,12 @@
                 >
                 <button type="button"
                         @click="categoriesDrawerOpen = true"
-                        aria-label="{{ __('Категории каталога') }}"
-                        title="{{ __('Категории каталога') }}"
-                        class="p-2 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        aria-label="{{ __('Категории') }}"
+                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
+                    <span class="text-sm font-medium">{{ __('Категории') }}</span>
                 </button>
             </div>
         </form>

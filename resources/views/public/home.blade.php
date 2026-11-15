@@ -20,12 +20,28 @@
             </div>
         </template>
         
-        <!-- Поисковый Spotlight с меню категорий -->
+        <!-- Поисковый Spotlight с кнопкой «☰ Категории» -->
         <x-public-ui.search-spotlight :categories="$tiles ?? []" />
 
-        <!-- Сетка популярных категорий с картинками -->
-        @if(isset($tiles) && $tiles->isNotEmpty())
-            <x-public-ui.categories-grid :categories="$tiles" />
+        <!-- Мультибрендовые рекомендации (на месте блока категорий, 5 карточек в ряд) -->
+        @if(isset($popularProducts) && $popularProducts->isNotEmpty())
+        <section class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+            <div class="flex flex-wrap justify-between items-end gap-4">
+                <div>
+                    <h2 class="apple-section-title">{{ __('Рекомендуемые предложения') }}</h2>
+                    <p class="apple-section-subtitle mt-1">{{ __('Подборка оригинальных моделей разных брендов') }}</p>
+                </div>
+                <a href="{{ route('feed-category.show', ['slug' => 'sales-offers']) }}" class="app-text-body font-semibold text-[#0071e3] hover:underline">
+                    {{ __('Все акции') }} &rarr;
+                </a>
+            </div>
+
+            <div class="apple-product-grid">
+                @foreach($popularProducts as $index => $product)
+                    <x-public-ui.product-card :product="$product" :is-first="$index === 0" />
+                @endforeach
+            </div>
+        </section>
         @endif
 
         <!-- Популярные бренды и сервисы выкупа/форвардинга -->
@@ -59,30 +75,9 @@
             </section>
         @endif
 
-        <!-- Мультибрендовые рекомендации -->
-        @if(isset($popularProducts) && $popularProducts->isNotEmpty())
-        <section class="max-w-7xl mx-auto px-6 space-y-6">
-            <div class="flex flex-wrap justify-between items-end gap-4">
-                <div>
-                    <h2 class="apple-section-title">{{ __('Рекомендуемые предложения') }}</h2>
-                    <p class="apple-section-subtitle mt-1">{{ __('Подборка оригинальных моделей разных брендов') }}</p>
-                </div>
-                <a href="{{ route('feed-category.show', ['slug' => 'sales-offers']) }}" class="app-text-body font-semibold text-[#0071e3] hover:underline">
-                    {{ __('Все акции') }} &rarr;
-                </a>
-            </div>
-
-            <div class="apple-product-grid">
-                @foreach($popularProducts as $index => $product)
-                    <x-public-ui.product-card :product="$product" :is-first="$index === 0" />
-                @endforeach
-            </div>
-        </section>
-        @endif
-
-        <!-- Скидки и специальные предложения -->
+        <!-- Скидки и специальные предложения (5 карточек в ряд) -->
         @if(isset($discountProducts) && $discountProducts->isNotEmpty())
-        <section class="max-w-7xl mx-auto px-6 space-y-6">
+        <section class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
             <div class="flex flex-wrap justify-between items-end gap-4">
                 <div>
                     <span class="app-badge-text uppercase font-semibold text-red-600">Special Sales</span>

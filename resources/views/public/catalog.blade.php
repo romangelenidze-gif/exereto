@@ -129,7 +129,7 @@
             })
             .then(r => r.json())
             .then(data => {
-                const grid = document.getElementById('catalog-products-grid');
+                const grid = document.getElementById('apple-product-grid');
                 if (grid && data.html) grid.insertAdjacentHTML('beforeend', data.html);
                 if (data.pagination) {
                     this.currentPage = data.pagination.current_page;
@@ -159,7 +159,7 @@
     <x-public-ui.categories-drawer :categories="$allCategories" />
 
     <!-- Полноширинный контейнер Apple -->
-    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-4 sm:pt-6 space-y-5 sm:space-y-6">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-5 sm:space-y-6">
 
         <!-- Поисковая строка с кнопкой меню категорий справа -->
         <div class="max-w-4xl mx-auto relative" @click.outside="openSuggestions = false; activeIndex = -1">
@@ -186,12 +186,12 @@
                     >
                     <button type="button"
                             @click="categoriesDrawerOpen = true"
-                            aria-label="{{ __('Категории каталога') }}"
-                            title="{{ __('Категории каталога') }}"
-                            class="p-2 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
-                        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            aria-label="{{ __('Категории') }}"
+                            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
+                        <span class="text-sm font-medium">{{ __('Категории') }}</span>
                     </button>
                 </div>
             </form>
@@ -489,7 +489,7 @@
 
                 <!-- Сетка карточек товаров: 2 колонки на мобильном, 3-5 на десктопе -->
                 @if(!empty($products))
-                    <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-5" id="catalog-products-grid">
+                    <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-5" id="apple-product-grid">
                         @foreach($products as $product)
                             <x-public-ui.product-card :product="$product" :is-first="$loop->first" />
                         @endforeach
