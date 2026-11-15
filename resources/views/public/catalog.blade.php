@@ -353,17 +353,55 @@
                         </div>
                         @endif
 
-                        <!-- Цвета -->
+<!-- Цвета с цветовыми квадратиками слева -->
                         @if(!empty($facets['colors']))
+                        @php
+                            $resolveSwatchCss = static function (string $label): string {
+                                $n = mb_strtolower(trim($label));
+                                return match (true) {
+                                    str_contains($n, 'multicolor') || str_contains($n, 'πολύχρωμ') => 'linear-gradient(135deg, #ef4444 0%, #eab308 50%, #3b82f6 100%)',
+                                    str_contains($n, 'μαύρ') || str_contains($n, 'black') || str_contains($n, 'noir') => '#1d1d1f',
+                                    str_contains($n, 'λευκ') || str_contains($n, 'άσπρ') || str_contains($n, 'white') || str_contains($n, 'blanc') => '#ffffff',
+                                    str_contains($n, 'σιελ') || str_contains($n, 'light blue') || str_contains($n, 'sky') || str_contains($n, 'γαλάζ') => '#7dd3fc',
+                                    str_contains($n, 'denim') => '#3b6998',
+                                    str_contains($n, 'σκούρο') && str_contains($n, 'μπλε') || str_contains($n, 'navy') || str_contains($n, 'dark blue') => '#1e3a8a',
+                                    str_contains($n, 'μπλε') || str_contains($n, 'blue') || str_contains($n, 'bleu') => '#2563eb',
+                                    str_contains($n, 'ανθρακ') || str_contains($n, 'anthracite') || str_contains($n, 'charcoal') => '#374151',
+                                    str_contains($n, 'γκρι') || str_contains($n, 'grey') || str_contains($n, 'gray') || str_contains($n, 'gris') => '#9ca3af',
+                                    str_contains($n, 'μπεζ') || str_contains($n, 'beige') || str_contains($n, 'ecru') || str_contains($n, 'εκρού') || str_contains($n, 'cream') => '#e7d8c1',
+                                    str_contains($n, 'taupe') => '#8b7d70',
+                                    str_contains($n, 'καφέ') || str_contains($n, 'brown') || str_contains($n, 'camel') || str_contains($n, 'ταμπά') => '#78350f',
+                                    str_contains($n, 'κεραμιδ') || str_contains($n, 'terracotta') || str_contains($n, 'rust') => '#c2410c',
+                                    str_contains($n, 'μπορντ') || str_contains($n, 'burgundy') || str_contains($n, 'bordeaux') || str_contains($n, 'wine') => '#7f1d1d',
+                                    str_contains($n, 'κόκκιν') || str_contains($n, 'red') || str_contains($n, 'rouge') => '#dc2626',
+                                    str_contains($n, 'ροζ') || str_contains($n, 'pink') || str_contains($n, 'rose') => '#f472b6',
+                                    str_contains($n, 'πορτοκαλ') || str_contains($n, 'orange') => '#f97316',
+                                    str_contains($n, 'κίτριν') || str_contains($n, 'yellow') => '#facc15',
+                                    str_contains($n, 'χακί') || str_contains($n, 'khaki') || str_contains($n, 'olive') || str_contains($n, 'λαδί') => '#4d5d33',
+                                    str_contains($n, 'πράσιν') || str_contains($n, 'green') || str_contains($n, 'vert') => '#16a34a',
+                                    str_contains($n, 'μωβ') || str_contains($n, 'purple') || str_contains($n, 'violet') || str_contains($n, 'λιλά') => '#7c3aed',
+                                    str_contains($n, 'χρυσ') || str_contains($n, 'gold') => '#d4af37',
+                                    str_contains($n, 'ασημ') || str_contains($n, 'silver') => '#cbd5e1',
+                                    default => '#d4d4d8',
+                                };
+                            };
+                        @endphp
                         <div class="space-y-2 border-t border-black/[0.05] pt-4">
                             <div class="app-text-xs font-semibold uppercase tracking-wider text-[#1d1d1f]">{{ __('Цвет') }}</div>
                             <div class="space-y-1">
                                 @foreach($facets['colors'] as $colName => $colCnt)
-                                    @php $isColActive = ($filters['color'] ?? '') === $colName; @endphp
+                                    @php
+                                        $isColActive = ($filters['color'] ?? '') === $colName;
+                                        $swatchBg = $resolveSwatchCss((string) $colName);
+                                    @endphp
                                     <button type="button" @click="toggleColor(@js($colName))"
-                                            class="flex items-center justify-between w-full text-left app-text-sub text-sm py-1.5 px-2.5 rounded-xl transition-colors cursor-pointer {{ $isColActive ? 'bg-[#0071e3]/10 text-[#0071e3] font-semibold' : 'hover:bg-[#f5f5f7]' }}">
-                                        <span class="truncate">{{ $colName }}</span>
-                                        <span class="app-text-xs text-[#86868b]">{{ $colCnt }}</span>
+                                            class="flex items-center justify-between gap-2.5 w-full text-left app-text-sub text-sm py-1.5 px-2.5 rounded-xl transition-colors cursor-pointer {{ $isColActive ? 'bg-[#0071e3]/10 text-[#0071e3] font-semibold' : 'hover:bg-[#f5f5f7]' }}">
+                                        <span class="flex items-center gap-2.5 min-w-0">
+                                            <span class="w-4 h-4 rounded-[5px] border border-black/15 shrink-0 shadow-2xs"
+                                                  style="background: {{ $swatchBg }};"></span>
+                                            <span class="truncate">{{ $colName }}</span>
+                                        </span>
+                                        <span class="app-text-xs text-[#86868b] shrink-0">{{ $colCnt }}</span>
                                     </button>
                                 @endforeach
                             </div>
@@ -394,17 +432,49 @@
                     @endif
                 </div>
 
-                <!-- Горизонтальная лента подкатегорий (или категорий на странице поиска) -->
+                <!-- Горизонтальная лента подкатегорий с поддержкой drag-скроллинга мышкой на десктопе -->
                 @if(!empty($subcategories))
-                    <div class="flex items-stretch gap-2.5 sm:gap-3 overflow-x-auto no-scrollbar pb-1">
+                    <div x-data="{
+                            isDown: false,
+                            startX: 0,
+                            scrollLeft: 0,
+                            moved: false,
+                            onMouseDown(e) {
+                                this.isDown = true;
+                                this.moved = false;
+                                this.startX = e.pageX - this.$el.offsetLeft;
+                                this.scrollLeft = this.$el.scrollLeft;
+                            },
+                            onMouseMove(e) {
+                                if (!this.isDown) return;
+                                const x = e.pageX - this.$el.offsetLeft;
+                                const walk = (x - this.startX) * 1.3;
+                                if (Math.abs(walk) > 6) {
+                                    this.moved = true;
+                                    e.preventDefault();
+                                    this.$el.scrollLeft = this.scrollLeft - walk;
+                                }
+                            },
+                            onMouseUp() {
+                                this.isDown = false;
+                            }
+                         }"
+                         @mousedown="onMouseDown($event)"
+                         @mousemove="onMouseMove($event)"
+                         @mouseup="onMouseUp()"
+                         @mouseleave="onMouseUp()"
+                         @click.capture="if (moved) { $event.preventDefault(); $event.stopPropagation(); moved = false; }"
+                         class="flex items-stretch gap-2.5 sm:gap-3 overflow-x-auto no-scrollbar pb-1 cursor-grab active:cursor-grabbing select-none"
+                    >
                         @foreach($subcategories as $sub)
                             @php $isSubActive = $activeSubIndex !== null && (int)$activeSubIndex === (int)$sub['index']; @endphp
                             @if(!empty($sub['url']))
                                 <a href="{{ $sub['url'] }}"
+                                   draggable="false"
                                    class="flex flex-col items-center justify-between w-24 sm:w-28 shrink-0 p-2.5 rounded-2xl bg-white border border-black/[0.06] hover:border-[#0071e3]/40 transition-all text-center">
-                                    <div class="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center overflow-hidden rounded-xl bg-[#f5f5f7] mb-2">
+                                    <div class="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center overflow-hidden rounded-xl bg-[#f5f5f7] mb-2 pointer-events-none">
                                         @if(!empty($sub['image']))
-                                            <img src="{{ $sub['image'] }}" alt="{{ $sub['label'] }}" class="max-w-full max-h-full object-contain">
+                                            <img src="{{ $sub['image'] }}" alt="{{ $sub['label'] }}" draggable="false" class="max-w-full max-h-full object-contain">
                                         @else
                                             <span class="app-text-xs font-bold text-[#86868b]">{{ mb_substr($sub['label'], 0, 2) }}</span>
                                         @endif
@@ -417,9 +487,9 @@
                                 <button type="button"
                                         @click="selectSub({{ (int) $sub['index'] }})"
                                         class="flex flex-col items-center justify-between w-24 sm:w-28 shrink-0 p-2.5 rounded-2xl border transition-all cursor-pointer text-center {{ $isSubActive ? 'bg-white border-[#0071e3] ring-2 ring-[#0071e3]/20 shadow-sm' : 'bg-white border-black/[0.06] hover:border-black/20' }}">
-                                    <div class="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center overflow-hidden rounded-xl bg-[#f5f5f7] mb-2">
+                                    <div class="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center overflow-hidden rounded-xl bg-[#f5f5f7] mb-2 pointer-events-none">
                                         @if(!empty($sub['image']))
-                                            <img src="{{ $sub['image'] }}" alt="{{ $sub['label'] }}" class="max-w-full max-h-full object-contain">
+                                            <img src="{{ $sub['image'] }}" alt="{{ $sub['label'] }}" draggable="false" class="max-w-full max-h-full object-contain">
                                         @else
                                             <span class="app-text-xs font-bold text-[#86868b]">{{ mb_substr($sub['label'], 0, 2) }}</span>
                                         @endif
