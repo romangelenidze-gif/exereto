@@ -33,7 +33,7 @@
     --apple-border-soft: rgba(0, 0, 0, 0.04);
 
     /* Формы */
-    --apple-radius-lg: 1.75rem; /* 28px — карточки, шторки */
+    --apple-radius-lg: 1.75rem;
     --apple-radius-pill: 9999px;
 
     /* Тени */
@@ -48,13 +48,11 @@
    1. СИСТЕМНЫЕ УТИЛИТЫ И БЛОКИРОВКА СКРОЛЛА
    ========================================================================== */
 
-/* Предотвращение layout shift при открытии шторок/модалок */
 body.overflow-hidden {
     overflow: hidden;
     padding-right: var(--scrollbar-width, 0px);
 }
 
-/* Скрытие полосы прокрутки */
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
@@ -101,67 +99,52 @@ body.overflow-hidden {
 
 
 /* ==========================================================================
-   3. ЕДИНАЯ ТИПОГРАФИКА (5 РАЗМЕРОВ + АЛИАСЫ)
+   3. ЕДИНАЯ ТИПОГРАФИКА
    ========================================================================== */
 
-/* 1. Самый крупный заголовок (ЛОГО) */
 .app-text-logo {
-    font-size: clamp(6rem, 8vw, 8rem); /* 96–128px */
+    font-size: clamp(6rem, 8vw, 8rem);
     font-weight: 700;
     color: var(--apple-text-primary);
     letter-spacing: -0.025em;
     line-height: 0.9;
 }
 
-/* 2. Очень крупный заголовок (Hero и главные секции) */
-.app-text-hero,
-.apple-hero-title,
 .apple-section-title {
-    font-size: clamp(2.2rem, 4vw, 3rem); /* 35–48px */
+    font-size: clamp(2.2rem, 4vw, 3rem);
     font-weight: 600;
     color: var(--apple-text-primary);
     letter-spacing: -0.025em;
     line-height: 1.3;
 }
 
-/* 3. Стандартный заголовок (карточки, шаги, заголовки блоков) */
-.app-text-title,
-.apple-step-title,
-.app-card-title,
-.apple-hero-feature-title {
-    font-size: 1.3rem; /* ≈21px, фиксированный */
+.app-text-title {
+    font-size: 1.3rem;
     font-weight: 600;
     color: var(--apple-text-primary);
     letter-spacing: -0.01em;
     line-height: 1.35;
 }
 
-/* 4. Основной текст (параграфы, подзаголовки, описания) */
 .app-text-body,
 .apple-hero-subtitle,
-.apple-section-subtitle,
-.apple-step-description {
-    font-size: 1.1rem; /* ≈17.6px, фиксированный */
+.apple-section-subtitle {
+    font-size: 1.1rem;
     color: var(--apple-text-secondary);
     font-weight: 400;
     line-height: 1.5;
 }
 
-/* 5. Второстепенный / мелкий текст (сноски, подписи, заметки) */
-.app-text-sub,
-.app-text-muted,
-.apple-hero-note,
-.apple-feature-text {
-    font-size: 1rem; /* 16px, фиксированный */
+.app-text-sub {
+    font-size: 1rem;
     color: var(--apple-text-tertiary);
     font-weight: 400;
     line-height: 1.45;
 }
 
-/* Дополнительный мелкий размер (бейджи, теги) */
 .app-text-xs,
 .app-badge-text {
-    font-size: 1rem; /* 16px */
+    font-size: 1rem;
     font-weight: 400;
     letter-spacing: 0.03em;
 }
@@ -172,7 +155,7 @@ body.overflow-hidden {
    ========================================================================== */
 
 .apple-dark-cta {
-    border-radius: 2rem; /* 32px */
+    border-radius: 2rem;
     padding: 2rem;
     text-align: center;
 }
@@ -229,46 +212,9 @@ body.overflow-hidden {
     font-weight: 400;
 }
 
-.apple-header-btn {
-    padding: 0.5rem 1rem;
-    border-radius: var(--apple-radius-pill);
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    background-color: rgba(0, 0, 0, 0.04);
-    color: var(--apple-text-primary);
-    border: 1px solid var(--apple-border);
-}
-
-.apple-header-btn:hover {
-    background-color: rgba(0, 0, 0, 0.08);
-}
-
 
 /* ==========================================================================
-   6. СЕКЦИЯ HERO
-   ========================================================================== */
-
-.apple-hero-section {
-    position: relative;
-    overflow: hidden;
-    padding-top: 2.5rem;
-    padding-bottom: 5.5rem;
-}
-
-@media (min-width: 1024px) {
-    .apple-hero-section {
-        min-height: 680px;
-        display: flex;
-        align-items: center;
-        padding-top: 0;
-        padding-bottom: 0;
-    }
-}
-
-
-/* ==========================================================================
-   7. КАРТОЧКИ (CARDS)
+   6. БАЗОВЫЕ КАРТОЧКИ (CARDS)
    ========================================================================== */
 
 .apple-card,
@@ -290,62 +236,6 @@ body.overflow-hidden {
     box-shadow: var(--apple-shadow-hover);
 }
 
-
-/* ==========================================================================
-   8. APPLE PRODUCT CARD (карточка товара и её текстовые элементы)
-   ========================================================================== */
-
-.apple-product-card {
-    position: relative;
-    height: 450px;
-    width: 100%;
-    border-radius: var(--apple-radius-lg);
-    background-color: #ffffff;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10);
-    transition: all 0.5s var(--apple-ease);
-}
-
-.apple-product-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
-}
-
-.apple-product-card-top {
-    position: relative;
-    height: 300px;
-    width: 100%;
-    background-color: #ffffff;
-    border-top-left-radius: var(--apple-radius-lg);
-    border-top-right-radius: var(--apple-radius-lg);
-    padding: 1.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    flex-shrink: 0;
-}
-
-.apple-product-card-top img {
-    mix-blend-mode: multiply;
-}
-
-.apple-product-card-bottom {
-    border-bottom-left-radius: var(--apple-radius-lg);
-    border-bottom-right-radius: var(--apple-radius-lg);
-    padding: 1rem;
-    flex: 1;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 0.5rem;
-    background-color: #ffffff;
-}
-
-.apple-product-title,
-.apple-product-desc,
 .apple-category-name {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -354,91 +244,9 @@ body.overflow-hidden {
     overflow: hidden;
 }
 
-.apple-product-title {
-    width: 100%;
-    text-align: left !important;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--apple-text-primary);
-    line-height: 1.35;
-    letter-spacing: -0.01em;
-}
-
-.apple-product-rating {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.75rem;
-    color: var(--apple-text-muted);
-}
-
-.apple-product-stars {
-    --rating: 0;
-    display: inline-block;
-    line-height: 1;
-    font-weight: 500;
-    background: linear-gradient(
-        90deg,
-        #f59e0b calc(var(--rating) / 5 * 100%),
-        #d2d2d7 calc(var(--rating) / 5 * 100%)
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-}
-
-.apple-product-stars::before {
-    content: "★★★★★";
-}
-
-.apple-product-desc {
-    font-size: 0.8125rem;
-    color: var(--apple-text-tertiary);
-    line-height: 1.4;
-}
-
-.apple-product-price {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--apple-text-primary);
-    letter-spacing: -0.02em;
-    text-align: right;
-}
-
-.apple-product-price-note {
-    font-size: 0.8125rem;
-    color: var(--apple-text-muted);
-    font-weight: 400;
-}
-
-.apple-product-cart-btn {
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: var(--apple-radius-pill);
-    background-color: var(--apple-blue);
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(0, 113, 227, 0.25);
-    transition: all 0.2s var(--apple-ease);
-    cursor: pointer;
-}
-
-.apple-product-cart-btn:hover {
-    background-color: var(--apple-blue-hover);
-    transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(0, 113, 227, 0.35);
-}
-
-.apple-product-cart-btn:active {
-    transform: scale(0.95);
-}
-
 
 /* ==========================================================================
-   9. МОДАЛЬНЫЕ ОКНА И ШТОРКИ (SHEETS & MODALS)
+   7. МОДАЛЬНЫЕ ОКНА И ШТОРКИ (SHEETS & MODALS)
    ========================================================================== */
 
 .apple-sheet {
@@ -571,7 +379,7 @@ body.overflow-hidden {
 
 
 /* ==========================================================================
-   10. ПОДВАЛ САЙТА (FOOTER)
+   8. ПОДВАЛ САЙТА (FOOTER)
    ========================================================================== */
 
 .apple-footer {
@@ -667,7 +475,7 @@ body.overflow-hidden {
 
 
 /* ==========================================================================
-   11. LANGUAGE SWITCHER (переключатель языков)
+   9. LANGUAGE SWITCHER (переключатель языков)
    ========================================================================== */
 
 .apple-lang-btn {
@@ -752,13 +560,9 @@ body.overflow-hidden {
     }
 }
 
-.cubic-bezier-apple {
-    transition-timing-function: var(--apple-ease);
-}
-
 
 /* ==========================================================================
-   12. APPLE SEARCH INTERFACE (умный поиск и фильтры)
+   10. APPLE SEARCH INTERFACE (умный поиск и фильтры)
    ========================================================================== */
 
 .apple-search-bar {
@@ -843,38 +647,6 @@ body.overflow-hidden {
     color: var(--apple-text-muted);
 }
 
-.apple-recommendation-box {
-    max-width: 48rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    background-color: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(12px);
-    padding: 0.875rem 1rem;
-    border-radius: 1rem;
-    border: 1px solid var(--apple-border-soft);
-}
-
-
-/* ==========================================================================
-   13. APPLE MOBILE SORT SHEET (мобильная шторка сортировки)
-   ========================================================================== */
-
-.apple-sheet-container {
-    position: relative;
-    width: 100%;
-    background-color: #ffffff;
-    border-top-left-radius: var(--apple-radius-lg);
-    border-top-right-radius: var(--apple-radius-lg);
-    padding-top: 1.5rem;
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
-    box-shadow: 0 -20px 40px rgba(0, 0, 0, 0.15);
-    z-index: 10;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
-}
-
 .apple-sheet-option {
     display: flex;
     align-items: center;
@@ -901,7 +673,7 @@ body.overflow-hidden {
 
 
 /* ==========================================================================
-   14. APPLE PILL-КНОПКИ (капсулы брендов и контурные кнопки)
+   11. APPLE PILL-КНОПКИ (капсулы брендов и контурные кнопки)
    ========================================================================== */
 
 .apple-brand-pill {
@@ -949,7 +721,7 @@ body.overflow-hidden {
 
 
 /* ==========================================================================
-   15. CATEGORIES GRID (популярные категории на главной)
+   12. CATEGORIES GRID (популярные категории на главной)
    ========================================================================== */
 
 .apple-categories {
@@ -1107,32 +879,13 @@ body.overflow-hidden {
 
 
 /* ==========================================================================
-   16. ТОВАРЫ ИЗ ПАРТНЁРСКИХ ФИДОВ: единый белый холст + mix-blend-multiply
+   13. ДЕТАЛЬНАЯ СТРАНИЦА ТОВАРА (PDP)
    ========================================================================== */
 
 .apple-photo-lift {
     filter: brightness(var(--apple-photo-lift, 1));
 }
 
-.apple-product-price-old {
-    margin-left: 0.375rem;
-    font-size: 0.8125rem;
-    font-weight: 400;
-    color: var(--apple-text-muted);
-    text-decoration: line-through;
-}
-
-.apple-product-badge {
-    padding: 0.25rem 0.625rem;
-    border-radius: var(--apple-radius-pill);
-    background-color: #ff3b30;
-    color: #ffffff;
-    font-size: 0.75rem;
-    font-weight: 600;
-    line-height: 1;
-}
-
-/* --- Детальная страница товара --- */
 .apple-pdp {
     max-width: 90rem;
     margin: 0 auto;
@@ -1151,20 +904,6 @@ body.overflow-hidden {
         padding-top: 2.5rem;
         padding-inline: 3.5rem;
     }
-}
-
-.apple-pdp-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    margin-bottom: 1.5rem;
-    font-size: 0.9375rem;
-    color: var(--apple-blue);
-    text-decoration: none;
-}
-
-.apple-pdp-back:hover {
-    color: var(--apple-blue-hover);
 }
 
 .apple-pdp-grid {
@@ -1216,17 +955,13 @@ body.overflow-hidden {
     text-decoration: underline;
 }
 
-/* Единый чистый белый фон витрины товара без серых полос */
 .apple-pdp-gallery {
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
     width: 100%;
-    aspect-ratio: 4 / 5;
-    max-height: 700px;
+    aspect-ratio: 1 / 1;
     padding: 0;
-    background-color: #f4f5f6;
+    background-color: #eaeeef;
     border: 1px solid var(--apple-border);
     border-radius: 1.5rem;
     overflow: hidden;
@@ -1238,8 +973,7 @@ body.overflow-hidden {
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    object-position: top center;
+    object-fit: contain;
     transition: transform 0.5s var(--apple-ease);
 }
 
@@ -1257,7 +991,7 @@ body.overflow-hidden {
     align-items: center;
     justify-content: center;
     color: var(--apple-text-primary);
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.85);
     border: 1px solid var(--apple-border);
     border-radius: var(--apple-radius-pill);
     pointer-events: none;
@@ -1289,18 +1023,12 @@ html .pswp {
 
 .pswp__img {
     filter: brightness(var(--apple-photo-lift, 1));
-    mix-blend-mode: multiply;
 }
 
 .apple-pdp-info {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-}
-
-.apple-pdp-crumbs {
-    font-size: 0.8125rem;
-    color: var(--apple-text-muted);
 }
 
 .apple-pdp-brand {
@@ -1364,7 +1092,7 @@ html .pswp {
 .apple-pdp-color {
     width: 4.5rem;
     height: 4.5rem;
-    padding: 0.25rem;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1387,7 +1115,6 @@ html .pswp {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    mix-blend-mode: multiply;
 }
 
 .apple-pdp-sizes {
@@ -1454,83 +1181,22 @@ html .pswp {
     border-bottom: 1px solid var(--apple-border-soft);
 }
 
+
 /* ==========================================================================
-   КАРТОЧКА ТОВАРА В КАТАЛОГЕ (единый белый холст для всех магазинов)
+   14. КАРТОЧКА ТОВАРА И СЕТКА КАТАЛОГА
    ========================================================================== */
-
-.adidas-hero-banner {
-    position: relative;
-    overflow: hidden;
-    border-radius: 2rem;
-    background-color: #000000;
-    color: #ffffff;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-    min-height: 420px;
-    display: flex;
-    align-items: center;
-}
-
-.adidas-hero-banner img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    pointer-events: none;
-}
-
-.adidas-hero-banner .banner-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 50%, transparent 100%);
-}
-
-.adidas-hero-banner .banner-content {
-    position: relative;
-    z-index: 10;
-    max-width: 36rem;
-    padding: 3rem 2.5rem;
-}
-
-@media (min-width: 768px) {
-    .adidas-hero-banner .banner-content {
-        padding: 4rem;
-    }
-}
-
-.adidas-btn-black {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.875rem 2rem;
-    background-color: #000000;
-    color: #ffffff;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    border-radius: 9999px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    text-decoration: none;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.adidas-btn-black:hover {
-    background-color: #27272a;
-    transform: scale(1.02);
-}
 
 .adidas-product-card {
     position: relative;
-    background-color: #ffffff;
-    border-radius: 1.35rem;
+    background-color: #eaeeef;
+    border-radius: 1.5rem;
     border: 1px solid rgba(0, 0, 0, 0.06);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     overflow: hidden;
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
 }
 
 .adidas-product-card:hover {
@@ -1540,41 +1206,23 @@ html .pswp {
 
 .adidas-product-top {
     position: relative;
-    width: 100%;
-    aspect-ratio: 4 / 5;
-    background-color: #f4f5f6;
+    height: 280px;
+    background-color: #eaeeef;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0;
+    padding: 0rem;
     overflow: hidden;
-}
-
-@media (min-width: 640px) {
-    .adidas-product-top {
-        height: 280px;
-        padding: 0.875rem;
-    }
-}
-
-.adidas-product-top img {
-    mix-blend-mode: multiply;
 }
 
 .adidas-product-bottom {
     background-color: #ffffff;
-    padding: 0.875rem 1rem 1rem;
+    padding: 1.25rem;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     flex-grow: 1;
     border-top: 1px solid rgba(0, 0, 0, 0.04);
-}
-
-@media (min-width: 640px) {
-    .adidas-product-bottom {
-        padding: 1.25rem;
-    }
 }
 
 .adidas-card-action-btn {
@@ -1619,16 +1267,10 @@ html .pswp {
     }
 }
 
-/* ==========================================================================
-   КАТЕГОРИИ НА ГЛАВНОЙ (компактные плашки без картинок)
-   ========================================================================== */
 
-.apple-category-list {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.5rem;
-}
+/* ==========================================================================
+   15. ПЛАШКИ КАТЕГОРИЙ (если используются в компоненте category-tile)
+   ========================================================================== */
 
 .apple-category-chip {
     display: inline-flex;

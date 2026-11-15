@@ -30,7 +30,7 @@
 
         <!-- Популярные бренды и сервисы выкупа/форвардинга -->
         @if(isset($brands) && count($brands) > 0)
-            <section class="w-full px-4 sm:px-6 lg:px-10 text-center space-y-5">
+            <section class="max-w-5xl mx-auto px-6 text-center space-y-5">
                 <div class="space-y-1.5 max-w-3xl mx-auto">
                     <h2 class="apple-section-title">
                         {{ __('Популярные бренды') }}
@@ -40,7 +40,7 @@
                     </p>
                 </div>
 
-                <div class="flex flex-wrap items-center justify-center gap-2 max-w-5xl mx-auto">
+                <div class="flex flex-wrap items-center justify-center gap-2">
                     @foreach($brands as $brand)
                         <a href="{{ $brand['url'] }}" class="apple-brand-pill">
                             {{ $brand['name'] }}
@@ -59,9 +59,9 @@
             </section>
         @endif
 
-        <!-- Мультибрендовые рекомендации (на всю ширину) -->
+        <!-- Мультибрендовые рекомендации -->
         @if(isset($popularProducts) && $popularProducts->isNotEmpty())
-        <section class="w-full px-4 sm:px-6 lg:px-10 2xl:px-14 space-y-6">
+        <section class="max-w-7xl mx-auto px-6 space-y-6">
             <div class="flex flex-wrap justify-between items-end gap-4">
                 <div>
                     <h2 class="apple-section-title">{{ __('Рекомендуемые предложения') }}</h2>
@@ -72,7 +72,7 @@
                 </a>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-6">
+            <div class="apple-product-grid">
                 @foreach($popularProducts as $index => $product)
                     <x-public-ui.product-card :product="$product" :is-first="$index === 0" />
                 @endforeach
@@ -80,9 +80,9 @@
         </section>
         @endif
 
-        <!-- Скидки и специальные предложения (на всю ширину) -->
+        <!-- Скидки и специальные предложения -->
         @if(isset($discountProducts) && $discountProducts->isNotEmpty())
-        <section class="w-full px-4 sm:px-6 lg:px-10 2xl:px-14 space-y-6">
+        <section class="max-w-7xl mx-auto px-6 space-y-6">
             <div class="flex flex-wrap justify-between items-end gap-4">
                 <div>
                     <span class="app-badge-text uppercase font-semibold text-red-600">Special Sales</span>
@@ -93,7 +93,7 @@
                 </a>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-6">
+            <div class="apple-product-grid">
                 @foreach($discountProducts as $product)
                     <x-public-ui.product-card :product="$product" />
                 @endforeach
