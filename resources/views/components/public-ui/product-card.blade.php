@@ -27,7 +27,7 @@
                  alt="{{ $name }}"
                  loading="{{ $isFirst ? 'eager' : 'lazy' }}"
                  decoding="async"
-                 class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500">
+                 class="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500">
         @endif
         @if($discount > 0)
             <span class="absolute top-3 left-3 z-20 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow">
