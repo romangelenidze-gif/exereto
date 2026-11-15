@@ -161,7 +161,7 @@
     <!-- Полноширинный контейнер Apple -->
     <div class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-5 sm:space-y-6">
 
-        <!-- Поисковая строка с кнопкой меню категорий справа -->
+        <!-- Поисковая строка: на мобильном только иконка ☰ без слова «Категории» -->
         <div class="max-w-4xl mx-auto relative" @click.outside="openSuggestions = false; activeIndex = -1">
             <form @submit.prevent="submitSearchBar()">
                 <div class="apple-search-bar flex items-center justify-between gap-2">
@@ -182,16 +182,16 @@
                         placeholder="{{ __('Что вы ищете?') }}"
                         maxlength="200"
                         autocomplete="off"
-                        class="apple-search-input flex-1 text-base sm:text-lg"
+                        class="apple-search-input flex-1"
                     >
                     <button type="button"
                             @click="categoriesDrawerOpen = true"
                             aria-label="{{ __('Категории') }}"
-                            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
+                            class="inline-flex items-center gap-2 p-2 sm:px-3 sm:py-1.5 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
-                        <span class="text-sm font-medium">{{ __('Категории') }}</span>
+                        <span class="hidden sm:inline text-sm font-medium">{{ __('Категории') }}</span>
                     </button>
                 </div>
             </form>
@@ -207,22 +207,22 @@
                          @mouseenter="activeIndex = idx"
                          @click="selectSuggestion(item)"
                          :class="activeIndex === idx ? 'bg-[#0071e3]/[0.08]' : 'hover:bg-[#f5f5f7]'"
-                         class="px-5 py-3 flex items-center justify-between gap-3 cursor-pointer transition-colors border-b border-black/[0.03] last:border-b-0">
+                         class="px-4 sm:px-5 py-3 flex items-center justify-between gap-3 cursor-pointer transition-colors border-b border-black/[0.03] last:border-b-0">
                         <div class="flex items-center gap-3 min-w-0">
                             <img x-show="item.image" :src="item.image" alt="" class="w-9 h-9 rounded-lg object-cover bg-[#f5f5f7] shrink-0">
-                            <span class="app-text-body font-medium text-[#1d1d1f] truncate" x-text="item.label"></span>
+                            <span class="text-sm sm:text-base font-medium text-[#1d1d1f] truncate" x-text="item.label"></span>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
-                            <span x-show="item.price" class="app-text-xs font-semibold text-[#1d1d1f]" x-text="item.price"></span>
-                            <span class="app-text-xs px-2.5 py-1 bg-[#0071e3]/10 text-[#0071e3] rounded-full font-semibold" x-text="item.badge"></span>
+                            <span x-show="item.price" class="text-xs sm:text-sm font-semibold text-[#1d1d1f]" x-text="item.price"></span>
+                            <span class="text-xs px-2.5 py-1 bg-[#0071e3]/10 text-[#0071e3] rounded-full font-semibold" x-text="item.badge"></span>
                         </div>
                     </div>
                 </template>
             </div>
         </div>
 
-        <!-- Хлебные крошки -->
-        <nav class="flex items-center gap-2 app-text-xs text-[#86868b]">
+        <!-- Хлебные крошки: скрыты на мобильном, видны только на десктопе -->
+        <nav class="hidden lg:flex items-center gap-2 app-text-xs text-[#86868b]">
             <a href="{{ route('home') }}" class="hover:text-[#0071e3] transition-colors">{{ __('Главная') }}</a>
             <span>&rsaquo;</span>
             <span class="text-[#1d1d1f] font-medium truncate">{{ $pageTitle }}</span>
@@ -433,21 +433,23 @@
                     </div>
                 @endif
 
-                <!-- Верхняя панель быстрых пилюль + сортировка справа -->
-                <div class="flex items-center justify-between gap-2 bg-white px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl border border-black/[0.06]">
+<!-- Компактная панель фильтров: на мобильном только иконки, на десктопе с подписями -->
+                <div class="flex items-center justify-between gap-2 bg-white px-3 sm:px-4 py-2 sm:py-3 rounded-2xl border border-black/[0.06]">
                     <div class="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                        <!-- Кнопка открытия шторки фильтров на мобильном -->
+                        <!-- Кнопка открытия шторки фильтров (на мобильном компактная иконка) -->
                         <button type="button" @click="mobileFiltersOpen = true"
-                                class="lg:hidden inline-flex items-center gap-1.5 px-4 py-2 rounded-full app-text-xs font-semibold bg-[#0071e3] text-white shrink-0 cursor-pointer">
+                                aria-label="{{ __('Фильтры') }}"
+                                class="lg:hidden relative inline-flex items-center justify-center gap-1.5 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full text-xs font-semibold bg-[#0071e3] text-white shrink-0 cursor-pointer">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                             </svg>
-                            <span>{{ __('Фильтры') }}</span>
+                            <span class="hidden sm:inline">{{ __('Фильтры') }}</span>
                             @if($activeFiltersCount > 0)
-                                <span class="px-1.5 py-0.2 bg-white/20 rounded-full">{{ $activeFiltersCount }}</span>
+                                <span class="absolute -top-1 -right-1 sm:static w-4 h-4 sm:w-auto sm:h-auto flex items-center justify-center text-[10px] sm:text-xs sm:px-1.5 bg-[#1d1d1f] sm:bg-white/20 text-white rounded-full">{{ $activeFiltersCount }}</span>
                             @endif
                         </button>
 
+                        <!-- Кнопка скидок (на мобильном только иконка молнии/процента) -->
                         <a href="{{ request()->fullUrlWithQuery(['discount' => empty($filters['discount']) ? 1 : null]) }}"
                            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full app-text-xs font-medium border transition-colors shrink-0 {{ !empty($filters['discount']) ? 'bg-red-600 text-white border-red-600' : 'bg-white text-[#1d1d1f] border-black/15 hover:border-[#0071e3]' }}">
                             <span>&#9889; {{ __('Скидки') }}</span>
@@ -455,31 +457,35 @@
 
                         @if(!empty($filters['brands']))
                             @foreach($filters['brands'] as $activeBrand)
-                                <span class="inline-flex items-center px-3 py-1.5 rounded-full app-text-xs font-medium bg-[#1d1d1f] text-white shrink-0">
+                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-[#1d1d1f] text-white shrink-0">
                                     {{ $activeBrand }}
                                 </span>
                             @endforeach
                         @endif
 
                         @if(!empty($filters['size']))
-                            <span class="inline-flex items-center px-3 py-1.5 rounded-full app-text-xs font-medium bg-[#1d1d1f] text-white shrink-0">
-                                {{ __('Размер') }}: {{ $filters['size'] }}
+                            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-[#1d1d1f] text-white shrink-0">
+                                {{ $filters['size'] }}
                             </span>
                         @endif
                     </div>
 
-                    <!-- Выпадающая сортировка справа -->
+                    <!-- Сортировка справа: на мобильном только иконка ↑↓ без длинного слова «Рекомендуемые» -->
                     <div class="relative shrink-0" x-data="{ openSort: false }" @click.outside="openSort = false">
                         <button type="button" @click="openSort = !openSort"
-                                class="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full app-text-xs font-medium bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1d1d1f] transition-colors cursor-pointer">
-                            <span>&uarr;&darr; {{ $sortLabels[$activeSort] ?? __('Рекомендуемые') }}</span>
+                                aria-label="{{ __('Сортировка') }}"
+                                class="inline-flex items-center justify-center gap-1.5 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full text-xs font-medium bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1d1d1f] transition-colors cursor-pointer">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                            </svg>
+                            <span class="hidden sm:inline">{{ $sortLabels[$activeSort] ?? __('Рекомендуемые') }}</span>
                         </button>
 
                         <div x-show="openSort" x-cloak
                              class="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-black/[0.08] py-1.5 z-40">
                             @foreach($sortLabels as $sKey => $sLabel)
                                 <button type="button" @click="setSort('{{ $sKey }}')"
-                                        class="block w-full text-left px-4 py-2 app-text-xs transition-colors cursor-pointer {{ $activeSort === $sKey ? 'text-[#0071e3] font-semibold bg-[#0071e3]/5' : 'text-[#1d1d1f] hover:bg-[#f5f5f7]' }}">
+                                        class="block w-full text-left px-4 py-2 text-xs transition-colors cursor-pointer {{ $activeSort === $sKey ? 'text-[#0071e3] font-semibold bg-[#0071e3]/5' : 'text-[#1d1d1f] hover:bg-[#f5f5f7]' }}">
                                     {{ $sLabel }}
                                 </button>
                             @endforeach

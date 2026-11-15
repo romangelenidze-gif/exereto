@@ -111,11 +111,11 @@
                 <button type="button"
                         @click="categoriesDrawerOpen = true"
                         aria-label="{{ __('Категории') }}"
-                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
+                        class="inline-flex items-center gap-2 p-2 sm:px-3 sm:py-1.5 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
-                    <span class="text-sm font-medium">{{ __('Категории') }}</span>
+                    <span class="hidden sm:inline text-sm font-medium">{{ __('Категории') }}</span>
                 </button>
             </div>
         </form>
