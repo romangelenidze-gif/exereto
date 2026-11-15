@@ -13,14 +13,14 @@ class FeedCategoryTiles
     private const CACHE_MINUTES = 60;
 
     /**
-     * Плитки главных категорий с иконками и количеством товаров по всем активным магазинам.
+     * Все активные категории с иконками, количеством товаров и списком топ-брендов в подзаголовке.
      *
-     * @return Collection<int, array{slug: string, label: string, img: string, count: int, url: string}>
+     * @return Collection<int, array{slug: string, label: string, subtitle: string, img: string, count: int, url: string}>
      */
     public function get(): Collection
     {
         $raw = Cache::remember(
-            'home.category_tiles.v3.all',
+            'home.category_tiles.v4.all',
             now()->addMinutes(self::CACHE_MINUTES),
             fn () => $this->build()
         );
@@ -28,6 +28,7 @@ class FeedCategoryTiles
         return collect($raw)->map(fn (array $tile) => [
             'slug' => $tile['slug'],
             'label' => __($tile['label']),
+            'subtitle' => $tile['subtitle'] ?? '',
             'img' => $tile['img'],
             'count' => $tile['count'],
             'url' => route('feed-category.show', ['slug' => $tile['slug']]),
@@ -73,8 +74,6 @@ class FeedCategoryTiles
 
     /**
      * Подкатегории для верхней карусели страницы категории с реальным фото товара и счётчиком.
-     *
-     * @return array<int, array{index: int, label: string, count: int, image: ?string}>
      */
     public function buildSubcategories(array $tile): array
     {
@@ -121,7 +120,7 @@ class FeedCategoryTiles
     }
 
     /**
-     * Фасетные фильтры для левого сайдбара страницы категории (Бренды, Пол, Размеры, Цвета).
+     * Фасетные фильтры для страницы категории (Бренды, Пол, Размеры, Цвета).
      */
     public function buildFacets(array $tile): array
     {
@@ -130,7 +129,6 @@ class FeedCategoryTiles
         return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_MINUTES), function () use ($tile) {
             $base = $this->productsQuery($tile);
 
-            // 1. Топ брендов
             $brands = (clone $base)
                 ->whereNotNull('brand')
                 ->where('brand', '!=', '')
@@ -142,7 +140,6 @@ class FeedCategoryTiles
                 ->map(fn ($r) => ['name' => (string) $r->brand, 'count' => (int) $r->cnt])
                 ->all();
 
-            // 2. Пол
             $genders = (clone $base)
                 ->whereNotNull('gender')
                 ->where('gender', '!=', '')
@@ -153,7 +150,6 @@ class FeedCategoryTiles
                 ->map(fn ($r) => ['code' => (string) $r->gender, 'count' => (int) $r->cnt])
                 ->all();
 
-            // 3. Популярные размеры и цвета (по выборке до 2500 товаров категории)
             $sample = (clone $base)
                 ->select(['sizes', 'colour'])
                 ->limit(2500)
@@ -200,6 +196,45 @@ class FeedCategoryTiles
         });
     }
 
+    /**
+     * Формирует фасеты из уже найденного набора карточек товаров (для страницы поиска).
+     */
+    public function buildFacetsFromCards(array $cards): array
+    {
+        $brandCounts = [];
+        $colorCounts = [];
+
+        foreach ($cards as $card) {
+            $b = trim((string) ($card['brand'] ?? ''));
+            if ($b !== '') {
+                $brandCounts[$b] = ($brandCounts[$b] ?? 0) + 1;
+            }
+
+            $c = trim((string) ($card['colour'] ?? ''));
+            if ($c !== '') {
+                $mainColor = trim(explode('/', $c)[0]);
+                if ($mainColor !== '' && mb_strlen($mainColor) <= 25) {
+                    $colorCounts[$mainColor] = ($colorCounts[$mainColor] ?? 0) + 1;
+                }
+            }
+        }
+
+        arsort($brandCounts);
+        arsort($colorCounts);
+
+        $brands = [];
+        foreach (array_slice($brandCounts, 0, 20, true) as $name => $cnt) {
+            $brands[] = ['name' => $name, 'count' => $cnt];
+        }
+
+        return [
+            'brands' => $brands,
+            'genders' => [],
+            'sizes' => [],
+            'colors' => array_slice($colorCounts, 0, 12, true),
+        ];
+    }
+
     public function applyPublicFilter(Builder $query, array $where): void
     {
         $this->applyFilter($query, $where);
@@ -210,14 +245,26 @@ class FeedCategoryTiles
         $tiles = [];
 
         foreach ((array) config('home_categories.tiles', []) as $tile) {
-            $count = $this->productsQuery($tile)->count();
+            $base = $this->productsQuery($tile);
+            $count = (clone $base)->count();
             if ($count === 0) {
                 continue;
             }
 
+            $topBrands = (clone $base)
+                ->whereNotNull('brand')
+                ->where('brand', '!=', '')
+                ->selectRaw('brand, COUNT(*) as cnt')
+                ->groupBy('brand')
+                ->orderByDesc('cnt')
+                ->limit(3)
+                ->pluck('brand')
+                ->all();
+
             $tiles[] = [
                 'slug' => (string) $tile['slug'],
                 'label' => (string) $tile['label'],
+                'subtitle' => implode(', ', $topBrands),
                 'img' => (string) ($tile['img'] ?? ($tile['slug'] . '.png')),
                 'count' => $count,
             ];

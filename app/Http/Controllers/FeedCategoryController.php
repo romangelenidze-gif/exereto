@@ -36,12 +36,9 @@ class FeedCategoryController extends Controller
 
         $base = $tiles->productsQuery($tile);
 
-        // Фильтр по выбранной подкатегории из верхней ленты
         $subcategories = $tiles->buildSubcategories($tile);
-        $activeSub = null;
         if ($subIndex !== null && isset($tile['subcategories'][$subIndex])) {
-            $activeSub = $tile['subcategories'][$subIndex];
-            $tiles->applyPublicFilter($base, (array) ($activeSub['where'] ?? []));
+            $tiles->applyPublicFilter($base, (array) ($tile['subcategories'][$subIndex]['where'] ?? []));
         }
 
         if ($minPrice !== null && $minPrice > 0) {
@@ -66,7 +63,6 @@ class FeedCategoryController extends Controller
             $base->where('discount_percent', '>', 0);
         }
 
-        // Дедупликация одинаковых моделей между магазинами (по model_code, иначе по sku)
         $grouped = (clone $base)
             ->selectRaw("COALESCE(NULLIF(model_code, ''), sku) as group_key, MIN(id) as primary_id, MIN(price) as min_price, MAX(rating) as max_rating, MAX(discount_percent) as max_discount, COUNT(DISTINCT feed) as stores_count, COUNT(*) as colorways_count")
             ->groupBy('group_key');
@@ -149,15 +145,16 @@ class FeedCategoryController extends Controller
             ]);
         }
 
-        $facets = $tiles->buildFacets($tile);
-        $categoryTitle = __((string) $tile['label']);
-
-        return view('public.category', [
-            'tile' => $tile,
-            'categoryTitle' => $categoryTitle,
+        return view('public.catalog', [
+            'isSearchMode' => false,
+            'searchQuery' => '',
+            'formAction' => route('feed-category.show', ['slug' => $tile['slug']]),
+            'resetUrl' => route('feed-category.show', ['slug' => $tile['slug']]),
+            'pageTitle' => __((string) $tile['label']),
+            'allCategories' => $tiles->get(),
             'subcategories' => $subcategories,
             'activeSubIndex' => $subIndex,
-            'facets' => $facets,
+            'facets' => $tiles->buildFacets($tile),
             'products' => $cards,
             'pagination' => $pagination,
             'filters' => [

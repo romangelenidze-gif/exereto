@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\CategoryMatcher;
+use App\Services\FeedCategoryTiles;
 use App\Services\ProductAutocompleteService;
 use App\Services\SmartProductSearchManager;
 use Illuminate\Http\JsonResponse;
@@ -17,21 +18,28 @@ class ProductSearchController extends Controller
     {
     }
 
-    public function index(Request $request, CategoryMatcher $categories): View|RedirectResponse|JsonResponse
+    public function index(Request $request, CategoryMatcher $categories, FeedCategoryTiles $tiles): View|RedirectResponse|JsonResponse
     {
         $query = trim((string) $request->input('q', ''));
         $page = max(1, (int) $request->input('page', 1));
-        $searchResult = null;
 
-        $filters = [
-            'min_price' => $request->filled('min_price') ? (float) $request->input('min_price') : null,
-            'max_price' => $request->filled('max_price') ? (float) $request->input('max_price') : null,
-            'sort' => in_array($request->input('sort'), ['relevance', 'price_asc', 'price_desc'], true)
-                ? $request->input('sort')
-                : 'relevance',
-        ];
+        $selectedBrands = array_values(array_filter((array) $request->input('brands', [])));
+        $selectedGenders = array_values(array_filter((array) $request->input('genders', [])));
+        $selectedSize = trim((string) $request->input('size', ''));
+        $selectedColor = trim((string) $request->input('color', ''));
+        $onlyDiscount = $request->boolean('discount');
+        $minPrice = $request->filled('min_price') ? (float) $request->input('min_price') : null;
+        $maxPrice = $request->filled('max_price') ? (float) $request->input('max_price') : null;
+        $sort = in_array($request->input('sort'), ['relevance', 'price_asc', 'price_desc', 'discount_desc'], true)
+            ? $request->input('sort')
+            : 'relevance';
 
-        $filters = array_filter($filters, fn ($val) => $val !== null && $val !== '');
+        $hasAnyExtraFilter = $minPrice !== null || $maxPrice !== null
+            || $selectedBrands !== [] || $selectedGenders !== []
+            || $selectedSize !== '' || $selectedColor !== '' || $onlyDiscount;
+
+        $products = [];
+        $pagination = ['total' => 0, 'per_page' => 24, 'current_page' => 1, 'last_page' => 1];
 
         if ($query !== '') {
             $query = mb_substr($query, 0, 200);
@@ -40,38 +48,98 @@ class ProductSearchController extends Controller
                 $this->trackQueryHit($query);
             }
 
-            $hasPriceFilter = isset($filters['min_price']) || isset($filters['max_price']);
-
-            // Если запрос — чистая категория без фильтров цены и не AJAX-подгрузка, ведём на страницу категории
-            if (!$hasPriceFilter && !$request->expectsJson() && ($slug = $categories->resolve($query))) {
-                $sort = $filters['sort'] ?? null;
-
+            // Если запрос совпадает с чистой категорией без доп. фильтров — ведём на страницу категории
+            if (!$hasAnyExtraFilter && !$request->expectsJson() && ($slug = $categories->resolve($query))) {
                 return redirect()->route('feed-category.show', array_filter([
                     'slug' => $slug,
                     'sort' => in_array($sort, ['price_asc', 'price_desc'], true) ? $sort : null,
                 ]));
             }
 
-            $searchResult = $this->searchManager->search($query, app()->getLocale(), $filters, $page);
+            $searchFilters = array_filter([
+                'min_price' => $minPrice,
+                'max_price' => $maxPrice,
+                'sort' => in_array($sort, ['relevance', 'price_asc', 'price_desc'], true) ? $sort : 'relevance',
+            ], fn ($v) => $v !== null && $v !== '');
 
-            // Поддержка кнопки «Показать ещё» (AJAX)
-            if ($request->expectsJson()) {
-                $html = '';
-                foreach ($searchResult['products'] ?? [] as $product) {
-                    $html .= view('components.public-ui.product-card', [
-                        'product' => $product,
-                        'isFirst' => false,
-                    ])->render();
-                }
-
-                return response()->json([
-                    'html' => $html,
-                    'pagination' => $searchResult['pagination'] ?? null,
-                ]);
-            }
+            $searchResult = $this->searchManager->search($query, app()->getLocale(), $searchFilters, $page);
+            $products = (array) ($searchResult['products'] ?? []);
+            $pagination = (array) ($searchResult['pagination'] ?? $pagination);
         }
 
-        return view('public.product-search', compact('query', 'searchResult', 'filters'));
+        $facets = $tiles->buildFacetsFromCards($products);
+
+        // Применяем фасетные фильтры поверх выдачи поиска
+        if ($selectedBrands !== []) {
+            $products = array_values(array_filter($products, fn ($p) => in_array($p['brand'] ?? '', $selectedBrands, true)));
+        }
+        if ($selectedColor !== '') {
+            $products = array_values(array_filter($products, fn ($p) => str_contains(mb_strtolower((string) ($p['colour'] ?? '')), mb_strtolower($selectedColor))));
+        }
+        if ($onlyDiscount) {
+            $products = array_values(array_filter($products, fn ($p) => (int) ($p['discount_percent'] ?? 0) > 0));
+        }
+        if ($sort === 'discount_desc') {
+            usort($products, fn ($a, $b) => (int) ($b['discount_percent'] ?? 0) <=> (int) ($a['discount_percent'] ?? 0));
+        }
+
+        if ($hasAnyExtraFilter && $query !== '') {
+            $pagination['total'] = count($products);
+        }
+
+        if ($request->expectsJson()) {
+            $html = '';
+            foreach ($products as $product) {
+                $html .= view('components.public-ui.product-card', [
+                    'product' => $product,
+                    'isFirst' => false,
+                ])->render();
+            }
+
+            return response()->json([
+                'html' => $html,
+                'pagination' => $pagination,
+            ]);
+        }
+
+        $allCategories = $tiles->get();
+
+        // Для пустого поиска или как быстрая навигация сверху показываем карточки категорий
+        $subcategories = $allCategories->take(12)->values()->map(fn ($cat, $idx) => [
+            'index' => $idx,
+            'label' => $cat['label'],
+            'count' => $cat['count'],
+            'image' => file_exists(public_path('images/categories/' . $cat['img']))
+                ? asset('images/categories/' . $cat['img'])
+                : null,
+            'url' => $cat['url'],
+        ])->all();
+
+        $pageTitle = $query !== '' ? $query : __('Каталог и поиск товаров');
+
+        return view('public.catalog', [
+            'isSearchMode' => true,
+            'searchQuery' => $query,
+            'formAction' => route('product-search'),
+            'resetUrl' => $query !== '' ? route('product-search', ['q' => $query]) : route('product-search'),
+            'pageTitle' => $pageTitle,
+            'allCategories' => $allCategories,
+            'subcategories' => $subcategories,
+            'activeSubIndex' => null,
+            'facets' => $facets,
+            'products' => $products,
+            'pagination' => $pagination,
+            'filters' => [
+                'min_price' => $minPrice,
+                'max_price' => $maxPrice,
+                'brands' => $selectedBrands,
+                'genders' => $selectedGenders,
+                'size' => $selectedSize,
+                'color' => $selectedColor,
+                'discount' => $onlyDiscount,
+                'sort' => $sort,
+            ],
+        ]);
     }
 
     public function autocomplete(Request $request, ProductAutocompleteService $autocompleteService): JsonResponse
@@ -92,7 +160,6 @@ class ProductSearchController extends Controller
                 Redis::hincrby('autocomplete_hits_counter', $norm, 1);
             }
         } catch (\Throwable) {
-            // Локально Redis может быть не запущен — игнорируем без влияния на поиск
         }
     }
 }
