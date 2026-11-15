@@ -8,27 +8,19 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
 
-/**
- * Категории из config/home_categories.php: плашки для главной (название и число товаров)
- * и выборка товаров для страницы категории. Обе части используют один и тот же отбор,
- * поэтому число на плашке всегда совпадает с числом товаров на странице.
- */
 class FeedCategoryTiles
 {
     private const CACHE_MINUTES = 60;
 
     /**
-     * Плашки для главной.
+     * Плитки главных категорий с иконками и количеством товаров по всем активным магазинам.
      *
-     * @return Collection<int, array{slug: string, label: string, count: int, url: string}>
+     * @return Collection<int, array{slug: string, label: string, img: string, count: int, url: string}>
      */
     public function get(): Collection
     {
-        $feed = $this->feed();
-
-        // В кэше лежат «сырые» данные; перевод названий делаем на лету, потому что язык у посетителей разный.
         $raw = Cache::remember(
-            "home.category_chips.v2.{$feed}",
+            'home.category_tiles.v3.all',
             now()->addMinutes(self::CACHE_MINUTES),
             fn () => $this->build()
         );
@@ -36,12 +28,13 @@ class FeedCategoryTiles
         return collect($raw)->map(fn (array $tile) => [
             'slug' => $tile['slug'],
             'label' => __($tile['label']),
+            'img' => $tile['img'],
             'count' => $tile['count'],
             'url' => route('feed-category.show', ['slug' => $tile['slug']]),
         ]);
     }
 
-    /** Описание категории по адресу или null, если такой нет. */
+    /** Описание категории по slug или null. */
     public function tile(string $slug): ?array
     {
         foreach ((array) config('home_categories.tiles', []) as $tile) {
@@ -53,22 +46,155 @@ class FeedCategoryTiles
         return null;
     }
 
-    /** Товары категории, доступные в наличии (без сортировки и пагинации). */
+    /** Базовый запрос товаров категории (по всем активным фидам, исключая мусорные разделы). */
     public function productsQuery(array $tile): Builder
     {
         $query = FeedProduct::query()
-            ->where('feed', $this->feed())
             ->where('is_active', true)
             ->where('in_stock', true);
+
+        $feeds = array_filter((array) config('home_categories.feeds', []));
+        if ($feeds !== []) {
+            $query->whereIn('feed', $feeds);
+        }
+
+        $excludedTops = array_filter((array) config('home_categories.excluded_tops', ['Home']));
+        if ($excludedTops !== []) {
+            $query->where(function (Builder $q) use ($excludedTops) {
+                $q->whereNull('category_top')
+                  ->orWhereNotIn('category_top', $excludedTops);
+            });
+        }
 
         $this->applyFilter($query, (array) ($tile['where'] ?? []));
 
         return $query;
     }
 
-    private function feed(): string
+    /**
+     * Подкатегории для верхней карусели страницы категории с реальным фото товара и счётчиком.
+     *
+     * @return array<int, array{index: int, label: string, count: int, image: ?string}>
+     */
+    public function buildSubcategories(array $tile): array
     {
-        return (string) config('home_categories.feed', 'adidas');
+        $subs = (array) ($tile['subcategories'] ?? []);
+        if ($subs === []) {
+            return [];
+        }
+
+        $cacheKey = 'category.subs.v1.' . ($tile['slug'] ?? md5(json_encode($tile)));
+
+        $raw = Cache::remember($cacheKey, now()->addMinutes(self::CACHE_MINUTES), function () use ($tile, $subs) {
+            $result = [];
+            foreach ($subs as $idx => $sub) {
+                $q = $this->productsQuery($tile);
+                $this->applyFilter($q, (array) ($sub['where'] ?? []));
+
+                $count = (clone $q)->count();
+                if ($count === 0) {
+                    continue;
+                }
+
+                $sampleImage = (clone $q)
+                    ->whereNotNull('image_url')
+                    ->where('image_url', '!=', '')
+                    ->value('image_url');
+
+                $result[] = [
+                    'index' => $idx,
+                    'label' => (string) ($sub['label'] ?? ''),
+                    'count' => $count,
+                    'image' => $sampleImage,
+                ];
+            }
+
+            return $result;
+        });
+
+        return array_map(fn (array $item) => [
+            'index' => $item['index'],
+            'label' => __($item['label']),
+            'count' => $item['count'],
+            'image' => $item['image'],
+        ], $raw);
+    }
+
+    /**
+     * Фасетные фильтры для левого сайдбара страницы категории (Бренды, Пол, Размеры, Цвета).
+     */
+    public function buildFacets(array $tile): array
+    {
+        $cacheKey = 'category.facets.v1.' . ($tile['slug'] ?? md5(json_encode($tile)));
+
+        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_MINUTES), function () use ($tile) {
+            $base = $this->productsQuery($tile);
+
+            // 1. Топ брендов
+            $brands = (clone $base)
+                ->whereNotNull('brand')
+                ->where('brand', '!=', '')
+                ->selectRaw('brand, COUNT(*) as cnt')
+                ->groupBy('brand')
+                ->orderByDesc('cnt')
+                ->limit(25)
+                ->get()
+                ->map(fn ($r) => ['name' => (string) $r->brand, 'count' => (int) $r->cnt])
+                ->all();
+
+            // 2. Пол
+            $genders = (clone $base)
+                ->whereNotNull('gender')
+                ->where('gender', '!=', '')
+                ->selectRaw('gender, COUNT(*) as cnt')
+                ->groupBy('gender')
+                ->orderByDesc('cnt')
+                ->get()
+                ->map(fn ($r) => ['code' => (string) $r->gender, 'count' => (int) $r->cnt])
+                ->all();
+
+            // 3. Популярные размеры и цвета (по выборке до 2500 товаров категории)
+            $sample = (clone $base)
+                ->select(['sizes', 'colour'])
+                ->limit(2500)
+                ->get();
+
+            $sizeCounts = [];
+            $colorCounts = [];
+
+            foreach ($sample as $row) {
+                if (is_array($row->sizes)) {
+                    foreach ($row->sizes as $s) {
+                        $s = trim((string) $s);
+                        if ($s !== '' && mb_strlen($s) <= 12) {
+                            $sizeCounts[$s] = ($sizeCounts[$s] ?? 0) + 1;
+                        }
+                    }
+                }
+
+                if (is_string($row->colour) && $row->colour !== '') {
+                    $mainColor = trim(explode('/', $row->colour)[0]);
+                    if ($mainColor !== '' && mb_strlen($mainColor) <= 25) {
+                        $colorCounts[$mainColor] = ($colorCounts[$mainColor] ?? 0) + 1;
+                    }
+                }
+            }
+
+            arsort($sizeCounts);
+            arsort($colorCounts);
+
+            return [
+                'brands' => $brands,
+                'genders' => $genders,
+                'sizes' => array_slice(array_keys($sizeCounts), 0, 18),
+                'colors' => array_slice($colorCounts, 0, 12, true),
+            ];
+        });
+    }
+
+    public function applyPublicFilter(Builder $query, array $where): void
+    {
+        $this->applyFilter($query, $where);
     }
 
     private function build(): array
@@ -84,6 +210,7 @@ class FeedCategoryTiles
             $tiles[] = [
                 'slug' => (string) $tile['slug'],
                 'label' => (string) $tile['label'],
+                'img' => (string) ($tile['img'] ?? ($tile['slug'] . '.png')),
                 'count' => $count,
             ];
         }
@@ -103,7 +230,6 @@ class FeedCategoryTiles
         }
     }
 
-    /** Совпадение category_path с любой из подстрок. */
     private function wherePathLike(Builder $query, array $needles): void
     {
         $query->where(function (Builder $q) use ($needles) {

@@ -15,7 +15,6 @@ class FeedCategoryController extends Controller
     public function show(Request $request, string $slug, FeedCategoryTiles $tiles, FeedEntityLocalizer $localizer): View|JsonResponse
     {
         $tile = $tiles->tile($slug);
-
         if ($tile === null) {
             abort(404);
         }
@@ -23,37 +22,67 @@ class FeedCategoryController extends Controller
         $page = max(1, (int) $request->input('page', 1));
         $perPage = (int) config('feeds.search_limit', 24);
 
-        $filters = [
-            'min_price' => $request->filled('min_price') ? (float) $request->input('min_price') : null,
-            'max_price' => $request->filled('max_price') ? (float) $request->input('max_price') : null,
-            'sort' => in_array($request->input('sort'), ['relevance', 'price_asc', 'price_desc'], true)
-                ? $request->input('sort')
-                : 'relevance',
-        ];
-        $filters = array_filter($filters, fn ($val) => $val !== null && $val !== '');
+        $subIndex = $request->filled('sub') ? (int) $request->input('sub') : null;
+        $selectedBrands = array_values(array_filter((array) $request->input('brands', [])));
+        $selectedGenders = array_values(array_filter((array) $request->input('genders', [])));
+        $selectedSize = trim((string) $request->input('size', ''));
+        $selectedColor = trim((string) $request->input('color', ''));
+        $onlyDiscount = $request->boolean('discount');
+        $minPrice = $request->filled('min_price') ? (float) $request->input('min_price') : null;
+        $maxPrice = $request->filled('max_price') ? (float) $request->input('max_price') : null;
+        $sort = in_array($request->input('sort'), ['relevance', 'price_asc', 'price_desc', 'discount_desc'], true)
+            ? $request->input('sort')
+            : 'relevance';
 
         $base = $tiles->productsQuery($tile);
 
-        if (!empty($filters['min_price'])) {
-            $base->where('price', '>=', (float) $filters['min_price']);
-        }
-        if (!empty($filters['max_price'])) {
-            $base->where('price', '<=', (float) $filters['max_price']);
+        // Фильтр по выбранной подкатегории из верхней ленты
+        $subcategories = $tiles->buildSubcategories($tile);
+        $activeSub = null;
+        if ($subIndex !== null && isset($tile['subcategories'][$subIndex])) {
+            $activeSub = $tile['subcategories'][$subIndex];
+            $tiles->applyPublicFilter($base, (array) ($activeSub['where'] ?? []));
         }
 
+        if ($minPrice !== null && $minPrice > 0) {
+            $base->where('price', '>=', $minPrice);
+        }
+        if ($maxPrice !== null && $maxPrice > 0) {
+            $base->where('price', '<=', $maxPrice);
+        }
+        if ($selectedBrands !== []) {
+            $base->whereIn('brand', $selectedBrands);
+        }
+        if ($selectedGenders !== []) {
+            $base->whereIn('gender', $selectedGenders);
+        }
+        if ($selectedSize !== '') {
+            $base->where('sizes', 'like', '%"' . addslashes($selectedSize) . '"%');
+        }
+        if ($selectedColor !== '') {
+            $base->where('colour', 'like', '%' . $selectedColor . '%');
+        }
+        if ($onlyDiscount) {
+            $base->where('discount_percent', '>', 0);
+        }
+
+        // Дедупликация одинаковых моделей между магазинами (по model_code, иначе по sku)
         $grouped = (clone $base)
-            ->selectRaw("feed, COALESCE(NULLIF(model_code, ''), sku) as group_key, MIN(id) as primary_id, MIN(price) as min_price, MAX(rating) as max_rating, MAX(discount_percent) as max_discount, COUNT(*) as colorways_count")
-            ->groupBy('feed', 'group_key');
+            ->selectRaw("COALESCE(NULLIF(model_code, ''), sku) as group_key, MIN(id) as primary_id, MIN(price) as min_price, MAX(rating) as max_rating, MAX(discount_percent) as max_discount, COUNT(DISTINCT feed) as stores_count, COUNT(*) as colorways_count")
+            ->groupBy('group_key');
 
         $total = DB::query()->fromSub($grouped, 'g')->count();
-        $sort = $filters['sort'] ?? 'relevance';
 
         if ($sort === 'price_asc') {
             $grouped->orderBy('min_price');
         } elseif ($sort === 'price_desc') {
             $grouped->orderByDesc('min_price');
+        } elseif ($sort === 'discount_desc') {
+            $grouped->orderByDesc('max_discount')->orderBy('min_price');
         } else {
-            $grouped->orderByRaw('COALESCE(MAX(rating), -1) DESC')->orderByDesc('max_discount')->orderBy('primary_id');
+            $grouped->orderByRaw('COALESCE(MAX(rating), -1) DESC')
+                    ->orderByDesc('max_discount')
+                    ->orderBy('primary_id');
         }
 
         $rows = $grouped
@@ -62,7 +91,7 @@ class FeedCategoryController extends Controller
             ->get();
 
         $primaryIds = $rows->pluck('primary_id')->all();
-        $colorwaysMap = $rows->pluck('colorways_count', 'primary_id')->all();
+        $metaMap = $rows->keyBy('primary_id');
 
         $productsMap = $primaryIds !== []
             ? FeedProduct::query()->whereIn('id', $primaryIds)->get()->keyBy('id')
@@ -76,36 +105,33 @@ class FeedCategoryController extends Controller
                 continue;
             }
 
+            $meta = $metaMap->get($id);
+            $bestPrice = (float) ($meta->min_price ?? $p->price);
+            $storesCount = (int) ($meta->stores_count ?? 1);
             $store = (string) config("feeds.feeds.{$p->feed}.store_name", $p->brand ?: $p->feed);
-            $formatted = '€' . number_format($p->price, 2, '.', ' ');
+            $formatted = '€' . number_format($bestPrice, 2, '.', ' ');
 
             $cards[] = $p->toCard() + [
+                'price' => $bestPrice,
+                'price_amount' => $bestPrice,
                 'original_title' => $p->name,
-                'merchant' => $store,
-                'price_from' => $p->price,
+                'merchant' => $storesCount > 1 ? ($storesCount . ' ' . __('магазина')) : $store,
+                'price_from' => $bestPrice,
                 'price_formatted' => $formatted,
                 'price_note' => $formatted,
                 'formatted_price' => $formatted,
-                'offers_count' => 1,
-                'rating_count' => null,
-                'colorways_count' => (int) ($colorwaysMap[$id] ?? 1),
+                'offers_count' => $storesCount,
+                'colorways_count' => (int) ($meta->colorways_count ?? 1),
             ];
         }
 
         $cards = $localizer->localizeCardTitles($cards, app()->getLocale());
 
-        $query = __((string) $tile['label']);
-        $searchResult = [
-            'query_summary' => $query,
-            'recommendation' => __('Найдено моделей: ') . $total,
-            'products' => $cards,
-            'pagination' => [
-                'total' => $total,
-                'per_page' => $perPage,
-                'current_page' => $page,
-                'last_page' => max(1, (int) ceil($total / $perPage)),
-            ],
-            'active_filters' => $filters,
+        $pagination = [
+            'total' => $total,
+            'per_page' => $perPage,
+            'current_page' => $page,
+            'last_page' => max(1, (int) ceil($total / $perPage)),
         ];
 
         if ($request->expectsJson()) {
@@ -119,10 +145,31 @@ class FeedCategoryController extends Controller
 
             return response()->json([
                 'html' => $html,
-                'pagination' => $searchResult['pagination'],
+                'pagination' => $pagination,
             ]);
         }
 
-        return view('public.product-search', compact('query', 'searchResult', 'filters'));
+        $facets = $tiles->buildFacets($tile);
+        $categoryTitle = __((string) $tile['label']);
+
+        return view('public.category', [
+            'tile' => $tile,
+            'categoryTitle' => $categoryTitle,
+            'subcategories' => $subcategories,
+            'activeSubIndex' => $subIndex,
+            'facets' => $facets,
+            'products' => $cards,
+            'pagination' => $pagination,
+            'filters' => [
+                'min_price' => $minPrice,
+                'max_price' => $maxPrice,
+                'brands' => $selectedBrands,
+                'genders' => $selectedGenders,
+                'size' => $selectedSize,
+                'color' => $selectedColor,
+                'discount' => $onlyDiscount,
+                'sort' => $sort,
+            ],
+        ]);
     }
 }

@@ -1,9 +1,9 @@
 <x-layouts.public 
-    title="{{ __('Официальный каталог Adidas в Греции') }} | Exereto"
-    description="{{ __('Поиск и подбор товаров из официального магазина Adidas через партнерскую сеть Awin.') }}"
+    title="{{ __('Брендовые товары из Греции с доставкой в Грузию') }} | Exereto"
+    description="{{ __('Оригинальная одежда, обувь, парфюмерия и аксессуары из официальных магазинов Греции с доставкой в Грузию.') }}"
 >
 
-    <div class="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] antialiased pb-20 space-y-12 relative"
+    <div class="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] antialiased pb-20 space-y-14 relative"
          x-data="{ loading: false }"
          @pageshow.window="loading = false"
          @submit.window="loading = true"
@@ -17,66 +17,63 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span class="text-base font-semibold text-[#1d1d1f] animate-pulse">{{ __('Загрузка каталога Adidas...') }}</span>
+                <span class="text-base font-semibold text-[#1d1d1f] animate-pulse">{{ __('Загружаем каталог...') }}</span>
             </div>
         </template>
         
         <!-- Поисковый Spotlight -->
         <x-public-ui.search-spotlight />
 
-        <!-- Баннер Adidas (с изоляцией стилей) -->
-        <section class="max-w-7xl mx-auto px-6 pt-4">
-            <div class="adidas-hero-banner">
-                @if(!empty($promoBanner['image_url']))
-                    <img src="{{ $promoBanner['image_url'] }}" alt="{{ $promoBanner['title'] }}">
-                    <div class="banner-overlay"></div>
-                @endif
-                <div class="banner-content space-y-4">
-                    <span class="inline-block text-xs font-bold uppercase tracking-widest bg-white/20 backdrop-blur-md px-3.5 py-1.5 rounded-full text-white border border-white/20">
-                        Official Partner
-                    </span>
-                    <h1 class="text-3xl sm:text-5xl font-black tracking-tight leading-tight text-white">
-                        {{ $promoBanner['title'] }}
-                    </h1>
-                    <p class="text-zinc-200 text-sm sm:text-base leading-relaxed">
-                        {{ $promoBanner['subtitle'] }}
-                    </p>
-                    <div class="pt-2">
-                        <a href="{{ $promoBanner['link'] }}" class="adidas-btn-black">
-                            {{ __('Смотреть весь каталог') }}
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Категории -->
-        @if(isset($categoryTiles) && $categoryTiles->isNotEmpty())
-        <section class="max-w-7xl mx-auto px-6 space-y-6">
-            <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 text-center">{{ __('Категории') }}</h2>
-
-            <div class="apple-category-list">
-                @foreach($categoryTiles as $tile)
-                    <x-public-ui.category-tile :tile="$tile" />
-                @endforeach
-            </div>
-        </section>
+        <!-- Сетка популярных категорий с картинками -->
+        @if(isset($tiles) && $tiles->isNotEmpty())
+            <x-public-ui.categories-grid :categories="$tiles" />
         @endif
 
-        <!-- Популярные модели Adidas -->
+        <!-- Популярные бренды и сервисы выкупа/форвардинга -->
+        @if(isset($brands) && count($brands) > 0)
+            <section class="max-w-5xl mx-auto px-6 text-center space-y-5">
+                <div class="space-y-1.5">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-[#1d1d1f]">
+                        {{ __('Популярные бренды') }}
+                    </h2>
+                    <p class="text-sm text-[#86868b]">
+                        {{ __('Оригинальные коллекции из официальных греческих магазинов и универмагов') }}
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    @foreach($brands as $brand)
+                        <a href="{{ $brand['url'] }}" class="apple-brand-pill">
+                            {{ $brand['name'] }}
+                        </a>
+                    @endforeach
+                </div>
+
+                <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    <a href="{{ route('buy-for-me') }}" class="apple-outline-pill">
+                        {{ __('Выкупите за меня') }}
+                    </a>
+                    <a href="{{ route('forwarding') }}?type=forwarding" class="apple-outline-pill">
+                        {{ __('Форвардинг') }}
+                    </a>
+                </div>
+            </section>
+        @endif
+
+        <!-- Мультибрендовые рекомендации -->
         @if(isset($popularProducts) && $popularProducts->isNotEmpty())
         <section class="max-w-7xl mx-auto px-6 space-y-6">
             <div class="flex justify-between items-end">
                 <div>
-                    <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">{{ __('Популярные модели') }}</h2>
-                    <p class="text-sm text-zinc-500 mt-1">{{ __('Хиты продаж') }}</p>
+                    <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">{{ __('Рекомендуемые предложения') }}</h2>
+                    <p class="text-sm text-zinc-500 mt-1">{{ __('Подборка оригинальных моделей разных брендов') }}</p>
                 </div>
-                <a href="{{ route('product-search', ['q' => 'adidas']) }}" class="text-sm font-semibold text-zinc-900 hover:underline">
-                    {{ __('Все товары') }} &rarr;
+                <a href="{{ route('feed-category.show', ['slug' => 'sales-offers']) }}" class="text-sm font-semibold text-[#0071e3] hover:underline">
+                    {{ __('Все акции') }} &rarr;
                 </a>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="apple-product-grid">
                 @foreach($popularProducts as $index => $product)
                     <x-public-ui.product-card :product="$product" :is-first="$index === 0" />
                 @endforeach
@@ -84,17 +81,20 @@
         </section>
         @endif
 
-        <!-- Специальные скидки и акции -->
+        <!-- Скидки и специальные предложения -->
         @if(isset($discountProducts) && $discountProducts->isNotEmpty())
         <section class="max-w-7xl mx-auto px-6 space-y-6">
             <div class="flex justify-between items-end">
                 <div>
                     <span class="text-xs font-bold uppercase tracking-widest text-red-600">Special Sales</span>
-                    <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 mt-1">{{ __('Скидки и специальные предложения') }}</h2>
+                    <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 mt-1">{{ __('Скидки дня') }}</h2>
                 </div>
+                <a href="{{ route('feed-category.show', ['slug' => 'sales-offers']) }}" class="text-sm font-semibold text-[#0071e3] hover:underline">
+                    {{ __('Смотреть все') }} &rarr;
+                </a>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="apple-product-grid">
                 @foreach($discountProducts as $product)
                     <x-public-ui.product-card :product="$product" />
                 @endforeach
@@ -103,10 +103,10 @@
         @endif
 
         <!-- Мессенджеры -->
-        <section class="max-w-3xl mx-auto px-6 py-10 text-center space-y-4">
+        <section class="max-w-3xl mx-auto px-6 py-8 text-center space-y-4">
             <div class="space-y-3 pt-2">
                 <p class="text-sm sm:text-base text-zinc-600">
-                    {{ __('Мы на связи и готовы помочь с любым вопросом по выкупу и доставке') }}
+                    {{ __('Мы на связи и готовы помочь с любым вопросом по выкупу и доставке в Грузию') }}
                 </p>
                 <x-messenger-row align="justify-center" />
             </div>
