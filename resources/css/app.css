@@ -74,7 +74,7 @@ body.overflow-hidden {
     justify-content: center;
     padding: 0.75rem 2rem;
     background-color: var(--apple-blue);
-    color: #ffffff !important; /* жёстко фиксируем белый цвет текста */
+    color: #ffffff !important;
     font-size: 0.9375rem;
     font-weight: 600;
     border-radius: var(--apple-radius-pill);
@@ -102,8 +102,6 @@ body.overflow-hidden {
 
 /* ==========================================================================
    3. ЕДИНАЯ ТИПОГРАФИКА (5 РАЗМЕРОВ + АЛИАСЫ)
-   Классы .apple-* в группах — старые имена, оставлены для совместимости
-   с разметкой; новые места лучше верстать на .app-text-*.
    ========================================================================== */
 
 /* 1. Самый крупный заголовок (ЛОГО) */
@@ -171,16 +169,12 @@ body.overflow-hidden {
 
 /* ==========================================================================
    4. APPLE CTA CARD (плашка с мессенджерами)
-   Названия классов «dark» исторически: сейчас плашка светлая,
-   тёмный фон и тень закомментированы.
    ========================================================================== */
 
 .apple-dark-cta {
-    /*background-color: #1d1d1f; */
     border-radius: 2rem; /* 32px */
     padding: 2rem;
     text-align: center;
-    /*box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); */
 }
 
 @media (min-width: 640px) {
@@ -213,7 +207,6 @@ body.overflow-hidden {
    5. ШАПКА САЙТА (HEADER & NAVIGATION)
    ========================================================================== */
 
-/* Пункты навигации хедера */
 .apple-nav-link {
     align-items: center;
     font-size: 0.8rem;
@@ -236,7 +229,6 @@ body.overflow-hidden {
     font-weight: 400;
 }
 
-/* Кнопки в хедере */
 .apple-header-btn {
     padding: 0.5rem 1rem;
     border-radius: var(--apple-radius-pill);
@@ -279,7 +271,6 @@ body.overflow-hidden {
    7. КАРТОЧКИ (CARDS)
    ========================================================================== */
 
-/* Стандартные Apple-карточки и бенто */
 .apple-card,
 .apple-bento-card {
     background-color: #ffffff;
@@ -296,7 +287,6 @@ body.overflow-hidden {
 
 .apple-card:hover,
 .apple-bento-card:hover {
-/*  transform: translateY(-4px);    */
     box-shadow: var(--apple-shadow-hover);
 }
 
@@ -310,9 +300,7 @@ body.overflow-hidden {
     height: 450px;
     width: 100%;
     border-radius: var(--apple-radius-lg);
-    /* overflow: hidden;*/
-    background-color: var(--apple-bg-soft);
-
+    background-color: #ffffff;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -325,24 +313,25 @@ body.overflow-hidden {
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
 }
 
-/* Белая верхняя часть под фото */
 .apple-product-card-top {
     position: relative;
     height: 300px;
     width: 100%;
     background-color: #ffffff;
-    /* верхние углы вровень с карточкой */
     border-top-left-radius: var(--apple-radius-lg);
     border-top-right-radius: var(--apple-radius-lg);
     padding: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden; /* обрезает только фото внутри белого блока */
+    overflow: hidden;
     flex-shrink: 0;
 }
 
-/* Нижняя плашка с названием и ценой */
+.apple-product-card-top img {
+    mix-blend-mode: multiply;
+}
+
 .apple-product-card-bottom {
     border-bottom-left-radius: var(--apple-radius-lg);
     border-bottom-right-radius: var(--apple-radius-lg);
@@ -355,9 +344,6 @@ body.overflow-hidden {
     background-color: #ffffff;
 }
 
-/* --- ТЕКСТОВЫЕ СТИЛИ КАРТОЧКИ --- */
-
-/* Общее «обрезать до 2 строк»: заголовок и описание товара, название категории */
 .apple-product-title,
 .apple-product-desc,
 .apple-category-name {
@@ -371,7 +357,7 @@ body.overflow-hidden {
 .apple-product-title {
     width: 100%;
     text-align: left !important;
-    font-size: 0.95rem; /* ≈15px */
+    font-size: 0.95rem;
     font-weight: 600;
     color: var(--apple-text-primary);
     line-height: 1.35;
@@ -382,12 +368,10 @@ body.overflow-hidden {
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    font-size: 0.75rem; /* 12px */
+    font-size: 0.75rem;
     color: var(--apple-text-muted);
 }
 
-/* Звёзды рейтинга: заливка считается из --rating (0–5), например style="--rating: 4.38".
-   Дробные значения закрашиваются частично, пустая часть остаётся серой. */
 .apple-product-stars {
     --rating: 0;
     display: inline-block;
@@ -395,8 +379,8 @@ body.overflow-hidden {
     font-weight: 500;
     background: linear-gradient(
         90deg,
-        #f59e0b calc(var(--rating) / 5 * 100%),  /* цвет заполненных звёзд */
-        #d2d2d7 calc(var(--rating) / 5 * 100%)   /* цвет пустых звёзд */
+        #f59e0b calc(var(--rating) / 5 * 100%),
+        #d2d2d7 calc(var(--rating) / 5 * 100%)
     );
     -webkit-background-clip: text;
     background-clip: text;
@@ -409,13 +393,13 @@ body.overflow-hidden {
 }
 
 .apple-product-desc {
-    font-size: 0.8125rem; /* 13px */
+    font-size: 0.8125rem;
     color: var(--apple-text-tertiary);
     line-height: 1.4;
 }
 
 .apple-product-price {
-    font-size: 1.25rem; /* 20px */
+    font-size: 1.25rem;
     font-weight: 700;
     color: var(--apple-text-primary);
     letter-spacing: -0.02em;
@@ -428,7 +412,6 @@ body.overflow-hidden {
     font-weight: 400;
 }
 
-/* Кнопка корзины */
 .apple-product-cart-btn {
     width: 2.5rem;
     height: 2.5rem;
@@ -490,12 +473,6 @@ body.overflow-hidden {
     opacity: 0;
 }
 
-
-/* --------------------------------------------------------------------------
-   Мобильное меню (шторка): кнопка-иконка, пункты, разделители, появление
-   -------------------------------------------------------------------------- */
-
-/* Круглая кнопка-иконка (крестик в шторке, годится и для гамбургера в хедере) */
 .apple-icon-btn {
     padding: 0.5rem;
     border-radius: var(--apple-radius-pill);
@@ -518,7 +495,6 @@ body.overflow-hidden {
     outline-offset: 2px;
 }
 
-/* Пункт меню шторки. Активный пункт (aria-current) подсвечивается синим */
 .apple-mobile-link {
     display: block;
     padding-block: 0.375rem;
@@ -542,7 +518,6 @@ body.overflow-hidden {
     opacity: 0.6;
 }
 
-/* Вторичные пункты (Помощь, Кабинет, Вход) */
 .apple-mobile-link--secondary {
     font-size: 1.6rem;
     line-height: 1.35;
@@ -555,13 +530,11 @@ body.overflow-hidden {
     font-weight: 700;
 }
 
-/* Разделитель между блоками шторки */
 .apple-mobile-nav-divider {
     border-top: 1px solid rgba(0, 0, 0, 0.10);
     padding-top: 1rem;
 }
 
-/* Нижняя панель шторки (язык), прижата вниз и учитывает «чёлку» iOS */
 .apple-mobile-nav-footer {
     display: flex;
     align-items: center;
@@ -574,7 +547,6 @@ body.overflow-hidden {
     color: var(--apple-text-muted);
 }
 
-/* Каскадное появление блоков шторки: задержка задаётся через style="--i: N" */
 .apple-item {
     animation: apple-item-in 0.5s var(--apple-ease) both;
     animation-delay: calc(0.12s + var(--i, 0) * 0.05s);
@@ -605,13 +577,12 @@ body.overflow-hidden {
 .apple-footer {
     background-color: var(--apple-bg-soft);
     color: #6e6e73;
-    font-size: 0.8125rem; /* 13px — фирменный размер подвала Apple */
+    font-size: 0.8125rem;
     line-height: 1.2;
     padding-block: 2rem;
     border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-/* Сетка колонок: бренд шире, остальные равны; все колонки выровнены по верху */
 .apple-footer-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -631,8 +602,6 @@ body.overflow-hidden {
     }
 }
 
-/* Заголовок колонки и логотип занимают одинаковую по высоте строку,
-   поэтому контент всех колонок стартует с одной линии */
 .apple-footer-brand,
 .apple-footer-title {
     line-height: 1.25rem;
@@ -642,12 +611,12 @@ body.overflow-hidden {
 }
 
 .apple-footer-brand {
-    font-size: 1.25rem; /* 20px */
+    font-size: 1.25rem;
     letter-spacing: -0.025em;
 }
 
 .apple-footer-title {
-    font-size: 0.75rem; /* 12px */
+    font-size: 0.75rem;
     letter-spacing: 0.02em;
     text-transform: uppercase;
 }
@@ -674,16 +643,14 @@ body.overflow-hidden {
     color: var(--apple-blue);
 }
 
-/* Нижняя плашка: копирайт и примечание о доставке */
 .apple-footer-bottom {
-    /* display: flex; */
     flex-direction: column;
     align-items: center;
     gap: 0.5rem;
     margin-top: 2rem;
     padding-top: 2rem;
     border-top: 1px solid var(--apple-border);
-    font-size: 0.75rem; /* 12px */
+    font-size: 0.75rem;
     line-height: 1.45;
     text-align: center;
     color: var(--apple-text-muted);
@@ -709,7 +676,7 @@ body.overflow-hidden {
     gap: 0.375rem;
     padding: 0.375rem 0.75rem;
     border-radius: var(--apple-radius-pill);
-    font-size: 1.2rem; /* ≈19px — мобильная шторка */
+    font-size: 1.2rem;
     font-weight: 500;
     transition: all 0.2s var(--apple-ease);
     cursor: pointer;
@@ -718,7 +685,6 @@ body.overflow-hidden {
     text-decoration: none;
 }
 
-/* Светлая тема (для белой шапки) */
 .apple-lang-btn.theme-light {
     color: var(--apple-text-primary);
 }
@@ -728,7 +694,6 @@ body.overflow-hidden {
     background-color: rgba(0, 0, 0, 0.04);
 }
 
-/* Тёмная тема (для тёмной шапки кабинета) */
 .apple-lang-btn.theme-dark {
     color: #e8e8ed !important;
 }
@@ -744,14 +709,12 @@ body.overflow-hidden {
     opacity: 0.75;
 }
 
-/* Код текущего языка в кнопке-триггере (RU, EN, KA) */
 .apple-lang-code {
     font-weight: 600;
     letter-spacing: 0.025em;
     text-transform: uppercase;
 }
 
-/* Пункт выпадающего списка языков */
 .apple-lang-option {
     display: flex;
     align-items: center;
@@ -768,16 +731,14 @@ body.overflow-hidden {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Текущий язык */
 .apple-lang-option[aria-current="true"] {
     color: var(--apple-blue);
     font-weight: 600;
 }
 
-/* Десктоп (хедер, lg+): переключатель языка компактнее, чем в мобильной шторке */
 @media (min-width: 1024px) {
     .apple-lang-btn {
-        font-size: 0.7rem; /* ≈11px */
+        font-size: 0.7rem;
     }
 
     .apple-lang-btn svg {
@@ -787,11 +748,10 @@ body.overflow-hidden {
 
     .apple-lang-option {
         padding: 0.4375rem 0.875rem;
-        font-size: 0.9375rem; /* 15px */
+        font-size: 0.9375rem;
     }
 }
 
-/* Утилита: фирменная плавность движения Apple (задаёт только timing-function) */
 .cubic-bezier-apple {
     transition-timing-function: var(--apple-ease);
 }
@@ -801,10 +761,9 @@ body.overflow-hidden {
    12. APPLE SEARCH INTERFACE (умный поиск и фильтры)
    ========================================================================== */
 
-/* Главная поисковая капсула */
 .apple-search-bar {
     background-color: #ffffff;
-    height: 4rem; /* 64px */
+    height: 4rem;
     padding-left: 1.5rem;
     padding-right: 1.5rem;
     border-radius: var(--apple-radius-pill);
@@ -815,7 +774,7 @@ body.overflow-hidden {
 
 @media (min-width: 640px) {
     .apple-search-bar {
-        height: 3.7rem; /* ≈59px — на sm+ чуть ниже, чем на мобильном */
+        height: 3.7rem;
     }
 }
 
@@ -828,7 +787,6 @@ body.overflow-hidden {
     box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1), 0 4px 25px rgba(0, 0, 0, 0.04);
 }
 
-/* Поле ввода поискового запроса */
 .apple-search-input {
     width: 100%;
     background-color: transparent;
@@ -843,7 +801,6 @@ body.overflow-hidden {
     color: var(--apple-text-muted);
 }
 
-/* Капсула инпута цены */
 .apple-filter-pill {
     display: flex;
     align-items: center;
@@ -863,7 +820,6 @@ body.overflow-hidden {
     box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.2);
 }
 
-/* Числовой инпут цены без стрелочек */
 .apple-filter-input {
     width: 2.5rem;
     background-color: transparent;
@@ -887,7 +843,6 @@ body.overflow-hidden {
     color: var(--apple-text-muted);
 }
 
-/* Блок рекомендаций ИИ */
 .apple-recommendation-box {
     max-width: 48rem;
     display: flex;
@@ -949,7 +904,6 @@ body.overflow-hidden {
    14. APPLE PILL-КНОПКИ (капсулы брендов и контурные кнопки)
    ========================================================================== */
 
-/* Серая капсула бренда (логотипы магазинов) */
 .apple-brand-pill {
     display: inline-flex;
     align-items: center;
@@ -971,7 +925,6 @@ body.overflow-hidden {
     box-shadow: 0 2px 6px rgba(150, 150, 150, 0.2);
 }
 
-/* Контурная кнопка (Buy For Me / Forwarding без заливки) */
 .apple-outline-pill {
     display: inline-flex;
     align-items: center;
@@ -997,11 +950,8 @@ body.overflow-hidden {
 
 /* ==========================================================================
    15. CATEGORIES GRID (популярные категории на главной)
-   Карточки почти фиксированного размера: адаптация идёт за счёт переноса
-   строк, а не растягивания. Брейкпоинты: sm 640 / lg 1024 / xl 1280 / 2xl 1536.
    ========================================================================== */
 
-/* Секция */
 .apple-categories {
     width: 100%;
     padding: 0.5rem 1rem;
@@ -1019,7 +969,6 @@ body.overflow-hidden {
     }
 }
 
-/* Шапка секции: стили текста берутся из .apple-section-title / .apple-section-subtitle */
 .apple-categories-head {
     max-width: 48rem;
     margin: 0 auto 2rem;
@@ -1031,7 +980,6 @@ body.overflow-hidden {
     margin-bottom: 0.5rem;
 }
 
-/* Сетка: мобильный — 3 колонки; sm+ — перенос строк; 2xl — 10 равных колонок */
 .apple-categories-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1045,7 +993,7 @@ body.overflow-hidden {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
-        max-width: 588px; /* 5 карточек по 108px + 4 зазора по 12px */
+        max-width: 588px;
     }
 }
 
@@ -1064,7 +1012,6 @@ body.overflow-hidden {
     }
 }
 
-/* Карточка категории */
 .apple-category-card {
     display: flex;
     flex: none;
@@ -1108,7 +1055,6 @@ body.overflow-hidden {
     }
 }
 
-/* Область под картинку: забирает всё свободное место карточки */
 .apple-category-media {
     display: flex;
     flex: 1;
@@ -1137,11 +1083,10 @@ body.overflow-hidden {
     }
 }
 
-/* Название категории (обрезка до 2 строк — в общем правиле раздела 8) */
 .apple-category-name {
     width: 100%;
     margin-top: 0.25rem;
-    font-size: 0.6875rem; /* 11px */
+    font-size: 0.6875rem;
     font-weight: 500;
     line-height: 1.25;
     letter-spacing: -0.025em;
@@ -1150,32 +1095,28 @@ body.overflow-hidden {
 
 @media (min-width: 640px) {
     .apple-category-name {
-        font-size: 0.75rem; /* 12px */
+        font-size: 0.75rem;
     }
 }
 
 @media (min-width: 1536px) {
     .apple-category-name {
-        font-size: 1rem; /* 16px */
+        font-size: 1rem;
     }
 }
 
+
 /* ==========================================================================
-   16. ТОВАРЫ ИЗ ПАРТНЁРСКИХ ФИДОВ: карточка в выдаче и детальная страница
-   ЗАМЕНИТЕ этим блоком прежний раздел 16 целиком (от этого заголовка до конца файла).
+   16. ТОВАРЫ ИЗ ПАРТНЁРСКИХ ФИДОВ: единый белый холст + mix-blend-multiply
    ========================================================================== */
 
-/* Студийные фото Adidas лежат на сероватом фоне (≈ #EAEEEF) и сливаются с фоном сайта.
-   Лёгкое осветление переводит этот фон в чистый белый. Сила задаётся переменной:
-   если на светлых товарах пропадают детали, уменьшите её (1.06), если фон всё ещё сероватый, увеличьте (1.11). */
 .apple-photo-lift {
     filter: brightness(var(--apple-photo-lift, 1));
 }
 
-/* --- Карточка в выдаче: зачёркнутая старая цена и бейдж скидки --- */
 .apple-product-price-old {
     margin-left: 0.375rem;
-    font-size: 0.8125rem; /* 13px */
+    font-size: 0.8125rem;
     font-weight: 400;
     color: var(--apple-text-muted);
     text-decoration: line-through;
@@ -1186,14 +1127,14 @@ body.overflow-hidden {
     border-radius: var(--apple-radius-pill);
     background-color: #ff3b30;
     color: #ffffff;
-    font-size: 0.75rem; /* 12px */
+    font-size: 0.75rem;
     font-weight: 600;
     line-height: 1;
 }
 
 /* --- Детальная страница товара --- */
 .apple-pdp {
-    max-width: 90rem; /* 1440px вместо 1152px — раскрываем ширину на десктопе */
+    max-width: 90rem;
     margin: 0 auto;
     padding: 2rem 1.5rem 4rem;
     text-align: left;
@@ -1247,7 +1188,6 @@ body.overflow-hidden {
     }
 }
 
-/* Колонка с фото: плитка и подпись под ней */
 .apple-pdp-media {
     display: flex;
     flex-direction: column;
@@ -1262,7 +1202,7 @@ body.overflow-hidden {
 }
 
 .apple-pdp-photo-note {
-    font-size: 0.75rem; /* 12px */
+    font-size: 0.75rem;
     line-height: 1.4;
     color: var(--apple-text-muted);
 }
@@ -1276,14 +1216,17 @@ body.overflow-hidden {
     text-decoration: underline;
 }
 
-/* Фото: крупная премиальная витрина в тон студийному фону */
+/* Единый чистый белый фон витрины товара без серых полос */
 .apple-pdp-gallery {
     position: relative;
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
-    aspect-ratio: 1 / 1;
-    padding: 0;
-    background-color: #eaeeef;
+    aspect-ratio: 4 / 5;
+    max-height: 740px;
+    padding: 1.5rem;
+    background-color: #ffffff;
     border: 1px solid var(--apple-border);
     border-radius: 1.5rem;
     overflow: hidden;
@@ -1296,19 +1239,12 @@ body.overflow-hidden {
     width: 100%;
     height: 100%;
     object-fit: contain;
+    mix-blend-mode: multiply;
     transition: transform 0.5s var(--apple-ease);
 }
 
 .apple-pdp-gallery:hover .apple-pdp-image {
     transform: scale(1.03);
-}
-
-
-.apple-pdp-image {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
 }
 
 .apple-pdp-zoom-hint {
@@ -1321,7 +1257,7 @@ body.overflow-hidden {
     align-items: center;
     justify-content: center;
     color: var(--apple-text-primary);
-    background-color: rgba(255, 255, 255, 0.85);
+    background-color: rgba(255, 255, 255, 0.9);
     border: 1px solid var(--apple-border);
     border-radius: var(--apple-radius-pill);
     pointer-events: none;
@@ -1341,7 +1277,6 @@ body.overflow-hidden {
     line-height: 1;
 }
 
-/* Просмотр фото на весь экран: тема PhotoSwipe под светлый дизайн сайта */
 html .pswp {
     --pswp-bg: #ffffff;
     --pswp-placeholder-bg: #f5f5f7;
@@ -1352,9 +1287,9 @@ html .pswp {
     --pswp-preloader-color-secondary: rgba(0, 0, 0, 0.6);
 }
 
-/* То же лёгкое осветление фото, что и на странице товара */
 .pswp__img {
     filter: brightness(var(--apple-photo-lift, 1));
+    mix-blend-mode: multiply;
 }
 
 .apple-pdp-info {
@@ -1364,7 +1299,7 @@ html .pswp {
 }
 
 .apple-pdp-crumbs {
-    font-size: 0.8125rem; /* 13px */
+    font-size: 0.8125rem;
     color: var(--apple-text-muted);
 }
 
@@ -1429,7 +1364,7 @@ html .pswp {
 .apple-pdp-color {
     width: 4.5rem;
     height: 4.5rem;
-    padding: 0;
+    padding: 0.25rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1452,6 +1387,7 @@ html .pswp {
     width: 100%;
     height: 100%;
     object-fit: contain;
+    mix-blend-mode: multiply;
 }
 
 .apple-pdp-sizes {
@@ -1519,10 +1455,9 @@ html .pswp {
 }
 
 /* ==========================================================================
-   ИЗОЛИРОВАННЫЕ СТИЛИ ДЛЯ БАННЕРА И КАРТОЧЕК ADIDAS
+   КАРТОЧКА ТОВАРА В КАТАЛОГЕ (единый белый холст для всех магазинов)
    ========================================================================== */
 
-/* Баннер Adidas */
 .adidas-hero-banner {
     position: relative;
     overflow: hidden;
@@ -1564,7 +1499,6 @@ html .pswp {
     }
 }
 
-/* Чёрная кнопка для баннера и карточек */
 .adidas-btn-black {
     display: inline-flex;
     align-items: center;
@@ -1586,10 +1520,9 @@ html .pswp {
     transform: scale(1.02);
 }
 
-/* Карточка товара Adidas (серый верх, белый низ, чёрная кнопка) */
 .adidas-product-card {
     position: relative;
-    background-color: #eaeeef;
+    background-color: #ffffff;
     border-radius: 1.5rem;
     border: 1px solid rgba(0, 0, 0, 0.06);
     display: flex;
@@ -1607,20 +1540,24 @@ html .pswp {
 
 .adidas-product-top {
     position: relative;
-    height: 185px;
-    background-color: #eaeeef;
+    height: 205px;
+    background-color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0.5rem;
+    padding: 0.625rem;
     overflow: hidden;
 }
 
 @media (min-width: 640px) {
     .adidas-product-top {
-        height: 270px;
-        padding: 0;
+        height: 280px;
+        padding: 0.875rem;
     }
+}
+
+.adidas-product-top img {
+    mix-blend-mode: multiply;
 }
 
 .adidas-product-bottom {
@@ -1639,7 +1576,6 @@ html .pswp {
     }
 }
 
-/* Чёрная круглая кнопка действия в карточке */
 .adidas-card-action-btn {
     width: 2.5rem;
     height: 2.5rem;
@@ -1658,8 +1594,6 @@ html .pswp {
     transform: scale(1.05);
 }
 
-/* Сетка карточек товаров: одна и та же на главной и в поисковой выдаче.
-   Добавьте в конец app.css. Заменяет длинные цепочки grid-cols-* в обоих шаблонах. */
 .apple-product-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);

@@ -18,7 +18,7 @@
 @endphp
 
 <div class="adidas-product-card group relative">
-    
+
     <a href="{{ $detailUrl }}" class="absolute inset-0 z-10" aria-label="{{ $name }}"></a>
 
     <div class="adidas-product-top">
@@ -39,12 +39,12 @@
     <div class="adidas-product-bottom">
         <div class="space-y-1 mb-3">
             @if($brand)
-                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider">{{ $brand }}</div>
+                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider truncate">{{ $brand }}</div>
             @endif
-            <h3 class="font-semibold text-zinc-900 text-sm line-clamp-2">
+            <h3 class="font-semibold text-zinc-900 text-xs sm:text-sm line-clamp-2">
                 {{ $name }}
             </h3>
-            
+
             @if(!empty($colour))
                 <div class="pt-1">
                     <x-public-ui.color-dots :colour="$colour" :only-dots="true" />
@@ -52,9 +52,9 @@
             @endif
         </div>
 
-        <div class="flex items-end justify-between pt-3 border-t border-zinc-100">
+        <div class="flex items-end justify-between pt-2.5 sm:pt-3 border-t border-zinc-100">
             <div>
-                <div class="text-lg font-bold text-zinc-900">€{{ number_format((float)$price, 2) }}</div>
+                <div class="text-base sm:text-lg font-bold text-zinc-900">€{{ number_format((float)$price, 2) }}</div>
                 @if(!empty($oldPrice))
                     <div class="text-xs text-zinc-400 line-through">€{{ number_format((float)$oldPrice, 2) }}</div>
                 @endif
