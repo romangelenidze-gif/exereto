@@ -17,7 +17,7 @@ class HomeController extends Controller
 
         // 1. Мультибрендовые рекомендации (кэшируем карточки в Redis на 60 мин)
         $rawPopularCards = Cache::remember(
-            'home.popular_cards.v2',
+            'home.popular_cards.v3',
             now()->addMinutes(60),
             fn () => $this->fetchBalancedCards(onlyDiscounts: false, limit: 12)
         );
@@ -26,7 +26,7 @@ class HomeController extends Controller
 
         // 2. Лучшие скидки по всем брендам (кэшируем карточки в Redis на 60 мин)
         $rawDiscountCards = Cache::remember(
-            'home.discount_cards.v2',
+            'home.discount_cards.v3',
             now()->addMinutes(60),
             fn () => $this->fetchBalancedCards(onlyDiscounts: true, limit: 12)
         );
@@ -34,8 +34,11 @@ class HomeController extends Controller
         $discountProducts = collect($localizer->localizeCardTitles($rawDiscountCards, $locale));
 
         // 3. Популярные бренды из каталога
-        $brands = Cache::remember('home.top_brands.v2', now()->addHours(6), function () {
+        $brands = Cache::remember('home.top_brands.v3', now()->addHours(6), function () {
+            $activeFeeds = array_keys(array_filter(config('feeds.feeds', []), fn($f) => $f['enabled'] ?? true));
+
             $dbBrands = FeedProduct::query()
+                ->whereIn('feed', $activeFeeds)
                 ->where('is_active', true)
                 ->where('in_stock', true)
                 ->whereNotNull('brand')
@@ -71,8 +74,10 @@ class HomeController extends Controller
     private function fetchBalancedCards(bool $onlyDiscounts, int $limit): array
     {
         $excludedTops = array_filter((array) config('home_categories.excluded_tops', ['Home']));
+        $activeFeeds = array_keys(array_filter(config('feeds.feeds', []), fn($f) => $f['enabled'] ?? true));
 
         $base = FeedProduct::query()
+            ->whereIn('feed', $activeFeeds)
             ->where('is_active', true)
             ->where('in_stock', true)
             ->whereNotNull('image_url')
@@ -85,14 +90,16 @@ class HomeController extends Controller
 
         if ($onlyDiscounts) {
             $base->where('discount_percent', '>=', 15)
+                 ->orderByDesc('priority_score')
                  ->orderByDesc('discount_percent');
         } else {
-            $base->orderByDesc('rating')
+            $base->orderByDesc('priority_score')
+                 ->orderByDesc('rating')
                  ->orderByDesc('id');
         }
 
         $pool = collect();
-        foreach (['notos', 'adidas'] as $feed) {
+        foreach ($activeFeeds as $feed) {
             $chunk = (clone $base)
                 ->where('feed', $feed)
                 ->limit(36)

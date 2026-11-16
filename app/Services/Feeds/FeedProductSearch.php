@@ -94,8 +94,7 @@ class FeedProductSearch
 
     protected function isMeilisearchEnabled(): bool
     {
-        return config('scout.driver') === 'meilisearch'
-            && !empty(config('scout.meilisearch.host'));
+        return config('scout.driver') === 'meilisearch';
     }
 
     /**
@@ -133,9 +132,9 @@ class FeedProductSearch
 
             $sort = $filters['sort'] ?? 'relevance';
             $meiliSort = match ($sort) {
-                'price_asc' => ['price:asc', 'id:asc'],
-                'price_desc' => ['price:desc', 'id:asc'],
-                default => ['rating:desc', 'discount_percent:desc', 'id:asc'],
+                'price_asc' => ['price:asc', 'priority_score:desc'],
+                'price_desc' => ['price:desc', 'priority_score:desc'],
+                default => ['priority_score:desc', 'rating:desc'],
             };
 
             $rawSearchQuery = trim($userQuery) !== ''
@@ -147,7 +146,7 @@ class FeedProductSearch
                 : $rawSearchQuery;
 
             $client = new Client(
-                (string) config('scout.meilisearch.host'),
+                (string) (config('scout.meilisearch.url') ?: config('scout.meilisearch.host')),
                 config('scout.meilisearch.key') ?: null
             );
 
@@ -176,8 +175,11 @@ class FeedProductSearch
             }
 
             $primaryIds = array_values(array_filter(array_map(fn ($h) => (int) ($h['id'] ?? 0), $hits)));
+            
+            // Загружаем товары ОДНИМ запросом с жадной подгрузкой переводов (Решение N+1)
             $products = FeedProduct::query()
                 ->whereIn('id', $primaryIds)
+                ->with(['translations']) 
                 ->get()
                 ->keyBy('id');
 
@@ -247,6 +249,8 @@ class FeedProductSearch
     {
         $cfg = $feedKey ? (array) config("feeds.feeds.{$feedKey}", []) : [];
         $global = (array) config('feeds', []);
+        
+        $activeFeeds = array_keys(array_filter(config('feeds.feeds', []), fn($f) => $f['enabled'] ?? true));
 
         $rawCandidates = array_values(array_unique(array_filter([
             trim($userQuery),
@@ -306,7 +310,7 @@ class FeedProductSearch
             }
             $seenSignatures[$sig] = true;
 
-            $result = $this->executePaginatedQuery($feedKey, $brand, $attempt, $filters, $page, $perPage);
+            $result = $this->executePaginatedQuery($feedKey, $brand, $attempt, $filters, $page, $perPage, $activeFeeds);
             if ($result['total'] > 0) {
                 return $result;
             }
@@ -321,9 +325,10 @@ class FeedProductSearch
         ];
     }
 
-    protected function executePaginatedQuery(?string $feedKey, ?string $brand, array $attempt, array $filters, int $page, int $perPage): array
+    protected function executePaginatedQuery(?string $feedKey, ?string $brand, array $attempt, array $filters, int $page, int $perPage, array $activeFeeds): array
     {
         $base = FeedProduct::query()
+            ->whereIn('feed', $activeFeeds)
             ->where('is_active', true)
             ->where('in_stock', true);
 
@@ -371,7 +376,7 @@ class FeedProductSearch
         }
 
         $grouped = (clone $base)
-            ->selectRaw("feed, COALESCE(NULLIF(model_code, ''), sku) as group_key, MIN(id) as primary_id, MIN(price) as min_price, MAX(rating) as max_rating, MAX(discount_percent) as max_discount, COUNT(*) as colorways_count")
+            ->selectRaw("feed, COALESCE(NULLIF(model_code, ''), sku) as group_key, MIN(id) as primary_id, MIN(price) as min_price, MAX(rating) as max_rating, MAX(discount_percent) as max_discount, MAX(priority_score) as max_priority, COUNT(*) as colorways_count")
             ->groupBy('feed', 'group_key');
 
         $total = DB::query()->fromSub($grouped, 'g')->count();
@@ -392,7 +397,7 @@ class FeedProductSearch
         } elseif ($sort === 'price_desc') {
             $grouped->orderByDesc('min_price');
         } else {
-            $grouped->orderByRaw('COALESCE(MAX(rating), -1) DESC')->orderByDesc('max_discount')->orderBy('primary_id');
+            $grouped->orderByDesc('max_priority')->orderByRaw('COALESCE(MAX(rating), -1) DESC')->orderByDesc('max_discount');
         }
 
         $rows = $grouped
@@ -403,8 +408,10 @@ class FeedProductSearch
         $primaryIds = $rows->pluck('primary_id')->all();
         $colorwaysMap = $rows->pluck('colorways_count', 'primary_id')->all();
 
+        // Загружаем товары ОДНИМ запросом с жадной подгрузкой (Решение N+1)
         $products = FeedProduct::query()
             ->whereIn('id', $primaryIds)
+            ->with(['translations']) 
             ->get()
             ->keyBy('id');
 
