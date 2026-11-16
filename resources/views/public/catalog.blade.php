@@ -534,7 +534,7 @@
                         @endif
 
                         @if(!empty($filters['size']))
-                            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-[#1d1d1f] text-white shrink-0">
+                            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xl font-medium bg-[#1d1d1f] text-white shrink-0">
                                 {{ $filters['size'] }}
                             </span>
                         @endif

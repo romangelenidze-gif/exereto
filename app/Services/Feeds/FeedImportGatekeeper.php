@@ -1,0 +1,137 @@
+<?php
+
+namespace App\Services\Feeds;
+
+class FeedImportGatekeeper
+{
+    /**
+     * Проверяет, нужно ли импортировать товар из данного фида согласно матрице правил.
+     *
+     * @param  string  $feedKey  Код фида (например: modivo, epapoutsia, sephora)
+     * @param  array<string, mixed>  $row  Массив атрибутов товара (brand, category_top, category_path, name...)
+     */
+    public function shouldImport(string $feedKey, array $row): bool
+    {
+        $rules = (array) config("feed_rules.stores.{$feedKey}", []);
+        if ($rules === []) {
+            return true;
+        }
+
+        if (isset($rules['enabled']) && $rules['enabled'] === false) {
+            return false;
+        }
+
+        $brand = mb_strtolower(trim((string) ($row['brand'] ?? '')));
+        $categoryText = mb_strtolower(trim(
+            ((string) ($row['category_top'] ?? '')) . ' ' .
+            ((string) ($row['category_path'] ?? '')) . ' ' .
+            ((string) ($row['name'] ?? ''))
+        ));
+
+        // 1. Проверка черного списка брендов (exclude_brands)
+        foreach ((array) ($rules['exclude_brands'] ?? []) as $excludedBrand) {
+            $needle = mb_strtolower(trim((string) $excludedBrand));
+            if ($needle !== '' && $brand === $needle) {
+                return false;
+            }
+        }
+
+        // 2. Проверка черного списка категорий (exclude_categories) — например, отсекаем обувь в Modivo
+        foreach ((array) ($rules['exclude_categories'] ?? []) as $excludedCat) {
+            $needle = mb_strtolower(trim((string) $excludedCat));
+            if ($needle !== '' && str_contains($categoryText, $needle)) {
+                return false;
+            }
+        }
+
+        // 3. Проверка белого списка категорий (allow_categories) — например, только обувь в Epapoutsia
+        $allowedCategories = array_filter((array) ($rules['allow_categories'] ?? []));
+        if ($allowedCategories !== []) {
+            $matched = false;
+            foreach ($allowedCategories as $allowedCat) {
+                $needle = mb_strtolower(trim((string) $allowedCat));
+                if ($needle !== '' && str_contains($categoryText, $needle)) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if (!$matched) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Вычисляет итоговый приоритет карточки (priority_score) для дедупликации между магазинами.
+     */
+    public function calculatePriority(string $feedKey, ?string $brand, int $discountPercent = 0): int
+    {
+        $rules = (array) config("feed_rules.stores.{$feedKey}", []);
+        $score = (int) ($rules['base_priority'] ?? 50);
+
+        $normalizedBrand = mb_strtolower(trim((string) $brand));
+        if ($normalizedBrand !== '' && !empty($rules['brand_priorities'])) {
+            foreach ((array) $rules['brand_priorities'] as $ruleBrand => $brandScore) {
+                if ($normalizedBrand === mb_strtolower(trim((string) $ruleBrand))) {
+                    $score = (int) $brandScore;
+                    break;
+                }
+            }
+        }
+
+        // Бонус за скидку (например, для Galerie de Beauté против Sephora на распродажах)
+        if (!empty($rules['discount_bonus']) && $discountPercent > 0) {
+            $score += min(45, (int) round($discountPercent * 0.6));
+        }
+
+        return max(1, min(999, $score));
+    }
+
+    /**
+     * Подставляет английский префикс /en/ как в прямую ссылку, так и внутрь параметра ued= у Awin-ссылок.
+     */
+    public function localizeUrl(string $feedKey, ?string $url): ?string
+    {
+        if ($url === null || $url === '') {
+            return $url;
+        }
+
+        $modifier = config("feed_rules.stores.{$feedKey}.url_modifier");
+        if (empty($modifier['search']) || empty($modifier['replace'])) {
+            return $url;
+        }
+
+        $searches = (array) $modifier['search'];
+        $replaces = (array) $modifier['replace'];
+
+// Поддержка и Awin (?ued=...), и Linkwise (?lnkurl=...)
+        if (str_contains($url, 'ued=') || str_contains($url, 'lnkurl=')) {
+            return preg_replace_callback('/([?&](?:ued|lnkurl)=)([^&]+)/i', function (array $m) use ($searches, $replaces) {
+                $decoded = rawurldecode($m[2]);
+                $modified = $this->applyUrlReplacement($decoded, $searches, $replaces);
+                return $m[1] . rawurlencode($modified);
+            }, $url) ?? $url;
+        }
+
+        return $this->applyUrlReplacement($url, $searches, $replaces);
+    }
+
+    private function applyUrlReplacement(string $url, array $searches, array $replaces): string
+    {
+        // Если уже содержит /en/, не дублируем
+        if (str_contains($url, '/en/')) {
+            return $url;
+        }
+
+        foreach ($searches as $idx => $search) {
+            $replace = $replaces[$idx] ?? $replaces[0];
+            if (str_contains($url, $search)) {
+                return str_replace($search, $replace, $url);
+            }
+        }
+
+        return $url;
+    }
+}

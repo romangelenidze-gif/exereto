@@ -68,6 +68,104 @@ return [
 
     ],
 
+
+    'modivo' => [
+            'enabled' => (bool) env('FEEDS_MODIVO_ENABLED', true),
+            'network' => env('FEEDS_MODIVO_NETWORK', 'linkwise'),
+            'label' => 'Modivo',
+            'brand' => null,
+            'store_name' => 'modivo.gr',
+            'url' => env('FEED_MODIVO_URL'),
+            'brand_aliases' => [],
+            'model_keywords' => [],
+            'strip_words' => [],
+        ],
+
+        'epapoutsia' => [
+            'enabled' => (bool) env('FEEDS_EPAPOUTSIA_ENABLED', true),
+            'network' => env('FEEDS_EPAPOUTSIA_NETWORK', 'linkwise'),
+            'label' => 'Epapoutsia',
+            'brand' => null,
+            'store_name' => 'epapoutsia.gr',
+            'url' => env('FEED_EPAPOUTSIA_URL'),
+            'brand_aliases' => [],
+            'model_keywords' => [],
+            'strip_words' => [],
+        ],
+
+        'stradivarius' => [
+            'enabled' => (bool) env('FEEDS_STRADIVARIUS_ENABLED', true),
+            'network' => env('FEEDS_STRADIVARIUS_NETWORK', 'linkwise'),
+            'label' => 'Stradivarius',
+            'brand' => 'Stradivarius',
+            'store_name' => 'stradivarius.com',
+            'url' => env('FEED_STRADIVARIUS_URL'),
+            'brand_aliases' => ['stradivarius', 'страдивариус'],
+            'model_keywords' => [],
+            'strip_words' => ['stradivarius'],
+        ],
+
+        'sephora' => [
+            'enabled' => (bool) env('FEEDS_SEPHORA_ENABLED', true),
+            'network' => env('FEEDS_SEPHORA_NETWORK', 'linkwise'),
+            'label' => 'Sephora',
+            'brand' => null,
+            'store_name' => 'sephora.gr',
+            'url' => env('FEED_SEPHORA_URL'),
+            'brand_aliases' => ['sephora', 'сефора'],
+            'model_keywords' => [],
+            'strip_words' => [],
+        ],
+
+        'galeriedebeaute' => [
+            'enabled' => (bool) env('FEEDS_GALERIEDEBEAUTE_ENABLED', true),
+            'network' => env('FEEDS_GALERIEDEBEAUTE_NETWORK', 'linkwise'),
+            'label' => 'Galerie de Beauté',
+            'brand' => null,
+            'store_name' => 'galeriedebeaute.gr',
+            'url' => env('FEED_GALERIEDEBEAUTE_URL'),
+            'brand_aliases' => [],
+            'model_keywords' => [],
+            'strip_words' => [],
+        ],
+
+        'pharm24' => [
+            'enabled' => (bool) env('FEEDS_PHARM24_ENABLED', true),
+            'network' => env('FEEDS_PHARM24_NETWORK', 'linkwise'),
+            'label' => 'Pharm24',
+            'brand' => null,
+            'store_name' => 'pharm24.gr',
+            'url' => env('FEED_PHARM24_URL'),
+            'brand_aliases' => [],
+            'model_keywords' => [],
+            'strip_words' => [],
+        ],
+
+        'cosselie' => [
+            'enabled' => (bool) env('FEEDS_COSSELIE_ENABLED', true),
+            'network' => env('FEEDS_COSSELIE_NETWORK', 'linkwise'),
+            'label' => 'Cosselie',
+            'brand' => 'Cosselie',
+            'store_name' => 'cosselie.com',
+            'url' => env('FEED_COSSELIE_URL'),
+            'brand_aliases' => ['cosselie'],
+            'model_keywords' => [],
+            'strip_words' => ['cosselie'],
+        ],
+
+        'energiers' => [
+            'enabled' => (bool) env('FEEDS_ENERGIERS_ENABLED', true),
+            'network' => env('FEEDS_ENERGIERS_NETWORK', 'linkwise'),
+            'label' => 'Energiers',
+            'brand' => 'Energiers',
+            'store_name' => 'energiers.gr',
+            'url' => env('FEED_ENERGIERS_URL'),
+            'brand_aliases' => ['energiers'],
+            'model_keywords' => [],
+            'strip_words' => ['energiers'],
+        ],
+
+
     // Сколько моделей (карточек) отдавать в выдачу из фида.
     'search_limit' => (int) env('FEEDS_SEARCH_LIMIT', 20),
 

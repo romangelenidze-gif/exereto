@@ -387,7 +387,15 @@ return Cache::remember($pageCacheKey, now()->addHours(2), function () use ($filt
             $groupExpr = "COALESCE(NULLIF(model_code, ''), MD5(CONCAT(COALESCE(brand, ''), '_', COALESCE(name, ''), '_', COALESCE(colour, ''))), sku)";
             
             $grouped = (clone $filteredBase)
-                ->selectRaw("{$groupExpr} as group_key, MIN(id) as primary_id, MIN(price) as min_price, MAX(rating) as max_rating, MAX(discount_percent) as max_discount, COUNT(DISTINCT feed) as stores_count, COUNT(*) as colorways_count")
+                ->selectRaw("
+                    {$groupExpr} as group_key,
+                    CAST(SUBSTRING_INDEX(GROUP_CONCAT(id ORDER BY priority_score DESC, price ASC, id ASC), ',', 1) AS UNSIGNED) as primary_id,
+                    MIN(price) as min_price,
+                    MAX(rating) as max_rating,
+                    MAX(discount_percent) as max_discount,
+                    COUNT(DISTINCT feed) as stores_count,
+                    COUNT(*) as colorways_count
+                ")
                 ->groupBy('group_key');
 
             $total = Cache::remember("catalog_total:v5:{$cachePrefix}", now()->addHours(2), function () use ($grouped) {

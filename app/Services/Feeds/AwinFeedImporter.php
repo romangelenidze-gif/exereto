@@ -17,9 +17,14 @@ class AwinFeedImporter
 
     protected const UPDATE_COLUMNS = [
         'model_code', 'brand', 'name', 'colour', 'category_path', 'category_top', 'gender', 'price',
-        'old_price', 'discount_percent', 'currency', 'rating', 'in_stock', 'sizes', 'specs', 'image_url',
-        'deep_link', 'merchant_url', 'delivery_cost', 'search_text', 'is_active', 'last_seen_at', 'updated_at',
+        'old_price', 'discount_percent', 'currency', 'rating', 'in_stock', 'priority_score', 'sizes', 'specs',
+        'image_url', 'deep_link', 'merchant_url', 'delivery_cost', 'search_text', 'is_active',
+        'last_seen_at', 'updated_at',
     ];
+
+    public function __construct(
+        protected FeedImportGatekeeper $gatekeeper
+    ) {}
 
     /**
      * @return array{total:int, imported:int, skipped:int, deactivated:int, deactivation_skipped:bool}
@@ -61,7 +66,11 @@ class AwinFeedImporter
 
     protected function process(string $feedKey, array $cfg, string $path, string $startedAt, int $limit = 0): array
     {
-        $handle = @fopen('compress.zlib://' . $path, 'r');
+        // Автоопределение GZIP или обычного CSV
+        $magic = @file_get_contents($path, false, null, 0, 2);
+        $streamPath = ($magic === "\x1f\x8b") ? ('compress.zlib://' . $path) : $path;
+
+        $handle = @fopen($streamPath, 'r');
 
         if ($handle === false) {
             throw new \RuntimeException('Не удалось открыть файл фида.');
@@ -73,7 +82,17 @@ class AwinFeedImporter
             : self::REQUIRED_COLUMNS_AWIN;
 
         try {
-            $header = fgetcsv($handle, 0, ',', '"', '');
+            $firstLine = (string) fgets($handle);
+            rewind($handle);
+
+            $delimiters = [',' => 0, ';' => 0, "\t" => 0, '|' => 0];
+            foreach (array_keys($delimiters) as $d) {
+                $delimiters[$d] = substr_count($firstLine, $d);
+            }
+            arsort($delimiters);
+            $delimiter = (string) array_key_first($delimiters);
+
+            $header = fgetcsv($handle, 0, $delimiter, '"', '');
 
             if (!is_array($header) || count($header) < 5) {
                 throw new \RuntimeException('Файл не похож на CSV-фид (пустой заголовок). Проверьте URL и ключ.');
@@ -84,7 +103,7 @@ class AwinFeedImporter
 
             foreach ($requiredColumns as $required) {
                 if (!in_array($required, $header, true)) {
-                    throw new \RuntimeException("В фиде нет обязательной колонки {$required}.");
+                    throw new \RuntimeException("В фиде нет обязательной колонки {$required}. Найдены: " . implode(', ', $header));
                 }
             }
 
@@ -96,7 +115,7 @@ class AwinFeedImporter
             $skipped = 0;
             $batch = [];
 
-            while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
+            while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
                 if ($row === [null]) {
                     continue;
                 }
@@ -107,7 +126,7 @@ class AwinFeedImporter
                     $row = array_pad(array_slice($row, 0, $columns), $columns, '');
                 }
 
-                $mapped = self::mapRow(array_combine($header, $row), $feedKey, $cfg, $startedAt);
+                $mapped = self::mapRow(array_combine($header, $row), $feedKey, $cfg, $startedAt, $this->gatekeeper);
 
                 if ($mapped === null) {
                     $skipped++;
@@ -207,15 +226,41 @@ class AwinFeedImporter
         return [$tmp, true];
     }
 
-    public static function mapRow(array $r, string $feedKey, array $cfg, string $seenAt): ?array
-    {
+    public static function mapRow(
+        array $r,
+        string $feedKey,
+        array $cfg,
+        string $seenAt,
+        ?FeedImportGatekeeper $gatekeeper = null
+    ): ?array {
+        $gatekeeper ??= app(FeedImportGatekeeper::class);
         $network = strtolower((string) ($cfg['network'] ?? 'awin'));
 
-        if ($network === 'linkwise') {
-            return self::mapRowLinkwise($r, $feedKey, $cfg, $seenAt);
+        $mapped = $network === 'linkwise'
+            ? self::mapRowLinkwise($r, $feedKey, $cfg, $seenAt)
+            : self::mapRowAwin($r, $feedKey, $cfg, $seenAt);
+
+        if ($mapped === null) {
+            return null;
         }
 
-        return self::mapRowAwin($r, $feedKey, $cfg, $seenAt);
+        // 1. Проверяем через Gatekeeper, разрешён ли этот товар/категория/бренд для данного магазина
+        if (!$gatekeeper->shouldImport($feedKey, $mapped)) {
+            return null;
+        }
+
+        // 2. Автоматически переключаем ссылки на /en/, если у магазина есть английская версия
+        $mapped['deep_link'] = $gatekeeper->localizeUrl($feedKey, $mapped['deep_link']);
+        $mapped['merchant_url'] = $gatekeeper->localizeUrl($feedKey, $mapped['merchant_url']);
+
+        // 3. Вычисляем приоритет магазина для этой модели (priority_score)
+        $mapped['priority_score'] = $gatekeeper->calculatePriority(
+            $feedKey,
+            $mapped['brand'] ?? null,
+            (int) ($mapped['discount_percent'] ?? 0)
+        );
+
+        return $mapped;
     }
 
     protected static function mapRowLinkwise(array $r, string $feedKey, array $cfg, string $seenAt): ?array
@@ -257,8 +302,8 @@ class AwinFeedImporter
         $categoryTop = $catSegments[0] ?? '';
 
         $gender = self::resolveGender('', $categoryPath, $name);
-        $colour = html_entity_decode($get('colour'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $model = $get('model_name');
+        $colour = html_entity_decode($get('colour') ?: $get('color'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $model = $get('model_name') ?: $get('mpn');
 
         $image = null;
         $imageCandidates = array_merge(
@@ -304,6 +349,7 @@ class AwinFeedImporter
             'currency' => strtoupper(substr($get('currency') ?: 'EUR', 0, 3)),
             'rating' => null,
             'in_stock' => $inStock ? 1 : 0,
+            'priority_score' => 50,
             'sizes' => $sizes === [] ? null : json_encode($sizes, JSON_UNESCAPED_UNICODE),
             'specs' => $specs === [] ? null : json_encode($specs, JSON_UNESCAPED_UNICODE),
             'image_url' => $image,
@@ -335,7 +381,7 @@ class AwinFeedImporter
         $oldPrice = ($old !== null && $old > $price) ? $old : null;
         $discount = $oldPrice !== null ? (int) max(1, min(99, round(($oldPrice - $price) / $oldPrice * 100))) : 0;
 
-        $sizeList = self::list($get('Fashion:size'));
+        $sizeList = self::list($get('Fashion:size') ?: $get('size'));
         $stockList = self::list($get('stock_quantity'));
         $eanList = self::list($get('ean'));
         $sizes = [];
@@ -355,28 +401,35 @@ class AwinFeedImporter
 
         $specs = array_values(array_filter(array_map('trim', explode('|', $get('specifications'))), fn ($s) => $s !== ''));
 
-        $categoryPath = $get('merchant_category');
-        $categoryTop = trim(explode(',', $categoryPath)[0] ?? '');
+        $rawCat = $get('merchant_category') ?: $get('category_name');
+        $catSegments = array_values(array_filter(
+            array_map('trim', preg_split('/\s*(?:>|\/|,)\s*/u', $rawCat) ?: []),
+            fn ($s) => $s !== ''
+        ));
+        $categoryPath = implode(', ', $catSegments);
+        $categoryTop = $catSegments[0] ?? '';
+
         $gender = self::resolveGender($get('Fashion:suitable_for'), $categoryPath, $name);
-        $colour = $get('colour');
-        $model = $get('mpn');
+        $colour = $get('colour') ?: $get('color');
+        $model = $get('mpn') ?: $get('model_number');
         $rating = self::decimal($get('rating'));
 
         $image = null;
-        foreach (['merchant_image_url', 'alternate_image', 'aw_image_url'] as $col) {
+        foreach (['merchant_image_url', 'alternate_image', 'aw_image_url', 'large_image'] as $col) {
             if (filter_var($get($col), FILTER_VALIDATE_URL)) {
                 $image = $get($col);
                 break;
             }
         }
 
-        $searchText = ' ' . FeedText::normalize(implode(' ', [$name, $colour, $categoryPath, $sku, $model])) . ' ';
+        $brand = $get('brand_name') !== '' ? mb_substr($get('brand_name'), 0, 64) : ($cfg['brand'] ?? null);
+        $searchText = ' ' . FeedText::normalize(implode(' ', array_filter([$brand, $name, $colour, $categoryPath, $sku, $model]))) . ' ';
 
         return [
             'feed' => $feedKey,
             'sku' => mb_substr($sku, 0, 64),
             'model_code' => $model !== '' ? mb_substr($model, 0, 64) : null,
-            'brand' => $get('brand_name') !== '' ? mb_substr($get('brand_name'), 0, 64) : ($cfg['brand'] ?? null),
+            'brand' => $brand,
             'name' => mb_substr($name, 0, 255),
             'colour' => $colour !== '' ? mb_substr($colour, 0, 255) : null,
             'category_path' => $categoryPath !== '' ? mb_substr($categoryPath, 0, 500) : null,
@@ -388,6 +441,7 @@ class AwinFeedImporter
             'currency' => strtoupper(substr($get('currency') ?: 'EUR', 0, 3)),
             'rating' => ($rating !== null && $rating > 0) ? min(5.0, $rating) : null,
             'in_stock' => $inStock ? 1 : 0,
+            'priority_score' => 50,
             'sizes' => $sizes === [] ? null : json_encode($sizes, JSON_UNESCAPED_UNICODE),
             'specs' => $specs === [] ? null : json_encode($specs, JSON_UNESCAPED_UNICODE),
             'image_url' => $image,
