@@ -292,7 +292,9 @@ class FeedCategoryTiles
 
     private function computeContextualFacets(Builder $base, array $filters): array
     {
-        $distinctExpr = "COUNT(DISTINCT COALESCE(NULLIF(model_code, ''), sku))";
+        // Если model_code пустой, группируем по хэшу Бренд+Название+Цвет, чтобы склеить разбитые размеры
+        $groupExpr = "COALESCE(NULLIF(model_code, ''), MD5(CONCAT(COALESCE(brand, ''), '_', COALESCE(name, ''), '_', COALESCE(colour, ''))), sku)";
+        $distinctExpr = "COUNT(DISTINCT {$groupExpr})";
 
         // Бренды считаем с учётом всех активных фильтров, кроме самих brands
         $brandsQuery = $this->applyUserFilters($base, $filters, except: 'brands');
@@ -381,9 +383,11 @@ class FeedCategoryTiles
     {
         $pageCacheKey = "catalog_page:v5:{$cachePrefix}:{$sort}:p{$page}";
 
-        return Cache::remember($pageCacheKey, now()->addHours(2), function () use ($filteredBase, $sort, $page, $perPage, $cachePrefix) {
+return Cache::remember($pageCacheKey, now()->addHours(2), function () use ($filteredBase, $sort, $page, $perPage, $cachePrefix) {
+            $groupExpr = "COALESCE(NULLIF(model_code, ''), MD5(CONCAT(COALESCE(brand, ''), '_', COALESCE(name, ''), '_', COALESCE(colour, ''))), sku)";
+            
             $grouped = (clone $filteredBase)
-                ->selectRaw("COALESCE(NULLIF(model_code, ''), sku) as group_key, MIN(id) as primary_id, MIN(price) as min_price, MAX(rating) as max_rating, MAX(discount_percent) as max_discount, COUNT(DISTINCT feed) as stores_count, COUNT(*) as colorways_count")
+                ->selectRaw("{$groupExpr} as group_key, MIN(id) as primary_id, MIN(price) as min_price, MAX(rating) as max_rating, MAX(discount_percent) as max_discount, COUNT(DISTINCT feed) as stores_count, COUNT(*) as colorways_count")
                 ->groupBy('group_key');
 
             $total = Cache::remember("catalog_total:v5:{$cachePrefix}", now()->addHours(2), function () use ($grouped) {
