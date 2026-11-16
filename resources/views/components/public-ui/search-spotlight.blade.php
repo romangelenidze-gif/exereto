@@ -1,6 +1,6 @@
 @props(['categories' => []])
 
-<section class="pt-2 sm:pt-4 lg:pt-3 pb-6 px-4 sm:px-6 lg:px-10 text-center w-full space-y-8 sm:space-y-10"
+<section class="pt-2 sm:pt-4 lg:pt-3 pb-0 px-4 sm:px-6 lg:px-10 text-center w-full space-y-8 sm:space-y-10"
          x-data="{ categoriesDrawerOpen: false }">
     <div class="space-y-3 max-w-4xl mx-auto">
         <h1 class="app-text-logo truncate px-2">

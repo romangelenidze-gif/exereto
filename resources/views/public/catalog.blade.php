@@ -503,10 +503,10 @@
                     </div>
                 @endif
 
-<!-- Компактная панель фильтров: на мобильном только иконки, на десктопе с подписями -->
-                <div class="flex items-center justify-between gap-2 bg-white px-3 sm:px-4 py-2 sm:py-3 rounded-2xl border border-black/[0.06]">
-                    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                        <!-- Кнопка открытия шторки фильтров (на мобильном компактная иконка) -->
+<!-- Компактная панель фильтров -->
+                <div class="flex items-center justify-between gap-2 bg-white px-3 sm:px-4 py-1.45 sm:py-2.5 rounded-2xl border border-black/[0.06]">
+                    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1.5 pl-0.5 pr-1">
+                        <!-- Кнопка открытия шторки фильтров -->
                         <button type="button" @click="mobileFiltersOpen = true"
                                 aria-label="{{ __('Фильтры') }}"
                                 class="lg:hidden relative inline-flex items-center justify-center gap-1.5 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full text-xs font-semibold bg-[#0071e3] text-white shrink-0 cursor-pointer">
@@ -515,7 +515,7 @@
                             </svg>
                             <span class="hidden sm:inline">{{ __('Фильтры') }}</span>
                             @if($activeFiltersCount > 0)
-                                <span class="absolute -top-1 -right-1 sm:static w-4 h-4 sm:w-auto sm:h-auto flex items-center justify-center text-[10px] sm:text-xs sm:px-1.5 bg-[#1d1d1f] sm:bg-white/20 text-white rounded-full">{{ $activeFiltersCount }}</span>
+                                <span class="absolute -top-1 -right-1 sm:static min-w-[18px] h-[18px] px-1 sm:w-auto sm:h-auto flex items-center justify-center text-[10px] sm:text-xs sm:px-1.5 bg-[#1d1d1f] sm:bg-white/20 text-white rounded-full ring-2 ring-white sm:ring-0 leading-none">{{ $activeFiltersCount }}</span>
                             @endif
                         </button>
 
