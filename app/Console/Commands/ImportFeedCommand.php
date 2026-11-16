@@ -17,7 +17,8 @@ class ImportFeedCommand extends Command
     protected $signature = 'feeds:import
         {feed=adidas : Ключ фида из config/feeds.php}
         {--source= : URL или путь к локальному .csv / .csv.gz}
-        {--limit=0 : Импортировать только первые N товаров (для безопасного теста)}';
+        {--limit=0 : Импортировать только первые N товаров (для безопасного теста)}
+        {--no-warm : Пропустить пересборку автокомплита и прогрев кэша в конце}';
 
     protected $description = 'Импорт партнёрского продуктового фида в таблицу feed_products';
 
@@ -71,7 +72,7 @@ class ImportFeedCommand extends Command
             $slug = (string) ($tile['slug'] ?? '');
             if ($slug !== '') {
                 Cache::forget("category.subs.v2.{$slug}");
-                Cache::forget("category.facets.v3.{$slug}");
+                Cache::forget("category.facets.v5.{$slug}." . md5(json_encode([])));
             }
         }
 
@@ -87,6 +88,12 @@ class ImportFeedCommand extends Command
         $dispatched = $localizer->dispatchMissingTranslations($feed, false);
         if ($dispatched > 0) {
             $this->info("Поставлено в очередь на перевод новых сущностей: {$dispatched}.");
+        }
+
+        if ($this->option('no-warm')) {
+            $this->info('Пересборка автокомплита и прогрев кэша пропущены (--no-warm).');
+
+            return self::SUCCESS;
         }
 
         if (Schema::hasTable('autocomplete_entries')) {
