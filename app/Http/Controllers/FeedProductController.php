@@ -30,7 +30,7 @@ class FeedProductController extends Controller
             ->where('in_stock', true)
             ->when($product->category_top, fn ($q) => $q->where('category_top', $product->category_top))
             ->when($product->gender, fn ($q) => $q->where('gender', $product->gender))
-            ->limit(10)
+            ->limit(12)
             ->get();
 
         $relatedProducts = collect(

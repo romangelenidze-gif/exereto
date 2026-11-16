@@ -116,9 +116,9 @@
 
 <!-- Релевантные (похожие) товары -->
     @if(isset($relatedProducts) && $relatedProducts->isNotEmpty())
-        <section class="max-w-[90rem] mx-auto px-6 md:px-10 xl:px-14 py-16 border-t border-zinc-200 mt-16">
+        <section class="max-w-[1680px] mx-auto px-6 md:px-10 xl:px-14 py-16 mt-0">
             <h2 class="text-2xl font-bold tracking-tight text-zinc-900 mb-8">{{ __('Вам также может понравиться') }}</h2>
-            <div class="apple-product-grid">
+            <div class="apple-product-grid apple-product-grid--6">
                 @foreach($relatedProducts as $related)
                     <x-public-ui.product-card :product="$related" />
                 @endforeach

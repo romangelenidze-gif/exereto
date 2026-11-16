@@ -25,7 +25,7 @@
 
         <!-- Мультибрендовые рекомендации (на месте блока категорий, 5 карточек в ряд) -->
         @if(isset($popularProducts) && $popularProducts->isNotEmpty())
-        <section class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
             <div class="flex flex-wrap justify-between items-end gap-4">
                 <div>
                     <h2 class="apple-section-title">{{ __('Рекомендуемые предложения') }}</h2>
@@ -36,7 +36,7 @@
                 </a>
             </div>
 
-            <div class="apple-product-grid">
+            <div class="apple-product-grid apple-product-grid--6">
                 @foreach($popularProducts as $index => $product)
                     <x-public-ui.product-card :product="$product" :is-first="$index === 0" />
                 @endforeach
@@ -77,7 +77,7 @@
 
         <!-- Скидки и специальные предложения (5 карточек в ряд) -->
         @if(isset($discountProducts) && $discountProducts->isNotEmpty())
-        <section class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
             <div class="flex flex-wrap justify-between items-end gap-4">
                 <div>
                     <span class="app-badge-text uppercase font-semibold text-red-600">Special Sales</span>
@@ -88,7 +88,7 @@
                 </a>
             </div>
 
-            <div class="apple-product-grid">
+            <div class="apple-product-grid apple-product-grid--6">
                 @foreach($discountProducts as $product)
                     <x-public-ui.product-card :product="$product" />
                 @endforeach

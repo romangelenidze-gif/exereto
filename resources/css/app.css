@@ -898,7 +898,7 @@ body.overflow-hidden {
 }
 
 .apple-pdp {
-    max-width: 90rem;
+    max-width: 105rem;
     margin: 0 auto;
     padding: 2rem 1.5rem 4rem;
     text-align: left;
@@ -1265,22 +1265,34 @@ html .pswp {
 @media (min-width: 640px) {
     .apple-product-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 1.25rem;
+        gap: 1rem;
     }
 }
 
 @media (min-width: 1024px) {
     .apple-product-grid {
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 1.5rem;
+        gap: 1.125rem;
     }
 }
 
 @media (min-width: 1280px) {
     .apple-product-grid {
         grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 1.125rem;
+    }
+
+    .apple-product-grid.apple-product-grid--6 {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
     }
 }
+
+@media (min-width: 1280px) {
+    .apple-product-grid--6 {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+}
+
 
 
 /* ==========================================================================

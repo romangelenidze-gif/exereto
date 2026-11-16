@@ -19,7 +19,7 @@ class HomeController extends Controller
         $rawPopularCards = Cache::remember(
             'home.popular_cards.v2',
             now()->addMinutes(60),
-            fn () => $this->fetchBalancedCards(onlyDiscounts: false, limit: 10)
+            fn () => $this->fetchBalancedCards(onlyDiscounts: false, limit: 12)
         );
 
         $popularProducts = collect($localizer->localizeCardTitles($rawPopularCards, $locale));
@@ -28,7 +28,7 @@ class HomeController extends Controller
         $rawDiscountCards = Cache::remember(
             'home.discount_cards.v2',
             now()->addMinutes(60),
-            fn () => $this->fetchBalancedCards(onlyDiscounts: true, limit: 10)
+            fn () => $this->fetchBalancedCards(onlyDiscounts: true, limit: 12)
         );
 
         $discountProducts = collect($localizer->localizeCardTitles($rawDiscountCards, $locale));

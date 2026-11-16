@@ -159,7 +159,7 @@
     <x-public-ui.categories-drawer :categories="$allCategories" />
 
     <!-- Полноширинный контейнер Apple -->
-    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-5 sm:space-y-6">
+    <div class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-5 sm:space-y-6">
 
         <!-- Поисковая строка: на мобильном только иконка ☰ без слова «Категории» -->
         <div class="max-w-4xl mx-auto relative" @click.outside="openSuggestions = false; activeIndex = -1">
