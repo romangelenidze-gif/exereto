@@ -66,7 +66,6 @@ class AwinFeedImporter
 
     protected function process(string $feedKey, array $cfg, string $path, string $startedAt, int $limit = 0): array
     {
-        // Автоопределение GZIP или обычного CSV
         $magic = @file_get_contents($path, false, null, 0, 2);
         $streamPath = ($magic === "\x1f\x8b") ? ('compress.zlib://' . $path) : $path;
 
@@ -244,16 +243,10 @@ class AwinFeedImporter
             return null;
         }
 
-        // 1. Проверяем через Gatekeeper, разрешён ли этот товар/категория/бренд для данного магазина
         if (!$gatekeeper->shouldImport($feedKey, $mapped)) {
             return null;
         }
 
-        // 2. Автоматически переключаем ссылки на /en/, если у магазина есть английская версия
-        $mapped['deep_link'] = $gatekeeper->localizeUrl($feedKey, $mapped['deep_link']);
-        $mapped['merchant_url'] = $gatekeeper->localizeUrl($feedKey, $mapped['merchant_url']);
-
-        // 3. Вычисляем приоритет магазина для этой модели (priority_score)
         $mapped['priority_score'] = $gatekeeper->calculatePriority(
             $feedKey,
             $mapped['brand'] ?? null,
@@ -295,13 +288,14 @@ class AwinFeedImporter
 
         $rawCategory = html_entity_decode($get('category'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $catSegments = array_values(array_filter(
-            array_map('trim', preg_split('/\s*(?:>|\/)\s*/u', $rawCategory) ?: []),
-            fn ($s) => $s !== ''
+            array_map('trim', preg_split('/\s*(?:>|\/|\s-\s)\s*/u', $rawCategory) ?: []),
+            fn ($s) => $s !== '' && mb_strtolower($s) !== mb_strtolower($feedKey)
         ));
         $categoryPath = implode(', ', $catSegments);
         $categoryTop = $catSegments[0] ?? '';
 
-        $gender = self::resolveGender('', $categoryPath, $name);
+        $forcedGender = config("feed_rules.stores.{$feedKey}.force_gender");
+        $gender = $forcedGender ?: self::resolveGender('', $categoryPath, $name);
         $colour = html_entity_decode($get('colour') ?: $get('color'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $model = $get('model_name') ?: $get('mpn');
 
