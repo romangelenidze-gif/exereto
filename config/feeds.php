@@ -66,9 +66,6 @@ return [
             ],
         ],
 
-    ],
-
-
     'modivo' => [
             'enabled' => (bool) env('FEEDS_MODIVO_ENABLED', true),
             'network' => env('FEEDS_MODIVO_NETWORK', 'linkwise'),
@@ -164,7 +161,7 @@ return [
             'model_keywords' => [],
             'strip_words' => ['energiers'],
         ],
-
+    ],
 
     // Сколько моделей (карточек) отдавать в выдачу из фида.
     'search_limit' => (int) env('FEEDS_SEARCH_LIMIT', 20),
