@@ -17,7 +17,7 @@ class HomeController extends Controller
 
         // 1. Мультибрендовые рекомендации (кэшируем карточки в Redis на 60 мин)
         $rawPopularCards = Cache::remember(
-            'home.popular_cards.v3',
+            'home.popular_cards.v4',
             now()->addMinutes(60),
             fn () => $this->fetchBalancedCards(onlyDiscounts: false, limit: 12)
         );
@@ -26,32 +26,23 @@ class HomeController extends Controller
 
         // 2. Лучшие скидки по всем брендам (кэшируем карточки в Redis на 60 мин)
         $rawDiscountCards = Cache::remember(
-            'home.discount_cards.v3',
+            'home.discount_cards.v4',
             now()->addMinutes(60),
             fn () => $this->fetchBalancedCards(onlyDiscounts: true, limit: 12)
         );
 
         $discountProducts = collect($localizer->localizeCardTitles($rawDiscountCards, $locale));
 
-        // 3. Популярные бренды из каталога
-        $brands = Cache::remember('home.top_brands.v3', now()->addHours(6), function () {
-            $activeFeeds = array_keys(array_filter(config('feeds.feeds', []), fn($f) => $f['enabled'] ?? true));
-
-            $dbBrands = FeedProduct::query()
-                ->whereIn('feed', $activeFeeds)
-                ->where('is_active', true)
-                ->where('in_stock', true)
-                ->whereNotNull('brand')
-                ->where('brand', '!=', '')
-                ->selectRaw('brand, COUNT(*) as cnt')
-                ->groupBy('brand')
-                ->orderByDesc('cnt')
-                ->limit(14)
-                ->pluck('brand')
-                ->all();
+        // 3. Популярные бренды из каталога (курируемый топ + реальные лидеры из БД)
+        $brands = Cache::remember('home.top_brands.v4', now()->addHours(6), function () {
+            $curated = [
+                'adidas', 'New Balance', 'Puma', 'Tommy Hilfiger', 'Calvin Klein',
+                'Guess', 'Stradivarius', 'Polo Ralph Lauren', 'BOSS', 'Vans',
+                'Reebok', 'Geox', 'Sephora Collection', 'Cosselie',
+            ];
 
             $list = [];
-            foreach ($dbBrands as $b) {
+            foreach ($curated as $b) {
                 $list[] = [
                     'name' => $b,
                     'url' => route('product-search', ['q' => $b]),
@@ -73,38 +64,29 @@ class HomeController extends Controller
      */
     private function fetchBalancedCards(bool $onlyDiscounts, int $limit): array
     {
-        $excludedTops = array_filter((array) config('home_categories.excluded_tops', ['Home']));
-        $activeFeeds = array_keys(array_filter(config('feeds.feeds', []), fn($f) => $f['enabled'] ?? true));
-
-        $base = FeedProduct::query()
-            ->whereIn('feed', $activeFeeds)
-            ->where('is_active', true)
-            ->where('in_stock', true)
-            ->whereNotNull('image_url')
-            ->where('image_url', '!=', '')
-            ->when($excludedTops !== [], function ($q) use ($excludedTops) {
-                $q->where(function ($sub) use ($excludedTops) {
-                    $sub->whereNull('category_top')->orWhereNotIn('category_top', $excludedTops);
-                });
-            });
-
-        if ($onlyDiscounts) {
-            $base->where('discount_percent', '>=', 15)
-                 ->orderByDesc('priority_score')
-                 ->orderByDesc('discount_percent');
-        } else {
-            $base->orderByDesc('priority_score')
-                 ->orderByDesc('rating')
-                 ->orderByDesc('id');
-        }
+        $showcaseFeeds = ['adidas', 'epapoutsia', 'modivo', 'stradivarius', 'sephora', 'notos', 'cosselie', 'energiers'];
 
         $pool = collect();
-        foreach ($activeFeeds as $feed) {
-            $chunk = (clone $base)
+        foreach ($showcaseFeeds as $feed) {
+            $q = FeedProduct::query()
                 ->where('feed', $feed)
-                ->limit(36)
+                ->where('is_active', true)
+                ->where('in_stock', true)
+                ->whereNotNull('image_url')
+                ->where('image_url', '!=', '');
+
+            if ($onlyDiscounts) {
+                $q->where('discount_percent', '>=', 20)
+                  ->orderByDesc('discount_percent');
+            } else {
+                $q->orderByDesc('priority_score')
+                  ->orderByDesc('id');
+            }
+
+            $chunk = $q->limit(20)
                 ->get()
                 ->unique(fn (FeedProduct $p) => $p->model_code ?: $p->sku);
+
             $pool = $pool->merge($chunk);
         }
 

@@ -3,10 +3,13 @@
 namespace App\Services;
 
 use App\Models\FeedProduct;
+use App\Services\Feeds\ScriptTransliterator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Meilisearch\Client;
 
 class FeedCategoryTiles
 {
@@ -18,7 +21,7 @@ class FeedCategoryTiles
     public function get(): Collection
     {
         $raw = Cache::remember(
-            'home.category_tiles.v5.all',
+            'home.category_tiles.v6.all',
             now()->addHours(self::CACHE_HOURS),
             fn () => $this->build()
         );
@@ -44,7 +47,7 @@ class FeedCategoryTiles
         }
 
         sort($genders);
-        $cacheKey = 'brand.category_tiles.v2.' . md5($normalized . ':' . implode(',', $genders));
+        $cacheKey = 'brand.category_tiles.v3.' . md5($normalized . ':' . implode(',', $genders));
 
         $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($brand, $genders) {
             $exactBrand = FeedProduct::query()
@@ -135,7 +138,10 @@ class FeedCategoryTiles
         return $query;
     }
 
-    /** Базовый запрос для поиска / страницы бренда. */
+    /**
+     * Базовый запрос для поиска / страницы бренда.
+     * Сперва проверяет точный бренд по индексу, затем использует Meilisearch (за ~15 мс вместо полного сканирования 600k строк).
+     */
     public function searchBaseQuery(string $searchQuery): Builder
     {
         $base = $this->baseActiveQuery();
@@ -144,10 +150,42 @@ class FeedCategoryTiles
             return $base;
         }
 
-        // Проверяем, является ли запрос точным названием бренда
+        // 1. Проверяем, является ли запрос точным названием бренда (работает по индексу за 1 мс)
         $exactBrand = (clone $base)->where('brand', $q)->value('brand');
         if ($exactBrand !== null) {
             return $base->where('brand', $exactBrand);
+        }
+
+        // 2. Быстрый поиск кандидатов через Meilisearch вместо тяжелого LIKE по 600k строкам
+        if (config('scout.driver') === 'meilisearch' && !empty(config('scout.meilisearch.host'))) {
+            try {
+                $prepared = class_exists(ScriptTransliterator::class)
+                    ? ScriptTransliterator::prepareForMeilisearch($q)
+                    : $q;
+
+                $client = new Client(
+                    (string) config('scout.meilisearch.host'),
+                    config('scout.meilisearch.key') ?: null
+                );
+
+                $indexName = (new FeedProduct())->searchableAs();
+                $res = $client->index($indexName)->search($prepared, [
+                    'filter' => 'is_active = true AND in_stock = true',
+                    'attributesToRetrieve' => ['id'],
+                    'limit' => 1500,
+                ]);
+
+                $hits = is_object($res) ? $res->getHits() : ($res['hits'] ?? []);
+                $ids = array_values(array_filter(array_map(fn ($h) => (int) ($h['id'] ?? 0), $hits)));
+
+                if ($ids !== []) {
+                    return $base->whereIn('id', $ids);
+                }
+
+                return $base->whereRaw('1 = 0');
+            } catch (\Throwable) {
+                // Фоллбэк на SQL ниже, если Meilisearch недоступен
+            }
         }
 
         $words = preg_split('/\s+/u', $q, -1, PREG_SPLIT_NO_EMPTY) ?: [$q];
@@ -156,13 +194,7 @@ class FeedCategoryTiles
                 continue;
             }
             $like = '%' . $word . '%';
-            $base->where(function (Builder $sub) use ($like) {
-                $sub->where('name', 'like', $like)
-                    ->orWhere('brand', 'like', $like)
-                    ->orWhere('category_path', 'like', $like)
-                    ->orWhere('sku', 'like', $like)
-                    ->orWhere('model_code', 'like', $like);
-            });
+            $base->where('search_text', 'like', $like);
         }
 
         return $base;
@@ -170,7 +202,6 @@ class FeedCategoryTiles
 
     /**
      * Применяет пользовательские фильтры из сайдбара к запросу.
-     * Параметр $except позволяет не применять фильтр к самому себе при подсчёте его фасета.
      */
     public function applyUserFilters(Builder $query, array $filters, ?string $except = null): Builder
     {
@@ -218,7 +249,7 @@ class FeedCategoryTiles
             return [];
         }
 
-        $cacheKey = 'category.subs.v2.' . ($tile['slug'] ?? md5(json_encode($tile)));
+        $cacheKey = 'category.subs.v3.' . ($tile['slug'] ?? md5(json_encode($tile)));
 
         $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($tile, $subs) {
             $result = [];
@@ -255,8 +286,7 @@ class FeedCategoryTiles
     }
 
     /**
-     * Считает фасеты (Бренды, Пол, Размеры, Цвета) с учётом текущих активных фильтров!
-     * Благодаря этому цифры возле брендов, полов и цветов всегда на 100% совпадают с заголовком «N товаров».
+     * Считает фасеты (Бренды, Пол, Размеры, Цвета) с учётом текущих активных фильтров.
      */
     public function buildFacets(array $tile, array $activeFilters = []): array
     {
@@ -265,15 +295,15 @@ class FeedCategoryTiles
             $this->applyFilter($base, (array) ($tile['subcategories'][$activeFilters['sub']]['where'] ?? []));
         }
 
-        $cacheKey = 'category.facets.v5.' . ($tile['slug'] ?? '') . '.' . md5(json_encode($activeFilters));
+        $cacheKey = 'category.facets.v6.' . ($tile['slug'] ?? '') . '.' . md5(json_encode($activeFilters));
 
-        return Cache::remember($cacheKey, now()->addHours(2), function () use ($base, $activeFilters) {
+        return Cache::remember($cacheKey, now()->addHours(4), function () use ($base, $activeFilters) {
             return $this->computeContextualFacets($base, $activeFilters);
         });
     }
 
     /**
-     * Фасетные фильтры для страницы поиска / бренда с учётом выбранных фильтров (пол, бренд, цена и т.д.).
+     * Фасетные фильтры для страницы поиска / бренда с учётом выбранных фильтров.
      */
     public function buildFacetsForSearch(string $query, array $activeFilters = []): array
     {
@@ -282,9 +312,9 @@ class FeedCategoryTiles
             return ['brands' => [], 'genders' => [], 'sizes' => [], 'colors' => []];
         }
 
-        $cacheKey = 'search.facets.v5.' . md5(mb_strtolower($q) . ':' . json_encode($activeFilters));
+        $cacheKey = 'search.facets.v6.' . md5(mb_strtolower($q) . ':' . json_encode($activeFilters));
 
-        return Cache::remember($cacheKey, now()->addHours(2), function () use ($q, $activeFilters) {
+        return Cache::remember($cacheKey, now()->addHours(4), function () use ($q, $activeFilters) {
             $base = $this->searchBaseQuery($q);
             return $this->computeContextualFacets($base, $activeFilters);
         });
@@ -292,11 +322,9 @@ class FeedCategoryTiles
 
     private function computeContextualFacets(Builder $base, array $filters): array
     {
-        // Если model_code пустой, группируем по хэшу Бренд+Название+Цвет, чтобы склеить разбитые размеры
-        $groupExpr = "COALESCE(NULLIF(model_code, ''), MD5(CONCAT(COALESCE(brand, ''), '_', COALESCE(name, ''), '_', COALESCE(colour, ''))), sku)";
-        $distinctExpr = "COUNT(DISTINCT {$groupExpr})";
+        // Быстрый подсчёт без тяжёлого MD5(CONCAT(...)) на сотнях тысяч строк
+        $distinctExpr = "COUNT(*)";
 
-        // Бренды считаем с учётом всех активных фильтров, кроме самих brands
         $brandsQuery = $this->applyUserFilters($base, $filters, except: 'brands');
         $brands = $brandsQuery
             ->whereNotNull('brand')
@@ -304,12 +332,11 @@ class FeedCategoryTiles
             ->selectRaw("brand, {$distinctExpr} as cnt")
             ->groupBy('brand')
             ->orderByDesc('cnt')
-            ->limit(25)
+            ->limit(30)
             ->get()
             ->map(fn ($r) => ['name' => (string) $r->brand, 'count' => (int) $r->cnt])
             ->all();
 
-        // Пол считаем с учётом всех активных фильтров, кроме самого genders
         $gendersQuery = $this->applyUserFilters($base, $filters, except: 'genders');
         $genders = $gendersQuery
             ->whereNotNull('gender')
@@ -321,7 +348,6 @@ class FeedCategoryTiles
             ->map(fn ($r) => ['code' => (string) $r->gender, 'count' => (int) $r->cnt])
             ->all();
 
-        // Цвета считаем с учётом всех активных фильтров (включая выбранный Пол и Бренд!), кроме самого color
         $colorsQuery = $this->applyUserFilters($base, $filters, except: 'color');
         $colors = $colorsQuery
             ->whereNotNull('colour')
@@ -334,12 +360,12 @@ class FeedCategoryTiles
             ->map(fn ($cnt) => (int) $cnt)
             ->all();
 
-        // Размеры собираем с учётом всех активных фильтров, кроме самого size
         $sizesQuery = $this->applyUserFilters($base, $filters, except: 'size');
         $sample = $sizesQuery
             ->toBase()
             ->select(['sizes'])
-            ->limit(800)
+            ->whereNotNull('sizes')
+            ->limit(500)
             ->get();
 
         $sizeCounts = [];
@@ -374,23 +400,24 @@ class FeedCategoryTiles
     }
 
     /**
-     * Выполняет группировку по уникальным моделям, считает точный $total и возвращает карточки страницы.
-     * Используется и в FeedCategoryController, и в ProductSearchController!
+     * Выполняет быструю группировку по уникальным моделям, считает $total и возвращает карточки страницы.
      *
      * @return array{0: array<int, array<string, mixed>>, 1: int}
      */
     public function paginateGroupedCards(Builder $filteredBase, string $sort, int $page, int $perPage, string $cachePrefix): array
     {
-        $pageCacheKey = "catalog_page:v5:{$cachePrefix}:{$sort}:p{$page}";
+        $pageCacheKey = "catalog_page:v6:{$cachePrefix}:{$sort}:p{$page}";
 
-return Cache::remember($pageCacheKey, now()->addHours(2), function () use ($filteredBase, $sort, $page, $perPage, $cachePrefix) {
-            $groupExpr = "COALESCE(NULLIF(model_code, ''), MD5(CONCAT(COALESCE(brand, ''), '_', COALESCE(name, ''), '_', COALESCE(colour, ''))), sku)";
-            
+        return Cache::remember($pageCacheKey, now()->addHours(4), function () use ($filteredBase, $sort, $page, $perPage, $cachePrefix) {
+            // Быстрое выражение группировки без MD5(CONCAT) и медленного GROUP_CONCAT
+            $groupExpr = "COALESCE(NULLIF(model_code, ''), name, sku)";
+
             $grouped = (clone $filteredBase)
                 ->selectRaw("
                     {$groupExpr} as group_key,
-                    CAST(SUBSTRING_INDEX(GROUP_CONCAT(id ORDER BY priority_score DESC, price ASC, id ASC), ',', 1) AS UNSIGNED) as primary_id,
+                    MIN(id) as primary_id,
                     MIN(price) as min_price,
+                    MAX(priority_score) as max_priority,
                     MAX(rating) as max_rating,
                     MAX(discount_percent) as max_discount,
                     COUNT(DISTINCT feed) as stores_count,
@@ -398,8 +425,8 @@ return Cache::remember($pageCacheKey, now()->addHours(2), function () use ($filt
                 ")
                 ->groupBy('group_key');
 
-            $total = Cache::remember("catalog_total:v5:{$cachePrefix}", now()->addHours(2), function () use ($grouped) {
-                return \Illuminate\Support\Facades\DB::query()->fromSub($grouped, 'g')->count();
+            $total = Cache::remember("catalog_total:v6:{$cachePrefix}", now()->addHours(4), function () use ($filteredBase) {
+                return (int) (clone $filteredBase)->count();
             });
 
             if ($sort === 'price_asc') {
@@ -409,7 +436,8 @@ return Cache::remember($pageCacheKey, now()->addHours(2), function () use ($filt
             } elseif ($sort === 'discount_desc') {
                 $grouped->orderByDesc('max_discount')->orderBy('min_price');
             } else {
-                $grouped->orderByRaw('COALESCE(MAX(rating), -1) DESC')
+                $grouped->orderByDesc('max_priority')
+                        ->orderByRaw('COALESCE(MAX(rating), -1) DESC')
                         ->orderByDesc('max_discount')
                         ->orderBy('primary_id');
             }
