@@ -17,8 +17,7 @@ class FeedEntityLocalizer
     ];
 
     /**
-     * Встроенный высокочастотный словарь терминов (Одежда, Обувь, Косметика, Аптека, Цвета, Предлоги, Единицы).
-     * Работает мгновенно в памяти (0 запросов к БД) и закрывает 95% лексики даже до прогона очереди LLM.
+     * Базовый словарь точных терминов (Одежда, Обувь, Материалы, Характеристики, Косметика, Аптека, Цвета).
      *
      * @var array<string, array{en: string, ru: string, ka: string}>
      */
@@ -43,6 +42,59 @@ class FeedEntityLocalizer
         'στην' => ['en' => 'in', 'ru' => 'в', 'ka' => '-ში'],
         'στο' => ['en' => 'in', 'ru' => 'в', 'ka' => '-ში'],
         'στα' => ['en' => 'in', 'ru' => 'в', 'ka' => '-ში'],
+
+        // Состав, материалы и крой (Specifications)
+        'περιβλημα' => ['en' => 'Shell', 'ru' => 'Верх', 'ka' => 'ზედაპირი'],
+        'φοδρα' => ['en' => 'Lining', 'ru' => 'Подкладка', 'ka' => 'სარჩული'],
+        'τσεπεσ' => ['en' => 'Pockets', 'ru' => 'Карманы', 'ka' => 'ჯიბეები'],
+        'τσεπη' => ['en' => 'Pocket', 'ru' => 'Карман', 'ka' => 'ჯიბე'],
+        'πολυεστερασ' => ['en' => 'polyester', 'ru' => 'полиэстер', 'ka' => 'პოლიესტერი'],
+        'ανακυκλωμενοσ' => ['en' => 'recycled', 'ru' => 'переработанный', 'ka' => 'გადამუშავებული'],
+        'ανακυκλωμενο' => ['en' => 'recycled', 'ru' => 'переработанный', 'ka' => 'გადამუშავებული'],
+        'ανακυκλωμενη' => ['en' => 'recycled', 'ru' => 'переработанная', 'ka' => 'გადამუშავებული'],
+        'βαμβακι' => ['en' => 'cotton', 'ru' => 'хлопок', 'ka' => 'ბამბა'],
+        'βαμβακερο' => ['en' => 'cotton', 'ru' => 'хлопковый', 'ka' => 'ბამბის'],
+        'ελαστανη' => ['en' => 'elastane', 'ru' => 'эластан', 'ka' => 'ელასტანი'],
+        'βισκοζη' => ['en' => 'viscose', 'ru' => 'вискоза', 'ka' => 'ვისკოზა'],
+        'ναυλον' => ['en' => 'nylon', 'ru' => 'нейлон', 'ka' => 'ნეილონი'],
+        'μαλλι' => ['en' => 'wool', 'ru' => 'шерсть', 'ka' => 'შალი'],
+        'λινο' => ['en' => 'linen', 'ru' => 'лён', 'ka' => 'სელი'],
+        'δερμα' => ['en' => 'leather', 'ru' => 'кожа', 'ka' => 'ტყავი'],
+        'δερματινο' => ['en' => 'leather', 'ru' => 'кожаный', 'ka' => 'ტყავის'],
+        'καστορι' => ['en' => 'suede', 'ru' => 'замша', 'ka' => 'ზამში'],
+        'συνθετικο' => ['en' => 'synthetic', 'ru' => 'синтетика', 'ka' => 'სინთეტიკური'],
+        'υφασμα' => ['en' => 'textile', 'ru' => 'текстиль', 'ka' => 'ტექსტილი'],
+        'σολα' => ['en' => 'sole', 'ru' => 'подошва', 'ka' => 'ძირი'],
+        'εξωτερικη' => ['en' => 'outer', 'ru' => 'внешняя', 'ka' => 'გარე'],
+        'εσωτερικη' => ['en' => 'inner', 'ru' => 'внутренняя', 'ka' => 'შიდა'],
+        'ενδιαμεση' => ['en' => 'midsole', 'ru' => 'промежуточная', 'ka' => 'შუა'],
+        'καουτσουκ' => ['en' => 'rubber', 'ru' => 'резина', 'ka' => 'რეზინი'],
+        'κανονικη' => ['en' => 'regular', 'ru' => 'классический', 'ka' => 'სტანდარტული'],
+        'στενη' => ['en' => 'slim', 'ru' => 'приталенный', 'ka' => 'ვიწრო'],
+        'φαρδια' => ['en' => 'loose', 'ru' => 'свободный', 'ka' => 'თავისუფალი'],
+        'εφαρμογη' => ['en' => 'fit', 'ru' => 'крой', 'ka' => 'ჭრილი'],
+        'κλεισιμο' => ['en' => 'closure', 'ru' => 'застёжка', 'ka' => 'შესაკრავი'],
+        'φερμουαρ' => ['en' => 'zipper', 'ru' => 'молния', 'ka' => 'ელვა-შესაკრავი'],
+        'κορδονια' => ['en' => 'laces', 'ru' => 'шнурки', 'ka' => 'თასმები'],
+        'κορδονι' => ['en' => 'drawcord', 'ru' => 'шнурок', 'ka' => 'თასმა'],
+        'κουκουλα' => ['en' => 'hood', 'ru' => 'капюшон', 'ka' => 'კაპიუშონი'],
+        'γιακασ' => ['en' => 'collar', 'ru' => 'воротник', 'ka' => 'საყელო'],
+        'μανικια' => ['en' => 'sleeves', 'ru' => 'рукава', 'ka' => 'სახელოები'],
+        'μανικι' => ['en' => 'sleeve', 'ru' => 'рукав', 'ka' => 'სახელო'],
+        'μεση' => ['en' => 'waist', 'ru' => 'талия / пояс', 'ka' => 'წელი'],
+        'ελαστικη' => ['en' => 'elastic', 'ru' => 'эластичный', 'ka' => 'ელასტიური'],
+        'σημα' => ['en' => 'crest', 'ru' => 'эмблема', 'ka' => 'ემბლემა'],
+        'λογοτυπο' => ['en' => 'logo', 'ru' => 'логотип', 'ka' => 'ლოგო'],
+        'υπογραφη' => ['en' => 'signature', 'ru' => 'автограф / подпись', 'ka' => 'ხელმოწერა'],
+        'κεντητο' => ['en' => 'embroidered', 'ru' => 'вышитый', 'ka' => 'ნაქარგი'],
+        'τυπωμενο' => ['en' => 'printed', 'ru' => 'принт', 'ka' => 'პრინტი'],
+        'στριφωμα' => ['en' => 'hem', 'ru' => 'нижний край', 'ka' => 'კიდე'],
+        'μανσετ' => ['en' => 'cuffs', 'ru' => 'манжеты', 'ka' => 'მანჟეტები'],
+        'μανσετα' => ['en' => 'cuffs', 'ru' => 'манжеты', 'ka' => 'მანჟეტები'],
+        'αστραγαλουσ' => ['en' => 'ankles', 'ru' => 'щиколотки', 'ka' => 'კოჭები'],
+        'πλαινεσ' => ['en' => 'side', 'ru' => 'боковые', 'ka' => 'გვერდითი'],
+        'μπροστινεσ' => ['en' => 'front', 'ru' => 'передние', 'ka' => 'წინა'],
+        'πισω' => ['en' => 'back', 'ru' => 'задние', 'ka' => 'უკანა'],
 
         // Единицы измерения и упаковка
         'μμ' => ['en' => 'mm', 'ru' => 'мм', 'ka' => 'მმ'],
@@ -164,7 +216,7 @@ class FeedEntityLocalizer
         'κεντημενα' => ['en' => 'Embroidered', 'ru' => 'вышитые', 'ka' => 'ნაქარგი'],
         'πουα' => ['en' => 'Polka Dot', 'ru' => 'в горошек', 'ka' => 'კოპლებიანი'],
 
-        // Косметика, Парфюмерия и Аптека (Sephora, Galerie de Beauté, Pharm24)
+        // Косметика, Парфюмерия и Аптека
         'αρωμα' => ['en' => 'Fragrance', 'ru' => 'Аромат', 'ka' => 'სუნამო'],
         'αρωματα' => ['en' => 'Fragrances', 'ru' => 'Парфюмерия', 'ka' => 'სუნამოები'],
         'μακιγιαζ' => ['en' => 'Makeup', 'ru' => 'Макияж', 'ka' => 'მაკიაჟი'],
@@ -175,7 +227,7 @@ class FeedEntityLocalizer
         'μασκα' => ['en' => 'Mask', 'ru' => 'Маска', 'ka' => 'ნიღაბი'],
         'μασκεσ' => ['en' => 'Masks', 'ru' => 'Маски', 'ka' => 'ნიღბები'],
         'σαμπουαν' => ['en' => 'Shampoo', 'ru' => 'Шампунь', 'ka' => 'შამპუნი'],
-        'αφρολουτρο' => ['en' => 'Shower Gel', 'ru' => 'Гель для душа', 'ka' => 'შხაპის гели'],
+        'αφρολουτρο' => ['en' => 'Shower Gel', 'ru' => 'Гель для душа', 'ka' => 'შხაპის გელი'],
         'λοσιον' => ['en' => 'Lotion', 'ru' => 'Лосьон', 'ka' => 'ლოსიონი'],
         'γαλακτωμα' => ['en' => 'Emulsion / Milk', 'ru' => 'Молочко / Эмульсия', 'ka' => 'ემულსია'],
         'τζελ' => ['en' => 'Gel', 'ru' => 'Гель', 'ka' => 'გელი'],
@@ -236,7 +288,7 @@ class FeedEntityLocalizer
         'μπαρα' => ['en' => 'Bar', 'ru' => 'Батончик', 'ka' => 'ბატონი'],
         'μπαρεσ' => ['en' => 'Bars', 'ru' => 'Батончики', 'ka' => 'ბატონები'],
 
-        // Цвета (все роды и формы)
+        // Цвета
         'μαυρο' => ['en' => 'Black', 'ru' => 'Чёрный', 'ka' => 'შავი'],
         'μαυροσ' => ['en' => 'Black', 'ru' => 'Чёрный', 'ka' => 'შავი'],
         'μαυρη' => ['en' => 'Black', 'ru' => 'Чёрный', 'ka' => 'შავი'],
@@ -276,7 +328,7 @@ class FeedEntityLocalizer
     ];
 
     /**
-     * Цвета, которые часто приклеиваются в конец греческого заголовка (Stradivarius, Epapoutsia, Energiers).
+     * Цвета, которые часто приклеиваются в конец греческого заголовка.
      *
      * @var string[]
      */
@@ -288,7 +340,7 @@ class FeedEntityLocalizer
     ];
 
     /**
-     * Извлекает непрерывные греческие спаны из названия и автоматически отделяет хвостовые цвета/размеры.
+     * Извлекает непрерывные греческие спаны из любой строки (заголовка или характеристики).
      *
      * @return string[]
      */
@@ -316,8 +368,6 @@ class FeedEntityLocalizer
     }
 
     /**
-     * Отделяет цвет в конце греческой фразы ("Κοντό Φόρεμα Με Ντεκολτέ Μαύρο" -> ["Κοντό Φόρεμα Με Ντεκολτέ", "Μαύρο"]).
-     *
      * @return string[]
      */
     private static function splitTrailingColorFromSpan(string $span): array
@@ -330,7 +380,6 @@ class FeedEntityLocalizer
         $lastNorm = EntityTranslation::normalizeKey((string) end($words));
         if (in_array($lastNorm, self::COLOR_NORMS, true)) {
             $colorWord = (string) array_pop($words);
-            // Если перед цветом стоит "Παστέλ" ("Παστέλ Κίτρινο"), забираем оба слова как цвет
             if ($words !== [] && EntityTranslation::normalizeKey((string) end($words)) === 'παστελ') {
                 $colorWord = array_pop($words) . ' ' . $colorWord;
             }
@@ -343,8 +392,6 @@ class FeedEntityLocalizer
     }
 
     /**
-     * Обратная совместимость со старыми вызовами splitGreekTitle().
-     *
      * @return array{prefix: string, model: string}|null
      */
     public static function splitGreekTitle(string $name): ?array
@@ -370,8 +417,8 @@ class FeedEntityLocalizer
     }
 
     /**
-     * Переводит любую строку (заголовок, цвет, размер, характеристику) с помощью предзагруженного словаря в памяти (0 БД запросов).
-     * Используется при индексации в Meilisearch и при массовом рендере карточек.
+     * Переводит любую строку (заголовок, цвет, характеристику) через словарь Gemini (entity_translations) и CORE_LEXICON.
+     * Сперва проверяет перевод всей строки целиком, затем переводит греческие спаны на месте.
      *
      * @param array<string, array<string, string|EntityTranslation>> $dict
      */
@@ -386,13 +433,25 @@ class FeedEntityLocalizer
             return $text;
         }
 
-        // Заменяем все непрерывные греческие участки на их перевод прямо на месте
+        // 1. Сначала проверяем, есть ли в entity_translations готовый перевод всей строки целиком (например, для specs)
+        $fullMatch = self::lookupInDict($text, $locale, $dict);
+        if ($fullMatch !== null && !self::containsGreek($fullMatch)) {
+            return $fullMatch;
+        }
+
+        // 2. Иначе переводим каждый греческий спан внутри строки
         $translated = (string) preg_replace_callback(
             '/[\x{0370}-\x{03FF}\x{1F00}-\x{1FFF}]+(?:\s+[\x{0370}-\x{03FF}\x{1F00}-\x{1FFF}]+)*/u',
             function (array $m) use ($locale, $dict): string {
                 $fullSpan = trim($m[0]);
-                $parts = self::splitTrailingColorFromSpan($fullSpan);
 
+                // Проверяем спан целиком до отделения цвета
+                $direct = self::lookupInDict($fullSpan, $locale, $dict);
+                if ($direct !== null && !self::containsGreek($direct)) {
+                    return $direct;
+                }
+
+                $parts = self::splitTrailingColorFromSpan($fullSpan);
                 $outParts = [];
                 foreach ($parts as $part) {
                     $outParts[] = self::translateSingleSpan($part, $locale, $dict);
@@ -408,10 +467,9 @@ class FeedEntityLocalizer
 
     /**
      * Переводит один греческий спан через:
-     * 1) Полное совпадение в entity_translations (title_prefix, category_segment, color, spec)
-     * 2) Разбиение по союзам/предлогам (με, για, και, σε)
-     * 3) Пословный перевод через CORE_LEXICON и словарь
-     * 4) Транслитерацию, если встретилось неизвестное редкое слово (0% греческих букв на выходе)
+     * 1) Полное совпадение в entity_translations (Gemini LLM)
+     * 2) CORE_LEXICON
+     * 3) Сборку из подфраз entity_translations и слов CORE_LEXICON (без фальшивой транслитерации!)
      */
     private static function translateSingleSpan(string $span, string $locale, array $dict): string
     {
@@ -420,19 +478,19 @@ class FeedEntityLocalizer
             return '';
         }
 
-        // 1. Точное совпадение во всех типах словаря
+        // 1. Точное совпадение в базе Gemini (entity_translations)
         $exact = self::lookupInDict($span, $locale, $dict);
         if ($exact !== null && !self::containsGreek($exact)) {
             return $exact;
         }
 
-        // 2. Однословная проверка в CORE_LEXICON
+        // 2. Точное совпадение в CORE_LEXICON
         $norm = EntityTranslation::normalizeKey($span);
         if (isset(self::CORE_LEXICON[$norm][$locale])) {
             return self::CORE_LEXICON[$norm][$locale];
         }
 
-        // 3. Пословная и пофразовая сборка (жадный алгоритм: сначала биграммы/триграммы, затем отдельные слова)
+        // 3. Пофразовая и пословная сборка из уже известных переводов Gemini и CORE_LEXICON
         $words = preg_split('/\s+/u', $span, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $count = count($words);
         $resultWords = [];
@@ -442,8 +500,7 @@ class FeedEntityLocalizer
             $matchedPhrase = null;
             $matchedLen = 0;
 
-            // Пробуем подфразы длины от min(5, остаток) до 2 слов
-            $maxWindow = min(5, $count - $i);
+            $maxWindow = min(6, $count - $i);
             for ($len = $maxWindow; $len >= 2; $len--) {
                 $subPhrase = implode(' ', array_slice($words, $i, $len));
                 $found = self::lookupInDict($subPhrase, $locale, $dict);
@@ -460,7 +517,6 @@ class FeedEntityLocalizer
                 continue;
             }
 
-            // Переводим отдельное слово
             $word = $words[$i];
             $wNorm = EntityTranslation::normalizeKey($word);
 
@@ -473,9 +529,8 @@ class FeedEntityLocalizer
                     $resultWords[] = $lexVal;
                 }
             } else {
-                // Фоллбэк: снимаем падежное окончание (-ων, -ους, -ες, -ας, -ος, -ης) или транслитерируем
                 $stemmed = self::lookupStemInLexicon($wNorm, $locale);
-                $resultWords[] = $stemmed ?? self::transliterateGreek($word, $locale);
+                $resultWords[] = $stemmed ?? $word;
             }
 
             $i++;
@@ -483,14 +538,14 @@ class FeedEntityLocalizer
 
         $joined = trim(implode(' ', array_filter($resultWords, fn ($w) => $w !== '')));
 
-        return $joined !== '' ? EntityTranslation::ucfirstMb($joined) : $span;
+        return $joined !== '' ? $joined : $span;
     }
 
     private static function lookupInDict(string $phrase, string $locale, array $dict): ?string
     {
         $h = EntityTranslation::hash($phrase);
 
-        foreach (['title_prefix', 'color', 'category_segment', 'spec'] as $type) {
+        foreach (['spec', 'title_prefix', 'color', 'category_segment'] as $type) {
             if (!isset($dict[$type][$h])) {
                 continue;
             }
@@ -518,6 +573,8 @@ class FeedEntityLocalizer
             preg_replace('/(ων|ουσ|εσ|ασ|οσ|ησ|ου)$/u', 'ο', $wNorm),
             preg_replace('/(ων|ουσ|εσ|ασ|οσ|ησ|ου)$/u', 'α', $wNorm),
             preg_replace('/(ων|ουσ|εσ|ασ|οσ|ησ|ου)$/u', 'η', $wNorm),
+            preg_replace('/(ων|ουσ|εσ|ασ|οσ|ησ|ου)$/u', 'ασ', $wNorm),
+            preg_replace('/(ων|ουσ|εσ|ασ|οσ|ησ|ου)$/u', 'οσ', $wNorm),
         ];
 
         foreach ($stemCandidates as $cand) {
@@ -529,63 +586,15 @@ class FeedEntityLocalizer
         return null;
     }
 
-    /**
-     * Фонетическая транслитерация греческого текста в латиницу (en), кириллицу (ru) или грузинский (ka),
-     * чтобы даже редкие имена собственные никогда не оставались греческими буквами.
-     */
-    public static function transliterateGreek(string $text, string $locale): string
-    {
-        $lower = mb_strtolower($text);
-
-        if ($locale === 'ru') {
-            $map = [
-                'ου' => 'у', 'αι' => 'э', 'ει' => 'и', 'οι' => 'и', 'υι' => 'и',
-                'μπ' => 'б', 'ντ' => 'д', 'γκ' => 'г', 'γγ' => 'нг', 'τσ' => 'ц', 'τζ' => 'дз',
-                'αυ' => 'ав', 'ευ' => 'эв',
-                'α' => 'а', 'ά' => 'а', 'β' => 'в', 'γ' => 'г', 'δ' => 'д', 'ε' => 'е', 'έ' => 'е',
-                'ζ' => 'з', 'η' => 'и', 'ή' => 'и', 'θ' => 'т', 'ι' => 'и', 'ί' => 'и', 'ϊ' => 'и', 'ΐ' => 'и',
-                'κ' => 'к', 'λ' => 'л', 'μ' => 'м', 'ν' => 'н', 'ξ' => 'кс', 'ο' => 'о', 'ό' => 'о',
-                'π' => 'п', 'ρ' => 'р', 'σ' => 'с', 'ς' => 'с', 'τ' => 'т', 'υ' => 'и', 'ύ' => 'и', 'ϋ' => 'и', 'ΰ' => 'и',
-                'φ' => 'ф', 'χ' => 'х', 'ψ' => 'пс', 'ω' => 'о', 'ώ' => 'о',
-            ];
-            return EntityTranslation::ucfirstMb(strtr($lower, $map));
-        }
-
-        if ($locale === 'ka') {
-            $map = [
-                'ου' => 'უ', 'αι' => 'ე', 'ει' => 'ი', 'οι' => 'ი',
-                'μπ' => 'ბ', 'ντ' => 'დ', 'γκ' => 'გ', 'τσ' => 'ც', 'τζ' => 'ძ',
-                'αυ' => 'ავ', 'ευ' => 'ევ',
-                'α' => 'ა', 'ά' => 'ა', 'β' => 'ვ', 'γ' => 'გ', 'δ' => 'დ', 'ε' => 'ე', 'έ' => 'ე',
-                'ζ' => 'ზ', 'η' => 'ი', 'ή' => 'ი', 'θ' => 'თ', 'ι' => 'ი', 'ί' => 'ი', 'ϊ' => 'ი', 'ΐ' => 'ი',
-                'κ' => 'კ', 'λ' => 'ლ', 'μ' => 'მ', 'ν' => 'ნ', 'ξ' => 'ქს', 'ο' => 'ო', 'ό' => 'ო',
-                'π' => 'პ', 'ρ' => 'რ', 'σ' => 'ს', 'ς' => 'ს', 'τ' => 'ტ', 'υ' => 'ი', 'ύ' => 'ი', 'ϋ' => 'ი', 'ΰ' => 'ი',
-                'φ' => 'ფ', 'χ' => 'ხ', 'ψ' => 'ფს', 'ω' => 'ო', 'ώ' => 'ო',
-            ];
-            return strtr($lower, $map);
-        }
-
-        $map = [
-            'ου' => 'ou', 'αι' => 'ai', 'ει' => 'ei', 'οι' => 'oi',
-            'μπ' => 'b', 'ντ' => 'd', 'γκ' => 'g', 'γγ' => 'ng', 'τσ' => 'ts', 'τζ' => 'tz',
-            'αυ' => 'av', 'ευ' => 'ev',
-            'α' => 'a', 'ά' => 'a', 'β' => 'v', 'γ' => 'g', 'δ' => 'd', 'ε' => 'e', 'έ' => 'e',
-            'ζ' => 'z', 'η' => 'i', 'ή' => 'i', 'θ' => 'th', 'ι' => 'i', 'ί' => 'i', 'ϊ' => 'i', 'ΐ' => 'i',
-            'κ' => 'k', 'λ' => 'l', 'μ' => 'm', 'ν' => 'n', 'ξ' => 'x', 'ο' => 'o', 'ό' => 'o',
-            'π' => 'p', 'ρ' => 'r', 'σ' => 's', 'ς' => 's', 'τ' => 't', 'υ' => 'y', 'ύ' => 'y', 'ϋ' => 'y', 'ΰ' => 'y',
-            'φ' => 'f', 'χ' => 'ch', 'ψ' => 'ps', 'ω' => 'o', 'ώ' => 'o',
-        ];
-
-        return ucfirst(strtr($lower, $map));
-    }
-
     public static function containsGreek(string $text): bool
     {
         return (bool) preg_match('/[\x{0370}-\x{03FF}\x{1F00}-\x{1FFF}]/u', $text);
     }
 
     /**
-     * Локализация полного товара для детальной страницы (0 вызовов LLM).
+     * Локализация полного товара для детальной страницы.
+     * Если на странице товара встретился редкий непереведённый греческий спан,
+     * мгновенно переводит его через Gemini (TranslateFeedEntitiesJob::dispatchSync) и кэширует в БД.
      *
      * @return array{title: string, colour: ?string, specs: string[], categories: string[]}
      */
@@ -605,44 +614,47 @@ class FeedEntityLocalizer
             ];
         }
 
-        $spans = self::extractGreekSpans($rawTitle);
-        $spanHashes = array_map(fn ($s) => EntityTranslation::hash($s), $spans);
+        $dict = $this->buildProductDictionary($rawTitle, $rawColour, $rawSpecs, $rawCategories, $locale);
+
+        $title = self::translateTextWithDictionary($rawTitle, $locale, $dict);
 
         $colorParts = $rawColour !== ''
             ? array_values(array_filter(array_map('trim', preg_split('/\s*[\/,]\s*/u', $rawColour) ?: [])))
             : [];
-        $colorHashes = array_map(fn ($c) => EntityTranslation::hash($c), $colorParts);
+        $colour = $colorParts !== []
+            ? implode(' / ', array_map(fn ($c) => self::translateTextWithDictionary($c, $locale, $dict), $colorParts))
+            : null;
 
-        $specHashes = array_map(fn ($s) => EntityTranslation::hash($s), $rawSpecs);
-        $catHashes = array_map(fn ($c) => EntityTranslation::hash($c), $rawCategories);
+        $specs = array_map(fn ($s) => self::translateTextWithDictionary($s, $locale, $dict), $rawSpecs);
+        $categories = array_map(fn ($c) => self::translateTextWithDictionary($c, $locale, $dict), $rawCategories);
 
-        $dict = [
-            'title_prefix' => $this->getMap('title_prefix', array_values(array_unique($spanHashes)), $locale),
-            'color' => $this->getMap('color', array_values(array_unique(array_merge($colorHashes, $spanHashes))), $locale),
-            'spec' => $this->getMap('spec', array_values(array_unique($specHashes)), $locale),
-            'category_segment' => $this->getMap('category_segment', array_values(array_unique(array_merge($catHashes, $spanHashes))), $locale),
-        ];
-
-        $title = self::translateTextWithDictionary($rawTitle, $locale, $dict);
-
-        $colour = null;
-        if ($colorParts !== []) {
-            $translatedParts = array_map(
-                fn ($c) => self::translateTextWithDictionary($c, $locale, $dict),
-                $colorParts
-            );
-            $colour = implode(' / ', $translatedParts);
+        // Если после словаря остались редкие непереведённые греческие фразы — переводим их через Gemini на лету
+        $leftoverSpans = [];
+        foreach (array_merge([$title, (string) $colour], $specs, $categories) as $textItem) {
+            foreach (self::extractGreekSpans($textItem) as $untranslatedSpan) {
+                $leftoverSpans[EntityTranslation::hash($untranslatedSpan)] = $untranslatedSpan;
+            }
         }
 
-        $specs = array_map(
-            fn ($s) => self::translateTextWithDictionary($s, $locale, $dict),
-            $rawSpecs
-        );
+        if ($leftoverSpans !== []) {
+            try {
+                TranslateFeedEntitiesJob::dispatchSync('spec', array_values($leftoverSpans));
+                foreach (array_keys($leftoverSpans) as $h) {
+                    Cache::forget("entity_tr:spec:{$locale}:{$h}");
+                    Cache::forget("entity_tr:title_prefix:{$locale}:{$h}");
+                }
 
-        $categories = array_map(
-            fn ($c) => self::translateTextWithDictionary($c, $locale, $dict),
-            $rawCategories
-        );
+                $dict = $this->buildProductDictionary($rawTitle, $rawColour, $rawSpecs, $rawCategories, $locale);
+                $title = self::translateTextWithDictionary($rawTitle, $locale, $dict);
+                $colour = $colorParts !== []
+                    ? implode(' / ', array_map(fn ($c) => self::translateTextWithDictionary($c, $locale, $dict), $colorParts))
+                    : null;
+                $specs = array_map(fn ($s) => self::translateTextWithDictionary($s, $locale, $dict), $rawSpecs);
+                $categories = array_map(fn ($c) => self::translateTextWithDictionary($c, $locale, $dict), $rawCategories);
+            } catch (\Throwable) {
+                // Если лимит API временно превышен — отдаём как есть без падения страницы
+            }
+        }
 
         return [
             'title' => $title,
@@ -653,7 +665,53 @@ class FeedEntityLocalizer
     }
 
     /**
-     * Пакетная локализация заголовков и цветов для карточек каталога/поиска (1 пакетное чтение на всю страницу).
+     * @param string[] $rawSpecs
+     * @param string[] $rawCategories
+     * @return array<string, array<string, string>>
+     */
+    private function buildProductDictionary(string $rawTitle, string $rawColour, array $rawSpecs, array $rawCategories, string $locale): array
+    {
+        $allHashes = [];
+
+        foreach (self::extractGreekSpans($rawTitle) as $s) {
+            $allHashes[] = EntityTranslation::hash($s);
+        }
+
+        if ($rawColour !== '') {
+            foreach (preg_split('/\s*[\/,]\s*/u', $rawColour) ?: [] as $c) {
+                $c = trim($c);
+                if ($c !== '') {
+                    $allHashes[] = EntityTranslation::hash($c);
+                }
+            }
+        }
+
+        foreach ($rawSpecs as $spec) {
+            $allHashes[] = EntityTranslation::hash($spec);
+            foreach (self::extractGreekSpans($spec) as $s) {
+                $allHashes[] = EntityTranslation::hash($s);
+            }
+        }
+
+        foreach ($rawCategories as $cat) {
+            $allHashes[] = EntityTranslation::hash($cat);
+            foreach (self::extractGreekSpans($cat) as $s) {
+                $allHashes[] = EntityTranslation::hash($s);
+            }
+        }
+
+        $uniqueHashes = array_values(array_unique($allHashes));
+
+        return [
+            'title_prefix' => $this->getMap('title_prefix', $uniqueHashes, $locale),
+            'color' => $this->getMap('color', $uniqueHashes, $locale),
+            'spec' => $this->getMap('spec', $uniqueHashes, $locale),
+            'category_segment' => $this->getMap('category_segment', $uniqueHashes, $locale),
+        ];
+    }
+
+    /**
+     * Пакетная локализация заголовков и цветов для карточек каталога/поиска.
      */
     public function localizeCardTitles(array $cards, string $locale): array
     {
@@ -665,8 +723,11 @@ class FeedEntityLocalizer
 
         foreach ($cards as $card) {
             $rawTitle = (string) ($card['title'] ?? '');
-            foreach (self::extractGreekSpans($rawTitle) as $span) {
-                $allHashes[] = EntityTranslation::hash($span);
+            if ($rawTitle !== '') {
+                $allHashes[] = EntityTranslation::hash($rawTitle);
+                foreach (self::extractGreekSpans($rawTitle) as $span) {
+                    $allHashes[] = EntityTranslation::hash($span);
+                }
             }
 
             $rawColour = (string) ($card['colour'] ?? '');
@@ -686,6 +747,7 @@ class FeedEntityLocalizer
             'title_prefix' => $this->getMap('title_prefix', $uniqueHashes, $locale),
             'color' => $this->getMap('color', $uniqueHashes, $locale),
             'category_segment' => $this->getMap('category_segment', $uniqueHashes, $locale),
+            'spec' => $this->getMap('spec', $uniqueHashes, $locale),
         ];
 
         foreach ($cards as $i => $card) {
@@ -704,7 +766,7 @@ class FeedEntityLocalizer
     }
 
     /**
-     * Собирает непереведённые греческие спаны и сущности для фонового LLM-перевода.
+     * Собирает непереведённые греческие фразы и спаны (включая спаны внутри specs) для Gemini LLM.
      *
      * @param array<string, int> $minCounts
      * @return array<string, string[]>
@@ -717,7 +779,7 @@ class FeedEntityLocalizer
             'category_segment' => 1,
             'color' => 1,
             'title_prefix' => 2,
-            'spec' => 4,
+            'spec' => 2,
         ], $minCounts);
 
         $query = FeedProduct::query()->where('is_active', true);
@@ -762,7 +824,7 @@ class FeedEntityLocalizer
 
                     foreach (self::extractGreekSpans((string) $row->name) as $span) {
                         $norm = EntityTranslation::normalizeKey($span);
-                        if ($norm === '' || in_array($norm, self::GREEK_STOP_ONLY, true)) {
+                        if ($norm === '' || in_array($norm, self::GREEK_STOP_ONLY, true) || isset(self::CORE_LEXICON[$norm])) {
                             continue;
                         }
 
@@ -785,12 +847,22 @@ class FeedEntityLocalizer
 
                     foreach ((array) ($row->specs ?? []) as $spec) {
                         $spec = trim((string) $spec);
-                        if ($spec === '' || !self::containsGreek($spec) || mb_strlen($spec) < 3 || mb_strlen($spec) > 120 || str_starts_with($spec, 'GTIN:')) {
+                        if ($spec === '' || !self::containsGreek($spec) || str_starts_with($spec, 'GTIN:')) {
                             continue;
                         }
-                        $h = EntityTranslation::hash($spec);
-                        $candidates['spec'][$h] ??= EntityTranslation::ucfirstMb(mb_strtolower($spec));
-                        $counts['spec'][$h] = ($counts['spec'][$h] ?? 0) + 1;
+
+                        // Извлекаем чистые греческие спаны из характеристики (без процентов, скобок и брендов)
+                        foreach (self::extractGreekSpans($spec) as $specSpan) {
+                            $norm = EntityTranslation::normalizeKey($specSpan);
+                            if ($norm === '' || in_array($norm, self::GREEK_STOP_ONLY, true) || isset(self::CORE_LEXICON[$norm])) {
+                                continue;
+                            }
+                            if (mb_strlen($specSpan) >= 2 && mb_strlen($specSpan) <= 100) {
+                                $h = EntityTranslation::hash($specSpan);
+                                $candidates['spec'][$h] ??= EntityTranslation::ucfirstMb(mb_strtolower($specSpan));
+                                $counts['spec'][$h] = ($counts['spec'][$h] ?? 0) + 1;
+                            }
+                        }
                     }
                 }
             });
@@ -807,10 +879,6 @@ class FeedEntityLocalizer
             $filteredCounts = array_filter($counts[$type], function ($c, $h) use ($type, $minFreq, $byHash) {
                 $text = (string) ($byHash[$h] ?? '');
 
-                if ($type === 'spec' && preg_match('/\d/u', $text)) {
-                    return $c >= max(8, $minFreq * 2);
-                }
-
                 if ($type === 'title_prefix' && substr_count($text, ' ') >= 5) {
                     return $c >= max(4, $minFreq);
                 }
@@ -824,10 +892,10 @@ class FeedEntityLocalizer
                 continue;
             }
 
+            // Проверяем по ВСЕМ типам в entity_translations, чтобы не переводить повторно фразы, уже существующие в другом типе
             $existingHashes = [];
             foreach (array_chunk(array_keys($filteredCounts), 500) as $chunk) {
                 $found = EntityTranslation::query()
-                    ->where('entity_type', $type)
                     ->whereIn('source_hash', $chunk)
                     ->pluck('source_hash')
                     ->all();
