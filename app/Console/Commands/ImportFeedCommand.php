@@ -40,7 +40,7 @@ class ImportFeedCommand extends Command
             return self::FAILURE;
         }
 
-        // Отсекаем нецелевые разделы (Home, посуда, декор, канцелярия) после импорта
+        // Отсекаем нецелевые разделы (Home, посуда, декор)
         $excludedTops = array_filter((array) config('home_categories.excluded_tops', ['Home']));
         if ($excludedTops !== []) {
             $deactivatedJunk = DB::table('feed_products')
@@ -60,22 +60,6 @@ class ImportFeedCommand extends Command
             }
         }
 
-        // Сброс кэша главной, брендов, автокомплита и плиток категорий
-        Cache::forget("home.category_chips.v2.{$feed}");
-        Cache::forget('home.category_tiles.v5.all');
-        Cache::forget('home.popular_cards.v2');
-        Cache::forget('home.discount_cards.v2');
-        Cache::forget('home.top_brands.v2');
-        Cache::forget('autocomplete.brands.all.v1');
-
-        foreach ((array) config('home_categories.tiles', []) as $tile) {
-            $slug = (string) ($tile['slug'] ?? '');
-            if ($slug !== '') {
-                Cache::forget("category.subs.v2.{$slug}");
-                Cache::forget("category.facets.v5.{$slug}." . md5(json_encode([])));
-            }
-        }
-
         $this->table(
             ['Строк прочитано', 'Загружено', 'Пропущено', 'Деактивировано'],
             [[$stats['total'], $stats['imported'], $stats['skipped'], $stats['deactivated']]]
@@ -91,23 +75,32 @@ class ImportFeedCommand extends Command
         }
 
         if ($this->option('no-warm')) {
-            $this->info('Пересборка автокомплита и прогрев кэша пропущены (--no-warm).');
+            $this->info('Индексация и прогрев кэша пропущены (--no-warm).');
 
             return self::SUCCESS;
+        }
+
+        // Индексируем в Meilisearch ТОЛЬКО текущий обновлённый фид пачками по 5000 (вместо всей базы по 500)
+        if (config('scout.driver') === 'meilisearch') {
+            $this->info("Обновление индекса Meilisearch для «{$feed}»...");
+            FeedProduct::query()
+                ->where('feed', $feed)
+                ->where('is_active', true)
+                ->chunkById(5000, function ($models) {
+                    $models->searchable();
+                });
         }
 
         if (Schema::hasTable('autocomplete_entries')) {
             $this->call('autocomplete:rebuild');
         }
 
-        if (config('scout.driver') === 'meilisearch') {
-            $this->call('scout:import', ['model' => FeedProduct::class]);
-        }
-
-        // Прогреваем кэш всех категорий и фасетов в Redis
-        $this->info('Прогрев кэша категорий и фасетов...');
+        $this->info('Атомарное обновление кэша категорий через Meilisearch...');
         $categoryTiles->warmAll();
-        $this->info('Кэш категорий успешно обновлён.');
+        Cache::forget('home.popular_cards.v4');
+        Cache::forget('home.discount_cards.v4');
+        Cache::forget('home.top_brands.v4');
+        $this->info('Кэш категорий обновлён без простоя.');
 
         return self::SUCCESS;
     }

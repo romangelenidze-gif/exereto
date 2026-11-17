@@ -18,6 +18,12 @@ class FeedProduct extends Model
     /** @var array<string, array<string, EntityTranslation>>|null */
     private static ?array $translationCache = null;
 
+    /** @var array<int, array<string, mixed>>|null */
+    private static ?array $compiledTiles = null;
+
+    /** @var array<int, string>|null */
+    private static ?array $excludedTops = null;
+
     protected function casts(): array
     {
         return [
@@ -26,6 +32,7 @@ class FeedProduct extends Model
             'rating' => 'float',
             'delivery_cost' => 'float',
             'discount_percent' => 'integer',
+            'priority_score' => 'integer',
             'in_stock' => 'boolean',
             'is_active' => 'boolean',
             'sizes' => 'array',
@@ -53,51 +60,47 @@ class FeedProduct extends Model
     {
         $dict = self::getTranslationDictionary();
 
-        $rawName = trim((string) $this->name);
-        $titleEl = $rawName;
-        $titleEn = $rawName;
-        $titleRu = $rawName;
-        $titleKa = $rawName;
+        $rawName = trim((string)$this->name);
+        $titleEl =$rawName;
+        $titleEn =$rawName;
+        $titleRu =$rawName;
+        $titleKa =$rawName;
 
         $split = FeedEntityLocalizer::splitGreekTitle($rawName);
         if ($split !== null) {
             $h = EntityTranslation::hash($split['prefix']);
             if (isset($dict['title_prefix'][$h])) {
-                $tr = $dict['title_prefix'][$h];
-                $titleEn = trim($tr->forLocale('en') . ' ' . $split['model']);
-                $titleRu = trim($tr->forLocale('ru') . ' ' . $split['model']);
-                $titleKa = trim($tr->forLocale('ka') . ' ' . $split['model']);
+                $tr =$dict['title_prefix'][$h];$titleEn = trim($tr->forLocale('en') . ' ' .$split['model']);
+                $titleRu = trim($tr->forLocale('ru') . ' ' . $split['model']);$titleKa = trim($tr->forLocale('ka') . ' ' .$split['model']);
             }
         }
 
         $catKeywords = [];
-        foreach (explode(',', (string) $this->category_path) as $seg) {
+        foreach (explode(',', (string) $this->category_path) as$seg) {
             $seg = trim($seg);
             if ($seg === '') {
                 continue;
             }
-            $catKeywords[] = $seg;
+            $catKeywords[] =$seg;
             $h = EntityTranslation::hash($seg);
-            if (isset($dict['category_segment'][$h])) {
-                $tr = $dict['category_segment'][$h];
-                $catKeywords[] = $tr->forLocale('en');
-                $catKeywords[] = $tr->forLocale('ru');
-                $catKeywords[] = $tr->forLocale('ka');
+            if (isset($dict['category_segment'][$h])) {$tr = $dict['category_segment'][$h];
+                $catKeywords[] =$tr->forLocale('en');
+                $catKeywords[] =$tr->forLocale('ru');
+                $catKeywords[] =$tr->forLocale('ka');
             }
         }
 
         $colorKeywords = [];
-        foreach (explode('/', (string) $this->colour) as $colPart) {
+        foreach (explode('/', (string) $this->colour) as$colPart) {
             $colPart = trim($colPart);
             if ($colPart === '') {
                 continue;
             }
-            $colorKeywords[] = $colPart;
+            $colorKeywords[] =$colPart;
             $h = EntityTranslation::hash($colPart);
-            if (isset($dict['color'][$h])) {
-                $tr = $dict['color'][$h];
-                $colorKeywords[] = $tr->forLocale('ru');
-                $colorKeywords[] = $tr->forLocale('ka');
+            if (isset($dict['color'][$h])) {$tr = $dict['color'][$h];
+                $colorKeywords[] =$tr->forLocale('ru');
+                $colorKeywords[] =$tr->forLocale('ka');
             }
         }
 
@@ -109,7 +112,16 @@ class FeedProduct extends Model
             default => '',
         };
 
-        $groupKey = $this->feed . ':' . ($this->model_code ?: $this->sku);
+        $modelBase = ($this->model_code !== null &&$this->model_code !== '')
+            ? $this->model_code
+            : ($rawName !== ''
+                ? substr(md5(mb_strtolower(trim($this->brand . '\vert{}' .$rawName . '|' . $this->colour))), 0, 16) :$this->sku);
+
+        $groupKey = $this->feed . ':' .$modelBase;
+
+        [$tileSlugs, $subKeys] =$this->resolveTilesAndSubKeys();
+
+        $colourMain = trim(explode('/', (string)$this->colour)[0] ?? '');
 
         return [
             'id' => (int) $this->id,
@@ -130,12 +142,126 @@ class FeedProduct extends Model
             'category_path' => (string) ($this->category_path ?? ''),
             'category_id' => $this->category_id ? (int) $this->category_id : null,
             'gender' => (string) ($this->gender ?? 'unisex'),
+            'colour_main' => $colourMain,
+            'sizes_list' => $this->extractSizeLabels(),
+            'tile_slugs' => $tileSlugs,
+            'sub_keys' => $subKeys,
+            'image_url' => (string) ($this->image_url ?? ''),
             'price' => (float) $this->price,
             'discount_percent' => (int) ($this->discount_percent ?? 0),
-            'rating' => $this->rating !== null ? (float) $this->rating : -1.0,
-            'in_stock' => (bool) $this->in_stock,
+            'priority_score' => (int) ($this->priority_score ?? 50),
+            'rating' => $this->rating !== null ? (float) $this->rating : -1.0, 'in_stock' => (bool)$this->in_stock,
             'is_active' => (bool) $this->is_active,
         ];
+    }
+
+    /**
+     * Вычисляет принадлежность товара к плиткам и подкатегориям один раз при индексации.
+     *
+     * @return array{0: array<int, string>, 1: array<int, string>}
+     */
+    public function resolveTilesAndSubKeys(): array
+    {
+        if (self::$excludedTops === null) {
+            self::$excludedTops = array_map(
+                fn ($t) => mb_strtolower(trim((string)$t)),
+                array_filter((array) config('home_categories.excluded_tops', ['Home']))
+            );
+        }
+
+        $topLower = mb_strtolower(trim((string)$this->category_top));
+        if ($topLower !== '' && in_array($topLower, self::$excludedTops, true)) {
+            return [[], []];
+        }
+
+        if (self::$compiledTiles === null) {
+            self::$compiledTiles = (array) config('home_categories.tiles', []);
+        }
+
+        $pathLower = mb_strtolower((string)$this->category_path);
+        $gender = (string)$this->gender;
+        $discount = (int)$this->discount_percent;
+
+        $tileSlugs = [];$subKeys = [];
+
+        foreach (self::$compiledTiles as$tile) {
+            $slug = (string) ($tile['slug'] ?? '');
+            if ($slug === '') {
+                continue;
+            }
+
+            if (!$this->matchesWhereClause((array) ($tile['where'] ?? []), $pathLower,$topLower, $gender,$discount)) {
+                continue;
+            }
+
+            $tileSlugs[] =$slug;
+
+            foreach ((array) ($tile['subcategories'] ?? []) as $idx =>$sub) {
+                if ($this->matchesWhereClause((array) ($sub['where'] ?? []),$pathLower, $topLower,$gender, $discount)) {$subKeys[] = "{$slug}:{$idx}";
+                }
+            }
+        }
+
+        return [$tileSlugs,$subKeys];
+    }
+
+    private function matchesWhereClause(array $where, string $pathLower, string$topLower, string $gender, int$discount): bool
+    {
+        foreach ($where as $key =>$value) {
+            if ($key === 'gender') {
+                if ($gender !== (string)$value) {
+                    return false;
+                }
+            } elseif ($key === 'category_top') {
+                if ($topLower !== mb_strtolower(trim((string)$value))) {
+                    return false;
+                }
+            } elseif ($key === 'discount') {
+                if ($value &&$discount <= 0) {
+                    return false;
+                }
+            } elseif ($key === 'category_path') {$matched = false;
+                foreach ((array) $value as$needle) {
+                    $n = mb_strtolower(trim((string)$needle));
+                    if ($n !== '' && str_contains($pathLower, $n)) {$matched = true;
+                        break;
+                    }
+                }
+                if (!$matched) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function extractSizeLabels(): array
+    {
+        $raw =$this->sizes;
+        $arr = is_string($raw) ? json_decode($raw, true) : (array)$raw;
+        if (!is_array($arr)) {
+            return [];
+        }
+
+        $labels = [];
+        foreach ($arr as$s) {
+            $val = is_array($s)
+                ? ($s['size'] ?? $s['name'] ?? $s['value'] ?? $s['label'] ?? null)
+                : $s;
+
+            if (is_scalar($val)) {
+                $str = trim((string)$val);
+                if ($str !== '' && mb_strlen($str) <= 12) {
+                    $labels[$str] = true;
+                }
+            }
+        }
+
+        return array_keys($labels);
     }
 
     private static function getTranslationDictionary(): array
@@ -154,7 +280,7 @@ class FeedProduct extends Model
             ->whereIn('entity_type', ['title_prefix', 'category_segment', 'color'])
             ->get()
             ->each(function (EntityTranslation $row) {
-                self::$translationCache[$row->entity_type][$row->source_hash] = $row;
+                self::$translationCache[$row->entity_type][$row->source_hash] =$row;
             });
 
         return self::$translationCache;
@@ -163,8 +289,7 @@ class FeedProduct extends Model
     public function outboundUrl(): string
     {
         return AwinLink::forProduct(
-            $this->deep_link,
-            $this->merchant_url,
+            $this->deep_link,$this->merchant_url,
             (array) config("feeds.feeds.{$this->feed}.english_url", [])
         );
     }
@@ -192,6 +317,6 @@ class FeedProduct extends Model
 
     public function detailUrl(): string
     {
-        return route('feed-product.show', ['feed' => $this->feed, 'sku' => $this->sku]);
+        return route('feed-product.show', ['feed' => $this->feed, 'sku' =>$this->sku]);
     }
 }

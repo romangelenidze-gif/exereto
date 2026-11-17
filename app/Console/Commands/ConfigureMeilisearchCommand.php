@@ -10,11 +10,11 @@ class ConfigureMeilisearchCommand extends Command
 {
     protected $signature = 'feeds:configure-search';
 
-    protected $description = 'Настройка атрибутов, сортировки, distinct и мультиязычных синонимов в Meilisearch';
+    protected $description = 'Настройка атрибутов, фасетов, пагинации, сортировки и синонимов в Meilisearch';
 
     public function handle(): int
     {
-        $host = (string) config('scout.meilisearch.host');
+        $host = (string) (config('scout.meilisearch.host') ?: config('scout.meilisearch.url'));
         $key = (string) config('scout.meilisearch.key');
 
         if ($host === '') {
@@ -31,6 +31,12 @@ class ConfigureMeilisearchCommand extends Command
 
         $index->updateSettings([
             'distinctAttribute' => 'group_key',
+            'pagination' => [
+                'maxTotalHits' => 20000,
+            ],
+            'faceting' => [
+                'maxValuesPerFacet' => 250,
+            ],
             'typoTolerance' => [
                 'enabled' => true,
                 'minWordSizeForTypos' => [
@@ -39,12 +45,12 @@ class ConfigureMeilisearchCommand extends Command
                 ],
             ],
             'searchableAttributes' => [
+                'brand',
+                'model_code',
                 'title_ru',
                 'title_ka',
                 'title_en',
                 'title_el',
-                'brand',
-                'model_code',
                 'sku',
                 'category_keywords',
                 'color_keywords',
@@ -59,10 +65,16 @@ class ConfigureMeilisearchCommand extends Command
                 'gender',
                 'category_top',
                 'category_id',
+                'tile_slugs',
+                'sub_keys',
+                'colour_main',
+                'sizes_list',
                 'price',
                 'discount_percent',
+                'priority_score',
             ],
             'sortableAttributes' => [
+                'priority_score',
                 'price',
                 'rating',
                 'discount_percent',
@@ -104,5 +116,4 @@ class ConfigureMeilisearchCommand extends Command
 
         return self::SUCCESS;
     }
-    
 }
