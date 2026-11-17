@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Cache;
 use App\Models\FeedProduct;
 use App\Services\Feeds\FeedEntityLocalizer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class FeedProductController extends Controller
 {
-public function show(Request $request, string $feed, string $sku, FeedEntityLocalizer $localizer): View
+    public function show(Request $request, string $feed, string $sku, FeedEntityLocalizer $localizer): View
     {
         $product = $this->findProduct($feed, $sku);
         $locale = app()->getLocale();
 
-        $colorways = Cache::remember(
-            "product:colorways:{$feed}:" . ($product->model_code ?: $product->id),
+        $rawColorways = Cache::remember(
+            "product:colorways:v2:{$feed}:" . ($product->model_code ?: $product->id),
             now()->addHours(4),
             fn () => $product->model_code
                 ? FeedProduct::query()
@@ -25,11 +25,14 @@ public function show(Request $request, string $feed, string $sku, FeedEntityLoca
                     ->where('is_active', true)
                     ->orderBy('colour')
                     ->get(['id', 'feed', 'sku', 'colour', 'image_url'])
-                : collect([$product])
+                    ->toArray()
+                : [$product->only(['id', 'feed', 'sku', 'colour', 'image_url'])]
         );
 
+        $colorways = FeedProduct::hydrate($rawColorways);
+
         $rawRelated = Cache::remember(
-            "product:related_raw:{$feed}:{$product->category_top}:{$product->gender}:{$product->id}",
+            "product:related_raw:v2:{$feed}:{$product->category_top}:{$product->gender}:{$product->id}",
             now()->addHours(4),
             fn () => FeedProduct::query()
                 ->where('feed', $feed)
@@ -45,7 +48,7 @@ public function show(Request $request, string $feed, string $sku, FeedEntityLoca
         );
 
         $relatedProducts = collect(Cache::remember(
-            "product:related_loc:{$locale}:{$product->id}",
+            "product:related_loc:v2:{$locale}:{$product->id}",
             now()->addHours(4),
             fn () => $localizer->localizeCardTitles($rawRelated, $locale)
         ))->map(function (array $card) {
@@ -56,7 +59,7 @@ public function show(Request $request, string $feed, string $sku, FeedEntityLoca
         });
 
         $localized = Cache::remember(
-            "product:localized:{$locale}:{$product->id}",
+            "product:localized:v2:{$locale}:{$product->id}",
             now()->addHours(4),
             fn () => $localizer->localizeProduct($product, $locale)
         );
