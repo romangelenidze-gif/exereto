@@ -636,24 +636,10 @@ class FeedEntityLocalizer
             }
         }
 
+        // Отправляем неизвестные фразы в фон. Страница загрузится за 50 мс мгновенно, 
+        // а воркер спокойно переведет их для следующих посетителей.
         if ($leftoverSpans !== []) {
-            try {
-                TranslateFeedEntitiesJob::dispatchSync('spec', array_values($leftoverSpans));
-                foreach (array_keys($leftoverSpans) as $h) {
-                    Cache::forget("entity_tr:spec:{$locale}:{$h}");
-                    Cache::forget("entity_tr:title_prefix:{$locale}:{$h}");
-                }
-
-                $dict = $this->buildProductDictionary($rawTitle, $rawColour, $rawSpecs, $rawCategories, $locale);
-                $title = self::translateTextWithDictionary($rawTitle, $locale, $dict);
-                $colour = $colorParts !== []
-                    ? implode(' / ', array_map(fn ($c) => self::translateTextWithDictionary($c, $locale, $dict), $colorParts))
-                    : null;
-                $specs = array_map(fn ($s) => self::translateTextWithDictionary($s, $locale, $dict), $rawSpecs);
-                $categories = array_map(fn ($c) => self::translateTextWithDictionary($c, $locale, $dict), $rawCategories);
-            } catch (\Throwable) {
-                // Если лимит API временно превышен — отдаём как есть без падения страницы
-            }
+            TranslateFeedEntitiesJob::dispatch('title_prefix', array_values($leftoverSpans));
         }
 
         return [

@@ -38,7 +38,7 @@ class FeedCategoryTiles
     {
         $v = $this->catalogVersion();
         $raw = Cache::remember(
-            "home.category_tiles.v{$v}.all",
+            "home.category_tiles.v{$v}." . app()->getLocale() . ".all",
             now()->addHours(self::CACHE_HOURS),
             fn () => $this->build()
         );
@@ -65,7 +65,7 @@ class FeedCategoryTiles
 
         sort($genders);
         $v = $this->catalogVersion();
-        $cacheKey = "brand.category_tiles.v{$v}." . md5($normalized . ':' . implode(',', $genders));
+        "brand.category_tiles.v{$v}." . app()->getLocale() . "." . md5($normalized . ':' . implode(',', $genders));
 
         $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($brand, $genders) {
             $matchedBrands = $this->resolveMatchingBrands($brand);
@@ -320,7 +320,7 @@ class FeedCategoryTiles
 
         $v = $targetVersion ?? $this->catalogVersion();
         $slug = (string) ($tile['slug'] ?? md5(json_encode($tile)));
-        $cacheKey = "category.subs.v{$v}.{$slug}";
+        $cacheKey = "category.subs.v{$v}." . app()->getLocale() . ".{$slug}"
 
         $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($tile, $subs, $slug) {
             $result = [];
@@ -391,7 +391,7 @@ class FeedCategoryTiles
     {
         $v = $targetVersion ?? $this->catalogVersion();
         $slug = (string) ($tile['slug'] ?? '');
-        $cacheKey = "category.facets.v{$v}.{$slug}." . md5(json_encode($activeFilters));
+        $cacheKey = "category.facets.v{$v}." . app()->getLocale() . ".{$slug}." . md5(json_encode($activeFilters));
 
         return Cache::remember($cacheKey, now()->addHours(4), function () use ($tile, $slug, $activeFilters) {
             $subKey = null;
@@ -423,7 +423,7 @@ class FeedCategoryTiles
         }
 
         $v = $this->catalogVersion();
-        $cacheKey = "search.facets.v{$v}." . md5(mb_strtolower($q) . ':' . json_encode($activeFilters));
+        $cacheKey = "search.facets.v{$v}." . app()->getLocale() . "." . md5(mb_strtolower($q) . ':' . json_encode($activeFilters));
 
         return Cache::remember($cacheKey, now()->addHours(4), function () use ($q, $activeFilters) {
             $matchedBrands = $this->resolveMatchingBrands($q);
@@ -567,7 +567,7 @@ class FeedCategoryTiles
     public function paginateGroupedCards(Builder $filteredBase, string $sort, int $page, int $perPage, string $cachePrefix): array
     {
         $v = $this->catalogVersion();
-        $pageCacheKey = "catalog_page:v{$v}:{$cachePrefix}:{$sort}:p{$page}";
+        $pageCacheKey = "catalog_page:v{$v}:" . app()->getLocale() . ":{$cachePrefix}:{$sort}:p{$page}";
 
         return Cache::remember($pageCacheKey, now()->addHours(4), function () use ($filteredBase, $sort, $page, $perPage) {
             if ($this->isMeiliReady() && isset($this->meiliContexts[$filteredBase])) {
