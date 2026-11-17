@@ -767,11 +767,12 @@ class FeedCategoryTiles
     }
 
     /**
-     * Прогрев новой версии кэша (плитки, подкатегории, фасеты и 1-я страница товаров).
+     * Прогрев новой версии кэша (плитки, подкатегории, фасеты и 1-я страница товаров для всех языков).
      */
     public function warmAll(): void
     {
         $nextVersion = $this->catalogVersion() + 1;
+        $originalLocale = app()->getLocale();
 
         Cache::put(
             "home.category_tiles.v{$nextVersion}.all",
@@ -793,9 +794,14 @@ class FeedCategoryTiles
 
             $base = $this->productsQuery($tile);
             $filtered = $this->applyUserFilters($base, []);
-            $this->paginateGroupedCards($filtered, 'relevance', 1, $perPage, "cat:{$slug}:{$defaultFilterHash}", $nextVersion);
+
+            foreach (['en', 'ru', 'ka'] as $loc) {
+                app()->setLocale($loc);
+                $this->paginateGroupedCards($filtered, 'relevance', 1, $perPage, "cat:{$slug}:{$defaultFilterHash}", $nextVersion);
+            }
         }
 
+        app()->setLocale($originalLocale);
         Cache::forever('catalog:version', $nextVersion);
     }
 

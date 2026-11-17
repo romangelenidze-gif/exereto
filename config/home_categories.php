@@ -12,6 +12,36 @@ return [
     'excluded_tops' => ['Home'],
 
     'tiles' => [
+        // --- ТОП-3 ПРИОРИТЕТНЫЕ ПЛИТКИ ---
+        [
+            'slug' => 'sportswear-tracksuits',
+            'label' => 'Спортивная одежда',
+            'img' => 'sportswear.png',
+            'where' => [
+                'category_path' => ['Αθλητικές Φόρμες', 'Παντελόνια Φόρμας', 'Φόρμες', 'Σορτς', 'Shorts', 'Σπορ'],
+            ],
+            'keywords' => ['sportswear', 'tracksuit', 'спортивный костюм', 'шорты', 'спортивная одежда'],
+        ],
+        [
+            'slug' => 'childrens-fashion',
+            'label' => 'Детская мода',
+            'img' => 'childrens-fashion.png',
+            'where' => ['gender' => 'kids'],
+            'keywords' => ['kids', 'children', 'детская одежда', 'детская обувь', 'საბავშვო'],
+            'subcategories' => [
+                ['label' => 'Для девочек', 'where' => ['category_path' => ['Κορίτσι', 'ΚΟΡΙΤΣΙ', 'Κορίτσια']]],
+                ['label' => 'Для мальчиков', 'where' => ['category_path' => ['Αγόρι', 'ΑΓΟΡΙ', 'Αγόρια']]],
+                ['label' => 'Детская обувь', 'where' => ['category_path' => ['Παπούτσια', 'Υποδήματα', 'Αθλητικά', 'Σανδάλια']]],
+            ],
+        ],
+        [
+            'slug' => 'sales-offers',
+            'label' => 'Акции и скидки',
+            'img' => 'sales-offers.png',
+            'where' => ['discount' => true],
+            'keywords' => ['sale', 'discount', 'скидки', 'распродажа', 'ფასდაკლება'],
+        ],
+
         // --- ОБУВЬ ---
         [
             'slug' => 'womens-sneakers',
@@ -182,15 +212,6 @@ return [
             'keywords' => ['mens jeans', 'chinos', 'мужские джинсы', 'брюки', 'чиносы'],
         ],
         [
-            'slug' => 'sportswear-tracksuits',
-            'label' => 'Спортивная одежда',
-            'img' => 'sportswear.png',
-            'where' => [
-                'category_path' => ['Αθλητικές Φόρμες', 'Παντελόνια Φόρμας', 'Φόρμες', 'Σορτς', 'Shorts', 'Σπορ'],
-            ],
-            'keywords' => ['sportswear', 'tracksuit', 'спортивный костюм', 'шорты', 'спортивная одежда'],
-        ],
-        [
             'slug' => 'underwear-socks',
             'label' => 'Бельё, купальники и носки',
             'img' => 'underwear.png',
@@ -272,40 +293,12 @@ return [
             ],
             'keywords' => ['makeup', 'lipstick', 'foundation', 'макияж', 'помада', 'тональный крем'],
         ],
-
-        // --- ДЕТИ, АВТОЗАПЧАСТИ И СКИДКИ ---
-        [
-            'slug' => 'childrens-fashion',
-            'label' => 'Детская мода',
-            'img' => 'childrens-fashion.png',
-            'where' => ['gender' => 'kids'],
-            'keywords' => ['kids', 'children', 'детская одежда', 'детская обувь', 'საბავშვო'],
-            'subcategories' => [
-                ['label' => 'Для девочек', 'where' => ['category_path' => ['Κορίτσι', 'ΚΟΡΙΤΣΙ', 'Κορίτσια']]],
-                ['label' => 'Для мальчиков', 'where' => ['category_path' => ['Αγόρι', 'ΑΓΟΡΙ', 'Αγόρια']]],
-                ['label' => 'Детская обувь', 'where' => ['category_path' => ['Παπούτσια', 'Υποδήματα', 'Αθλητικά', 'Σανδάλια']]],
-            ],
-        ],
-        [
-            'slug' => 'auto-parts',
-            'label' => 'Автозапчасти и автотовары',
-            'img' => 'auto-parts.png',
-            'where' => ['category_path' => ['Ανταλλακτικά', 'Αυτοκίνητο', 'Auto Parts', 'Car Parts']],
-            'keywords' => ['auto parts', 'car parts', 'автозапчасти', 'запчасти', 'фильтр', 'тормозные'],
-        ],
-        [
-            'slug' => 'sales-offers',
-            'label' => 'Акции и скидки',
-            'img' => 'sales-offers.png',
-            'where' => ['discount' => true],
-            'keywords' => ['sale', 'discount', 'скидки', 'распродажа', 'ფასდაკლება'],
-        ],
     ],
 
     'concepts' => [
         'genders' => [
             'men'   => ['men', 'mens', 'man', 'male', 'мужск*', 'мужчин*', 'парн*', 'კაც*', 'მამაკაც*', 'ανδρικ*', 'ανδρων', 'ανδρες'],
-            'women' => ['women', 'womens', 'woman', 'ladies', 'lady', 'female', 'женск*', 'женщин*', 'девушк*', 'ქალ*', 'გოგო*', 'გოგონ*', 'γυναικ*'],
+            'women' => ['women', 'womens', 'woman', 'ladies', 'lady', 'female', 'женск*', 'женщин*', 'девушк*', 'ქალ*', 'გოგო*', 'გογόν*', 'γυναικ*'],
             'kids'  => ['kids', 'kid', 'children', 'child', 'junior', 'juniors', 'boys', 'girls', 'youth', 'детск*', 'дет*', 'ребен*', 'мальчик*', 'девочк*', 'ბავშვ*', 'საბავშვო*', 'παιδικ*', 'παιδια', 'αγορι*', 'κοριτσι*', 'βρεφικ*'],
         ],
         'types' => [
