@@ -320,7 +320,7 @@ class FeedCategoryTiles
 
         $v = $targetVersion ?? $this->catalogVersion();
         $slug = (string) ($tile['slug'] ?? md5(json_encode($tile)));
-        $cacheKey = "category.subs.v{$v}." . app()->getLocale() . ".{$slug}"
+        $cacheKey = "category.subs.v{$v}." . app()->getLocale() . ".{$slug}";
 
         $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($tile, $subs, $slug) {
             $result = [];
