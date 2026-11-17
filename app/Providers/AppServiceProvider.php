@@ -24,6 +24,15 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
+        // --- ДОБАВИТЬ ЭТОТ БЛОК ---
+        // Автоматически подставляем язык во все вызовы route() по всему сайту и API
+        $locale = request()->segment(1);
+        if (!in_array($locale, ['ru', 'en', 'ka'], true)) {
+            $locale = 'ru'; // Ваш язык по умолчанию
+        }
+        URL::defaults(['locale' => $locale]);
+        // --------------------------
+
         Order::observe(OrderObserver::class);
     }
 }

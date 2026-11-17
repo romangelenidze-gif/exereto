@@ -7,11 +7,13 @@
         'ru' => 'Русский',
     ];
     $current = app()->getLocale();
+    
+    // Получаем имя текущего маршрута (если есть)
+    $currentRouteName = request()->route() ? request()->route()->getName() : null;
 @endphp
 
 <x-public-ui.dropdown :theme="$theme" :direction="$direction" width="w-33">
 
-    {{-- Кнопка-триггер --}}
     <x-slot:trigger>
         <button type="button" class="apple-lang-btn theme-{{ $theme }}" aria-label="{{ __('Язык интерфейса') }}">
             <svg fill="none" viewBox="0 0 26 26" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -21,9 +23,18 @@
         </button>
     </x-slot:trigger>
 
-    {{-- Список языков (попадает в $slot) --}}
     @foreach ($languages as $code => $name)
-        <a href="{{ route('lang.switch', $code) }}"
+        @php
+            if ($currentRouteName) {
+                // Подменяем 'locale' в маршруте, сохраняя GET-параметры (поиск, фильтры)
+                $url = route($currentRouteName, array_merge(request()->route()->parameters(), request()->query(), ['locale' => $code]));
+            } else {
+                // Фолбэк, если маршрут не определен
+                $url = url('/' . $code);
+            }
+        @endphp
+        
+        <a href="{{ $url }}"
            @if ($current === $code) aria-current="true" @endif
            class="apple-lang-option theme-{{ $theme }}">
             <span lang="{{ $code }}">{{ $name }}</span>
