@@ -63,9 +63,9 @@ class FeedCategoryTiles
             return collect();
         }
 
-        sort($genders);
+       sort($genders);
         $v = $this->catalogVersion();
-        "brand.category_tiles.v{$v}." . app()->getLocale() . "." . md5($normalized . ':' . implode(',', $genders));
+        $cacheKey = "brand.category_tiles.v{$v}." . app()->getLocale() . "." . md5($normalized . ':' . implode(',', $genders));
 
         $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($brand, $genders) {
             $matchedBrands = $this->resolveMatchingBrands($brand);
