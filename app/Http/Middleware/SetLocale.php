@@ -11,21 +11,21 @@ class SetLocale
 {
     public function handle(Request $request, Closure $next)
     {
-        $locale = $request->segment(1);
-        $supportedLocales = ['ru', 'en', 'ka']; // ru - по умолчанию, en - English, ka - Georgian
+        $locale = $request->route('locale');
 
-        // Если в URL нет языка (например exereto.com/product-search) — редиректим на язык по умолчанию (/ru/product-search)
-        if (!in_array($locale, $supportedLocales, true)) {
-            $segments = $request->segments();
-            array_unshift($segments, 'ru'); // Язык по умолчанию
-            return redirect()->to(implode('/', $segments) . ($request->getQueryString() ? '?' . $request->getQueryString() : ''));
+        if (in_array($locale, ['ru', 'ka'], true)) {
+            App::setLocale($locale);
+            URL::defaults(['locale' => $locale]);
+        } else {
+            // Если префикса нет (null) — это English
+            App::setLocale('en');
+            URL::defaults(['locale' => null]);
         }
 
-        // Устанавливаем язык для приложения
-        App::setLocale($locale);
-
-        // МАГИЯ: Заставляем Laravel автоматически подставлять этот язык во ВСЕ функции route()
-        URL::defaults(['locale' => $locale]);
+        // Убираем параметр, чтобы он не прокидывался в контроллеры и не ломал их параметры
+        if ($request->route()) {
+            $request->route()->forgetParameter('locale');
+        }
 
         return $next($request);
     }

@@ -2,13 +2,11 @@
 
 @php
     $languages = [
-        'ka' => 'ქართული',
         'en' => 'English',
+        'ka' => 'ქართული',
         'ru' => 'Русский',
     ];
     $current = app()->getLocale();
-    
-    // Получаем имя текущего маршрута (если есть)
     $currentRouteName = request()->route() ? request()->route()->getName() : null;
 @endphp
 
@@ -26,11 +24,14 @@
     @foreach ($languages as $code => $name)
         @php
             if ($currentRouteName) {
-                // Подменяем 'locale' в маршруте, сохраняя GET-параметры (поиск, фильтры)
-                $url = route($currentRouteName, array_merge(request()->route()->parameters(), request()->query(), ['locale' => $code]));
+                // Для английского передаем null, чтобы Laravel убрал префикс из ссылки
+                $url = route($currentRouteName, array_merge(
+                    request()->route()->parameters(),
+                    request()->query(),
+                    ['locale' => $code === 'en' ? null : $code]
+                ));
             } else {
-                // Фолбэк, если маршрут не определен
-                $url = url('/' . $code);
+                $url = url($code === 'en' ? '/' : '/' . $code);
             }
         @endphp
         
