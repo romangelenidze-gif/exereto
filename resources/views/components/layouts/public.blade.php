@@ -4,7 +4,6 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-<!--<meta name='impact-site-verification' value='262bda77-2fd8-4e20-a422-cde2f97ae789'>-->
 
     <title>{{ $title ?? __('Buyer Greece → Georgia | Выкуп и доставка товаров из Греции') }}</title>
     @if(isset($description))
@@ -13,7 +12,10 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="flex flex-col min-h-full text-[#1d1d1f] antialiased font-sans bg-[#f5f5f7]" x-data="{ mobileNavOpen: false, searchOpen: false }">
+<body class="flex flex-col min-h-full text-[#1d1d1f] antialiased font-sans bg-[#f5f5f7]"
+      x-data="{ mobileNavOpen: false, searchOpen: false, categoriesDrawerOpen: false }"
+      @open-categories.window="categoriesDrawerOpen = true"
+>
 
     <!-- Header + Drawer -->
     <x-layouts.header />

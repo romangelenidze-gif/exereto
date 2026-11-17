@@ -2,6 +2,9 @@
 
 @php
     $items = collect($categories)->values();
+    if ($items->isEmpty()) {
+        $items = app(\App\Services\FeedCategoryTiles::class)->get()->values();
+    }
     $featured = $items->take(3);
     $rest = $items->slice(3);
 @endphp
@@ -9,6 +12,7 @@
 <template x-teleport="body">
     <div x-show="categoriesDrawerOpen"
          x-cloak
+         @open-categories.window="categoriesDrawerOpen = true"
          x-effect="document.body.classList.toggle('overflow-hidden', categoriesDrawerOpen)"
          @keydown.escape.window="categoriesDrawerOpen = false"
          class="fixed inset-0 z-[9998] flex justify-end bg-black/40 backdrop-blur-xs"

@@ -1,7 +1,8 @@
 @props(['categories' => []])
 
 <section class="pt-2 sm:pt-4 lg:pt-3 pb-0 px-4 sm:px-6 lg:px-10 text-center w-full space-y-8 sm:space-y-10"
-         x-data="{ categoriesDrawerOpen: false }">
+         x-data="{ categoriesDrawerOpen: false }"
+         @open-categories.window="categoriesDrawerOpen = true">
     <div class="space-y-3 max-w-4xl mx-auto">
         <h1 class="app-text-logo truncate px-2">
             {{ __('exereto') }}
@@ -109,7 +110,7 @@
                     class="apple-search-input flex-1 bg-transparent border-none focus:outline-none text-base sm:text-lg"
                 >
                 <button type="button"
-                        @click="categoriesDrawerOpen = true"
+                        @click.stop="categoriesDrawerOpen = true; $dispatch('open-categories')"
                         aria-label="{{ __('Категории') }}"
                         class="inline-flex items-center gap-2 p-2 sm:px-3 sm:py-1.5 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
