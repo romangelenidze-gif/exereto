@@ -39,7 +39,7 @@ document.addEventListener('click', (e) => {
                 width: probe.naturalWidth,
                 height: probe.naturalHeight,
             }],
-            
+            bgOpacity: 0.97,
             secondaryZoomLevel: 2,
             maxZoomLevel: 4,
             wheelToZoom: true,
