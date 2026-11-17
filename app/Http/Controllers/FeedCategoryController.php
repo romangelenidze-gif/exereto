@@ -3,14 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Services\FeedCategoryTiles;
-use App\Services\Feeds\FeedEntityLocalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class FeedCategoryController extends Controller
 {
-    public function show(Request $request, string $slug, FeedCategoryTiles $tiles, FeedEntityLocalizer $localizer): View|JsonResponse
+    public function show(Request $request, string $slug, FeedCategoryTiles $tiles): View|JsonResponse
     {
         $tile = $tiles->tile($slug);
         if ($tile === null) {
@@ -41,17 +40,16 @@ class FeedCategoryController extends Controller
         }
 
         $filteredBase = $tiles->applyUserFilters($base, $filters);
-        $cachePrefix = 'cat:' . $slug . ':' . md5(json_encode($filters));
+        $normalizedFilters = $tiles->normalizeFiltersForCache($filters);
+        $cachePrefix = 'cat:' . $slug . ':' . md5(json_encode($normalizedFilters));
 
-        [$rawCards, $total] = $tiles->paginateGroupedCards(
+        [$cards, $total] = $tiles->paginateGroupedCards(
             $filteredBase,
             $filters['sort'],
             $page,
             $perPage,
             $cachePrefix
         );
-
-        $cards = $localizer->localizeCardTitles($rawCards, app()->getLocale());
 
         $pagination = [
             'total' => $total,

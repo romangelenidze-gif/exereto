@@ -15,27 +15,27 @@ class HomeController extends Controller
     {
         $locale = app()->getLocale();
 
-        // 1. Мультибрендовые рекомендации (единый кэш выборки + локальные ссылки и перевод)
-        $rawPopularCards = Cache::remember(
-            'home.popular_cards.v5',
+        // 1. Мультибрендовые рекомендации (кэшируем уже переведенные карточки по языкам)
+        $popularProducts = collect(Cache::remember(
+            "home.popular_cards.v6.{$locale}",
             now()->addMinutes(60),
-            fn () => $this->fetchBalancedCards(onlyDiscounts: false, limit: 12)
-        );
+            function () use ($localizer, $locale) {
+                $raw = Cache::remember('home.popular_cards.raw.v6', now()->addMinutes(60), fn () => $this->fetchBalancedCards(false, 12));
+                return array_map(fn (array $c) => $this->localizeCardUrl($c), $localizer->localizeCardTitles($raw, $locale));
+            }
+        ));
 
-        $popularProducts = collect($localizer->localizeCardTitles($rawPopularCards, $locale))
-            ->map(fn (array $card) => $this->localizeCardUrl($card));
-
-        // 2. Лучшие скидки по всем брендам
-        $rawDiscountCards = Cache::remember(
-            'home.discount_cards.v5',
+        // 2. Лучшие скидки по всем брендам (кэшируем уже переведенные карточки по языкам)
+        $discountProducts = collect(Cache::remember(
+            "home.discount_cards.v6.{$locale}",
             now()->addMinutes(60),
-            fn () => $this->fetchBalancedCards(onlyDiscounts: true, limit: 12)
-        );
+            function () use ($localizer, $locale) {
+                $raw = Cache::remember('home.discount_cards.raw.v6', now()->addMinutes(60), fn () => $this->fetchBalancedCards(true, 12));
+                return array_map(fn (array $c) => $this->localizeCardUrl($c), $localizer->localizeCardTitles($raw, $locale));
+            }
+        ));
 
-        $discountProducts = collect($localizer->localizeCardTitles($rawDiscountCards, $locale))
-            ->map(fn (array $card) => $this->localizeCardUrl($card));
-
-        // 3. Популярные бренды (формируем ссылки с учетом текущего префикса языка)
+        // 3. Популярные бренды
         $curated = [
             'adidas', 'New Balance', 'Puma', 'Tommy Hilfiger', 'Calvin Klein',
             'Guess', 'Stradivarius', 'Polo Ralph Lauren', 'BOSS', 'Vans',
@@ -58,8 +58,6 @@ class HomeController extends Controller
     }
 
     /**
-     * Обновляет URL карточки под активный языковой префикс.
-     *
      * @param array<string, mixed> $card
      * @return array<string, mixed>
      */
@@ -70,12 +68,6 @@ class HomeController extends Controller
                 'feed' => $card['feed'],
                 'sku' => $card['sku'],
             ]);
-        } elseif (!empty($card['url']) && is_string($card['url'])) {
-            $path = parse_url($card['url'], PHP_URL_PATH) ?: '';
-            $cleanPath = preg_replace('#^/(ru|ka)(?=/|$)#', '', $path);
-            $locale = app()->getLocale();
-            $prefix = in_array($locale, ['ru', 'ka'], true) ? '/' . $locale : '';
-            $card['url'] = url($prefix . $cleanPath);
         }
 
         return $card;

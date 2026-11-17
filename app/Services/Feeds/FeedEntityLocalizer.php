@@ -995,34 +995,59 @@ class FeedEntityLocalizer
      * @param string[] $hashes
      * @return array<string, string>
      */
-    private function getMap(string $entityType, array $hashes, string $locale): array
+    private function getMap(string $entityType, array $hashes, string$locale): array
     {
         if ($hashes === []) {
             return [];
         }
 
-        $out = [];
-        $missing = [];
+        $hashes = array_values(array_unique($hashes));$keys = [];
+        foreach ($hashes as $h) {$keys[$h] = "entity_tr:{$entityType}:{$locale}:{$h}";
+        }
 
-        foreach ($hashes as $h) {
-            $cached = Cache::get("entity_tr:{$entityType}:{$locale}:{$h}");
-            if (is_string($cached)) {
-                $out[$h] = $cached;
+        $cachedValues = Cache::many(array_values($keys));
+
+        $out = [];$missing = [];
+
+        foreach ($hashes as$h) {
+            $cached =$cachedValues[$keys[$h]] ?? null;
+            if ($cached === '__MISS__') {
+                continue;
+            }
+            if (is_string($cached) && $cached !== '') {$out[$h] =$cached;
             } else {
-                $missing[] = $h;
+                $missing[] =$h;
             }
         }
 
-        if ($missing !== []) {
-            $rows = EntityTranslation::query()
+        if ($missing !== []) {$rows = EntityTranslation::query()
                 ->where('entity_type', $entityType)
                 ->whereIn('source_hash', $missing)
                 ->get();
 
-            foreach ($rows as $row) {
-                $val = $row->forLocale($locale);
-                $out[$row->source_hash] = $val;
-                Cache::put("entity_tr:{$entityType}:{$locale}:{$row->source_hash}", $val, self::CACHE_TTL);
+            $foundHashes = [];$toPut = [];
+
+            foreach ($rows as $row) {$val = $row->forLocale($locale);
+                if (is_string($val) && $val !== '') {$out[$row->source_hash] =$val;
+                    $toPut["entity_tr:{$entityType}:{$locale}:{$row->source_hash}"] = $val;
+                    $foundHashes[$row->source_hash] = true;
+                }
+            }
+
+            if ($toPut !== []) {
+                Cache::putMany($toPut, self::CACHE_TTL);
+            }
+
+            // Кэшируем отсутствие перевода на 15 минут, чтобы не дергать MySQL на каждый клик
+            $missesToPut = [];
+            foreach ($missing as$h) {
+                if (!isset($foundHashes[$h])) {
+                    $missesToPut["entity_tr:{$entityType}:{$locale}:{$h}"] = '__MISS__';
+                }
+            }
+
+            if ($missesToPut !== []) {
+                Cache::putMany($missesToPut, now()->addMinutes(15));
             }
         }
 

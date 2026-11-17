@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\FeedProduct;
+use App\Services\Feeds\FeedEntityLocalizer;
 use App\Services\Feeds\ScriptTransliterator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -54,7 +55,7 @@ class FeedCategoryTiles
     }
 
     /**
-     * Категории для бренда/запроса ОДНИМ запросом к Meilisearch через фасет tile_slugs (вместо 25 exists()).
+     * Категории для бренда/запроса ОДНИМ запросом к Meilisearch через фасет tile_slugs.
      */
     public function getForBrand(string $brand, array $genders = []): Collection
     {
@@ -63,9 +64,9 @@ class FeedCategoryTiles
             return collect();
         }
 
-       sort($genders);
+        sort($genders);
         $v = $this->catalogVersion();
-        $cacheKey = "brand.category_tiles.v{$v}." . app()->getLocale() . "." . md5($normalized . ':' . implode(',', $genders));
+        $cacheKey = "brand.category_tiles.v{$v}." . md5($normalized . ':' . implode(',', $genders));
 
         $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($brand, $genders) {
             $matchedBrands = $this->resolveMatchingBrands($brand);
@@ -112,7 +113,6 @@ class FeedCategoryTiles
                         return $tiles;
                     }
                 } catch (\Throwable) {
-                    // Fallback below if index is still building
                 }
             }
 
@@ -309,6 +309,48 @@ class FeedCategoryTiles
     }
 
     /**
+     * Нормализует массив фильтров, чтобы дефолтные пустые значения давали единый ключ кэша.
+     */
+    public function normalizeFiltersForCache(array $filters): array
+    {
+        $out = [];
+        if (isset($filters['sub']) && $filters['sub'] !== null && $filters['sub'] !== '') {
+            $out['sub'] = (int) $filters['sub'];
+        }
+        if (!empty($filters['min_price']) && (float) $filters['min_price'] > 0) {
+            $out['min_price'] = (float) $filters['min_price'];
+        }
+        if (!empty($filters['max_price']) && (float) $filters['max_price'] > 0) {
+            $out['max_price'] = (float) $filters['max_price'];
+        }
+        if (!empty($filters['brands'])) {
+            $b = array_values(array_filter((array) $filters['brands']));
+            sort($b);
+            if ($b !== []) {
+                $out['brands'] = $b;
+            }
+        }
+        if (!empty($filters['genders'])) {
+            $g = array_values(array_filter((array) $filters['genders']));
+            sort($g);
+            if ($g !== []) {
+                $out['genders'] = $g;
+            }
+        }
+        if (!empty($filters['size'])) {
+            $out['size'] = trim((string) $filters['size']);
+        }
+        if (!empty($filters['color'])) {
+            $out['color'] = trim((string) $filters['color']);
+        }
+        if (!empty($filters['discount'])) {
+            $out['discount'] = true;
+        }
+
+        return $out;
+    }
+
+    /**
      * Подкатегории для верхней карусели страницы категории (через Meilisearch за 2 мс).
      */
     public function buildSubcategories(array $tile, ?int $targetVersion = null): array
@@ -322,7 +364,7 @@ class FeedCategoryTiles
         $slug = (string) ($tile['slug'] ?? md5(json_encode($tile)));
         $cacheKey = "category.subs.v{$v}.{$slug}";
 
-        $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($tile, $subs, $slug) {
+        $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($subs, $slug) {
             $result = [];
 
             if ($this->isMeiliReady()) {
@@ -391,12 +433,13 @@ class FeedCategoryTiles
     {
         $v = $targetVersion ?? $this->catalogVersion();
         $slug = (string) ($tile['slug'] ?? '');
-        $cacheKey = "category.facets.v{$v}.{$slug}." . md5(json_encode($activeFilters));
+        $normalizedFilters = $this->normalizeFiltersForCache($activeFilters);
+        $cacheKey = "category.facets.v{$v}.{$slug}." . md5(json_encode($normalizedFilters));
 
-        return Cache::remember($cacheKey, now()->addHours(4), function () use ($tile, $slug, $activeFilters) {
+        return Cache::remember($cacheKey, now()->addHours(4), function () use ($tile, $slug, $normalizedFilters) {
             $subKey = null;
-            if (isset($activeFilters['sub']) && $activeFilters['sub'] !== null && isset($tile['subcategories'][$activeFilters['sub']])) {
-                $subKey = "{$slug}:" . (int) $activeFilters['sub'];
+            if (isset($normalizedFilters['sub']) && isset($tile['subcategories'][$normalizedFilters['sub']])) {
+                $subKey = "{$slug}:" . (int) $normalizedFilters['sub'];
             }
 
             return $this->computeMeiliFacets(
@@ -407,7 +450,7 @@ class FeedCategoryTiles
                     'tile_slugs = ' . $this->meiliQuote($slug),
                     $subKey !== null ? ('sub_keys = ' . $this->meiliQuote($subKey)) : null,
                 ]),
-                filters: $activeFilters
+                filters: $normalizedFilters
             );
         });
     }
@@ -423,9 +466,10 @@ class FeedCategoryTiles
         }
 
         $v = $this->catalogVersion();
-        $cacheKey = "search.facets.v{$v}." . app()->getLocale() . "." . md5(mb_strtolower($q) . ':' . json_encode($activeFilters));
+        $normalizedFilters = $this->normalizeFiltersForCache($activeFilters);
+        $cacheKey = "search.facets.v{$v}." . md5(mb_strtolower($q) . ':' . json_encode($normalizedFilters));
 
-        return Cache::remember($cacheKey, now()->addHours(4), function () use ($q, $activeFilters) {
+        return Cache::remember($cacheKey, now()->addHours(4), function () use ($q, $normalizedFilters) {
             $matchedBrands = $this->resolveMatchingBrands($q);
 
             if ($matchedBrands !== []) {
@@ -436,7 +480,7 @@ class FeedCategoryTiles
                         'in_stock = true',
                         $this->meiliIn('brand', $matchedBrands),
                     ],
-                    filters: $activeFilters
+                    filters: $normalizedFilters
                 );
             }
 
@@ -447,13 +491,13 @@ class FeedCategoryTiles
             return $this->computeMeiliFacets(
                 searchQuery: $prepared,
                 baseClauses: ['is_active = true', 'in_stock = true'],
-                filters: $activeFilters
+                filters: $normalizedFilters
             );
         });
     }
 
     /**
-     * Вычисляет фасеты через Meilisearch (1 запрос, если нет активных фильтров, или контекстно по каждому фильтру).
+     * Вычисляет фасеты через Meilisearch.
      */
     private function computeMeiliFacets(string $searchQuery, array $baseClauses, array $filters): array
     {
@@ -486,7 +530,6 @@ class FeedCategoryTiles
                 );
             }
 
-            // Если фильтры выбраны — считаем каждую группу с исключением самой себя (по 2 мс на запрос)
             $brandDist = $this->fetchSingleFacet($searchQuery, $baseClauses, $filters, 'brands', 'brand');
             $genderDist = $this->fetchSingleFacet($searchQuery, $baseClauses, $filters, 'genders', 'gender');
             $colorDist = $this->fetchSingleFacet($searchQuery, $baseClauses, $filters, 'color', 'colour_main');
@@ -560,24 +603,32 @@ class FeedCategoryTiles
     }
 
     /**
-     * Возвращает карточки страницы и $total через 1 запрос к Meilisearch + выборку 24 строк по ID из MySQL.
+     * Возвращает уже переведённые карточки страницы и $total из Redis (за 1 мс при повторном заходе).
      *
      * @return array{0: array<int, array<string, mixed>>, 1: int}
      */
-    public function paginateGroupedCards(Builder $filteredBase, string $sort, int $page, int $perPage, string $cachePrefix): array
+    public function paginateGroupedCards(Builder $filteredBase, string $sort, int $page, int $perPage, string $cachePrefix, ?int $targetVersion = null): array
     {
-        $v = $this->catalogVersion();
-        $pageCacheKey = "catalog_page:v{$v}:" . app()->getLocale() . ":{$cachePrefix}:{$sort}:p{$page}";
+        $v = $targetVersion ?? $this->catalogVersion();
+        $locale = app()->getLocale();
+        $pageCacheKey = "catalog_page:v{$v}:{$locale}:{$cachePrefix}:{$sort}:p{$page}";
 
-        return Cache::remember($pageCacheKey, now()->addHours(4), function () use ($filteredBase, $sort, $page, $perPage) {
+        return Cache::remember($pageCacheKey, now()->addHours(4), function () use ($filteredBase, $sort, $page, $perPage, $locale) {
+            $result = null;
             if ($this->isMeiliReady() && isset($this->meiliContexts[$filteredBase])) {
-                $meiliResult = $this->paginateViaMeilisearch($this->meiliContexts[$filteredBase], $sort, $page, $perPage);
-                if ($meiliResult !== null) {
-                    return $meiliResult;
-                }
+                $result = $this->paginateViaMeilisearch($this->meiliContexts[$filteredBase], $sort, $page, $perPage);
             }
 
-            return $this->paginateFallbackSql($filteredBase, $sort, $page, $perPage);
+            if ($result === null) {
+                $result = $this->paginateFallbackSql($filteredBase, $sort, $page, $perPage);
+            }
+
+            [$rawCards, $total] = $result;
+            if ($rawCards !== []) {
+                $rawCards = app(FeedEntityLocalizer::class)->localizeCardTitles($rawCards, $locale);
+            }
+
+            return [$rawCards, $total];
         });
     }
 
@@ -716,7 +767,7 @@ class FeedCategoryTiles
     }
 
     /**
-     * Мгновенный прогрев новой версии кэша в фоне с атомарным переключением версии (без холодного окна).
+     * Прогрев новой версии кэша (плитки, подкатегории, фасеты и 1-я страница товаров).
      */
     public function warmAll(): void
     {
@@ -728,9 +779,21 @@ class FeedCategoryTiles
             now()->addHours(self::CACHE_HOURS)
         );
 
+        $perPage = (int) config('feeds.search_limit', 24);
+        $defaultFilterHash = md5(json_encode([]));
+
         foreach ((array) config('home_categories.tiles', []) as $tile) {
+            $slug = (string) ($tile['slug'] ?? '');
+            if ($slug === '') {
+                continue;
+            }
+
             $this->buildSubcategories($tile, $nextVersion);
             $this->buildFacets($tile, [], $nextVersion);
+
+            $base = $this->productsQuery($tile);
+            $filtered = $this->applyUserFilters($base, []);
+            $this->paginateGroupedCards($filtered, 'relevance', 1, $perPage, "cat:{$slug}:{$defaultFilterHash}", $nextVersion);
         }
 
         Cache::forever('catalog:version', $nextVersion);
@@ -759,7 +822,7 @@ class FeedCategoryTiles
     }
 
     /**
-     * Строит все 25 плиток главной страницы через Meilisearch за ~30 мс (вместо 50 тяжелых SQL-запросов).
+     * Строит все 25 плиток главной страницы через Meilisearch за ~30 мс.
      */
     private function build(): array
     {
@@ -785,7 +848,6 @@ class FeedCategoryTiles
                             continue;
                         }
 
-                        // Получаем топ-3 бренда для подзаголовка плитки из фасета Meilisearch (за 1 мс)
                         $bRes = $this->meiliIndex()->search('', [
                             'filter' => 'is_active = true AND in_stock = true AND tile_slugs = ' . $this->meiliQuote($slug),
                             'facets' => ['brand'],
