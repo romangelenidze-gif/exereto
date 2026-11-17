@@ -38,7 +38,7 @@ class FeedCategoryTiles
     {
         $v = $this->catalogVersion();
         $raw = Cache::remember(
-            "home.category_tiles.v{$v}." . app()->getLocale() . ".all",
+            "home.category_tiles.v{$v}.all",
             now()->addHours(self::CACHE_HOURS),
             fn () => $this->build()
         );
@@ -320,7 +320,7 @@ class FeedCategoryTiles
 
         $v = $targetVersion ?? $this->catalogVersion();
         $slug = (string) ($tile['slug'] ?? md5(json_encode($tile)));
-        $cacheKey = "category.subs.v{$v}." . app()->getLocale() . ".{$slug}";
+        $cacheKey = "category.subs.v{$v}.{$slug}";
 
         $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($tile, $subs, $slug) {
             $result = [];
@@ -391,7 +391,7 @@ class FeedCategoryTiles
     {
         $v = $targetVersion ?? $this->catalogVersion();
         $slug = (string) ($tile['slug'] ?? '');
-        $cacheKey = "category.facets.v{$v}." . app()->getLocale() . ".{$slug}." . md5(json_encode($activeFilters));
+        $cacheKey = "category.facets.v{$v}.{$slug}." . md5(json_encode($activeFilters));
 
         return Cache::remember($cacheKey, now()->addHours(4), function () use ($tile, $slug, $activeFilters) {
             $subKey = null;

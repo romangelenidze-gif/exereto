@@ -15,48 +15,70 @@ class HomeController extends Controller
     {
         $locale = app()->getLocale();
 
-        // 1. Мультибрендовые рекомендации (кэшируем карточки в Redis на 60 мин)
+        // 1. Мультибрендовые рекомендации (единый кэш выборки + локальные ссылки и перевод)
         $rawPopularCards = Cache::remember(
-            'home.popular_cards.v4',
+            'home.popular_cards.v5',
             now()->addMinutes(60),
             fn () => $this->fetchBalancedCards(onlyDiscounts: false, limit: 12)
         );
 
-        $popularProducts = collect($localizer->localizeCardTitles($rawPopularCards, $locale));
+        $popularProducts = collect($localizer->localizeCardTitles($rawPopularCards, $locale))
+            ->map(fn (array $card) => $this->localizeCardUrl($card));
 
-        // 2. Лучшие скидки по всем брендам (кэшируем карточки в Redis на 60 мин)
+        // 2. Лучшие скидки по всем брендам
         $rawDiscountCards = Cache::remember(
-            'home.discount_cards.v4',
+            'home.discount_cards.v5',
             now()->addMinutes(60),
             fn () => $this->fetchBalancedCards(onlyDiscounts: true, limit: 12)
         );
 
-        $discountProducts = collect($localizer->localizeCardTitles($rawDiscountCards, $locale));
+        $discountProducts = collect($localizer->localizeCardTitles($rawDiscountCards, $locale))
+            ->map(fn (array $card) => $this->localizeCardUrl($card));
 
-        // 3. Популярные бренды из каталога (курируемый топ + реальные лидеры из БД)
-        $brands = Cache::remember('home.top_brands.v4', now()->addHours(6), function () {
-            $curated = [
-                'adidas', 'New Balance', 'Puma', 'Tommy Hilfiger', 'Calvin Klein',
-                'Guess', 'Stradivarius', 'Polo Ralph Lauren', 'BOSS', 'Vans',
-                'Reebok', 'Geox', 'Sephora Collection', 'Cosselie',
+        // 3. Популярные бренды (формируем ссылки с учетом текущего префикса языка)
+        $curated = [
+            'adidas', 'New Balance', 'Puma', 'Tommy Hilfiger', 'Calvin Klein',
+            'Guess', 'Stradivarius', 'Polo Ralph Lauren', 'BOSS', 'Vans',
+            'Reebok', 'Geox', 'Sephora Collection', 'Cosselie',
+        ];
+
+        $brands = [];
+        foreach ($curated as $b) {
+            $brands[] = [
+                'name' => $b,
+                'url' => route('product-search', ['q' => $b]),
+                'external' => false,
             ];
-
-            $list = [];
-            foreach ($curated as $b) {
-                $list[] = [
-                    'name' => $b,
-                    'url' => route('product-search', ['q' => $b]),
-                    'external' => false,
-                ];
-            }
-
-            return $list;
-        });
+        }
 
         // 4. Сетка категорий с картинками
         $tiles = $categoryTiles->get();
 
         return view('public.home', compact('popularProducts', 'discountProducts', 'brands', 'tiles'));
+    }
+
+    /**
+     * Обновляет URL карточки под активный языковой префикс.
+     *
+     * @param array<string, mixed> $card
+     * @return array<string, mixed>
+     */
+    private function localizeCardUrl(array $card): array
+    {
+        if (!empty($card['feed']) && !empty($card['sku'])) {
+            $card['url'] = route('feed-product.show', [
+                'feed' => $card['feed'],
+                'sku' => $card['sku'],
+            ]);
+        } elseif (!empty($card['url']) && is_string($card['url'])) {
+            $path = parse_url($card['url'], PHP_URL_PATH) ?: '';
+            $cleanPath = preg_replace('#^/(ru|ka)(?=/|$)#', '', $path);
+            $locale = app()->getLocale();
+            $prefix = in_array($locale, ['ru', 'ka'], true) ? '/' . $locale : '';
+            $card['url'] = url($prefix . $cleanPath);
+        }
+
+        return $card;
     }
 
     /**

@@ -11,20 +11,25 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\FeedProductController;
 use App\Http\Controllers\FeedCategoryController;
-use App\Http\Middleware\SetLocale;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 
-// Редирект старых ссылок /en/... на корень, чтобы поисковики не теряли страницы
-Route::get('/en/{any?}', function ($any = null) {
-    return redirect('/' . $any);
+// Редирект со старых ссылок /en и /en/... на чистый URL без префикса
+Route::get('/en/{any?}', function (?string $any = null) {
+    $target = '/' . ltrim((string) $any, '/');
+    $qs = request()->getQueryString();
+    return redirect($target . ($qs ? '?' . $qs : ''), 301);
 })->where('any', '.*');
 
-// ГРУППА С ОПЦИОНАЛЬНЫМ ПРЕФИКСОМ ЯЗЫКА (ru, ka). Если префикса нет — это English.
-Route::prefix('{locale?}')->where(['locale' => 'ru|ka'])->middleware(SetLocale::class)->group(function () {
-    
+// Определяем префикс языка из первого сегмента URL: 'ru', 'ka' или '' (для English)
+$firstSegment = request()->segment(1);
+$localePrefix = in_array($firstSegment, ['ru', 'ka'], true) ? $firstSegment : '';
+app()->setLocale($localePrefix !== '' ? $localePrefix : 'en');
+
+Route::prefix($localePrefix)->group(function () {
+
     // --- Публичные маршруты ---
     Route::get('/', [HomeController::class, 'index'])->name('home');
     Route::view('/how-it-works', 'public.how-it-works')->name('how-it-works');
@@ -37,14 +42,14 @@ Route::prefix('{locale?}')->where(['locale' => 'ru|ka'])->middleware(SetLocale::
     Route::get('/product-search', [ProductSearchController::class, 'index'])->name('product-search');
 
     Route::get('/product/{feed}/{sku}', [FeedProductController::class, 'show'])
-           ->where('feed', '[a-z0-9\-]+')->where('sku', '[A-Za-z0-9\-_.]+')
-           ->name('feed-product.show');
+        ->where('feed', '[a-z0-9\-]+')
+        ->where('sku', '[A-Za-z0-9\-_.]+')
+        ->name('feed-product.show');
 
     Route::get('/category/{slug}', [FeedCategoryController::class, 'show'])
-           ->where('slug', '[a-z0-9\-]+')
-           ->name('feed-category.show');
-           
-    // API (оставляем внутри группы, чтобы язык корректно передавался в автокомплит)
+        ->where('slug', '[a-z0-9\-]+')
+        ->name('feed-category.show');
+
     Route::get('/api/autocomplete', [ProductSearchController::class, 'autocomplete'])
         ->middleware('throttle:60,1')
         ->name('api.autocomplete');
@@ -101,6 +106,6 @@ Route::prefix('{locale?}')->where(['locale' => 'ru|ka'])->middleware(SetLocale::
         Route::get('/shipments', [ShipmentController::class, 'index'])->name('shipments.index');
         Route::get('/orders/{order}/payments/{payment}/receipt', [OrderMediaController::class, 'downloadReceipt'])->name('orders.payments.receipt');
         Route::get('/packages/{package}/photo', [OrderMediaController::class, 'downloadPackagePhoto'])->name('packages.photo');
-        Route::get('/orders/{order}/items/{item}/screenshot', [OrderMediaController::class, 'downloadItemScreenshot'])->name('orders.items.screenshot');    
+        Route::get('/orders/{order}/items/{item}/screenshot', [OrderMediaController::class, 'downloadItemScreenshot'])->name('orders.items.screenshot');
     });
 });

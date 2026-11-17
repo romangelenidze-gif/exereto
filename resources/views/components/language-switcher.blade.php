@@ -7,7 +7,10 @@
         'ru' => 'Русский',
     ];
     $current = app()->getLocale();
-    $currentRouteName = request()->route() ? request()->route()->getName() : null;
+
+    $rawPath = trim(request()->path(), '/');
+    $cleanPath = preg_replace('#^(ru|ka)(/|$)#', '', $rawPath);
+    $queryString = request()->getQueryString();
 @endphp
 
 <x-public-ui.dropdown :theme="$theme" :direction="$direction" width="w-33">
@@ -23,18 +26,11 @@
 
     @foreach ($languages as $code => $name)
         @php
-            if ($currentRouteName) {
-                // Для английского передаем null, чтобы Laravel убрал префикс из ссылки
-                $url = route($currentRouteName, array_merge(
-                    request()->route()->parameters(),
-                    request()->query(),
-                    ['locale' => $code === 'en' ? null : $code]
-                ));
-            } else {
-                $url = url($code === 'en' ? '/' : '/' . $code);
-            }
+            $prefix = $code === 'en' ? '' : '/' . $code;
+            $targetPath = $prefix . ($cleanPath !== '' ? '/' . $cleanPath : '');
+            $url = url($targetPath !== '' ? $targetPath : '/') . ($queryString ? '?' . $queryString : '');
         @endphp
-        
+
         <a href="{{ $url }}"
            @if ($current === $code) aria-current="true" @endif
            class="apple-lang-option theme-{{ $theme }}">
