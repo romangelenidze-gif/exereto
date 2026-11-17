@@ -260,7 +260,7 @@ class AwinFeedImporter
     {
         $get = fn (string $key): string => trim((string) ($r[$key] ?? ''));
 
-        $rawSku = $get('sku') ?: ($get('product_id') ?: $get('lw_product_id'));
+        $rawSku = $get('sku') ?: ($get('lw_product_id') ?: $get('product_id'));
         $sku = trim((string) preg_replace('/[^A-Za-z0-9._-]+/', '-', $rawSku), '-');
         $name = html_entity_decode($get('product_name'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $deepLink = $get('tracking_url');
@@ -276,8 +276,12 @@ class AwinFeedImporter
             ? (int) max(1, min(99, round(($oldPrice - $price) / $oldPrice * 100)))
             : max(0, min(99, (int) $get('discount')));
 
+        // В Linkwise пустой in_stock означает "в наличии"; отсекаем только явный Out of Stock
         $rawStock = strtoupper($get('in_stock'));
-        $inStock = in_array($rawStock, ['Y', '1', 'TRUE', 'YES'], true);
+        $rawAvail = mb_strtolower($get('availability'));
+        $inStock = !in_array($rawStock, ['N', '0', 'FALSE', 'NO', 'OUT OF STOCK'], true)
+            && !str_contains($rawAvail, 'out of stock')
+            && !str_contains($rawAvail, 'εξαντλη');
 
         $sizeList = self::list($get('size'));
         $sizes = array_map(fn (string $s) => [
@@ -297,7 +301,7 @@ class AwinFeedImporter
         $forcedGender = config("feed_rules.stores.{$feedKey}.force_gender");
         $gender = $forcedGender ?: self::resolveGender('', $categoryPath, $name);
         $colour = html_entity_decode($get('colour') ?: $get('color'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $model = $get('model_name') ?: $get('mpn');
+        $model = $get('model_name') ?: ($get('product_id') ?: $get('mpn'));
 
         $image = null;
         $imageCandidates = array_merge(
