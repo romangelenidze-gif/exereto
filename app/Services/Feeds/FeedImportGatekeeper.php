@@ -10,7 +10,7 @@ class FeedImportGatekeeper
      * @param  string  $feedKey  Код фида (например: modivo, epapoutsia, sephora)
      * @param  array<string, mixed>  $row  Массив атрибутов товара (brand, category_top, category_path, name...)
      */
-    public function shouldImport(string $feedKey, array $row): bool
+public function shouldImport(string $feedKey, array $row): bool
     {
         $rules = (array) config("feed_rules.stores.{$feedKey}", []);
         if ($rules === []) {
@@ -21,14 +21,28 @@ class FeedImportGatekeeper
             return false;
         }
 
-        $brand = mb_strtolower(trim((string) ($row['brand'] ?? '')));
-        $categoryText = mb_strtolower(trim(
-            ((string) ($row['category_top'] ?? '')) . ' ' .
-            ((string) ($row['category_path'] ?? '')) . ' ' .
-            ((string) ($row['name'] ?? ''))
-        ));
+        // 0. Обязательное наличие на складе
+        if (!empty($rules['require_in_stock']) && empty($row['in_stock'])) {
+            return false;
+        }
 
-        // 1. Проверка черного списка брендов (exclude_brands)
+        // 0.1. Отсечение по префиксам SKU/model_code (например, сторонний маркетплейс MRK в Public)
+        $skuLower = mb_strtolower(trim((string) ($row['sku'] ?? '')));
+        $modelLower = mb_strtolower(trim((string) ($row['model_code'] ?? '')));
+        foreach ((array) ($rules['exclude_sku_prefixes'] ?? []) as $prefix) {
+            $p = mb_strtolower(trim((string) $prefix));
+            if ($p !== '' && (str_starts_with($skuLower, $p) || str_starts_with($modelLower, $p))) {
+                return false;
+            }
+        }
+
+        $brand = mb_strtolower(trim((string) ($row['brand'] ?? '')));
+        $categoryTop = mb_strtolower(trim((string) ($row['category_top'] ?? '')));
+        $categoryPath = mb_strtolower(trim((string) ($row['category_path'] ?? '')));
+        $pathScope = trim($categoryTop . ' ' . $categoryPath);
+        $categoryText = trim($pathScope . ' ' . mb_strtolower(trim((string) ($row['name'] ?? ''))));
+
+        // 1. Черный список брендов
         foreach ((array) ($rules['exclude_brands'] ?? []) as $excludedBrand) {
             $needle = mb_strtolower(trim((string) $excludedBrand));
             if ($needle !== '' && $brand === $needle) {
@@ -36,15 +50,47 @@ class FeedImportGatekeeper
             }
         }
 
-        // 2. Проверка черного списка категорий (exclude_categories) — например, отсекаем обувь в Modivo
+        // 2. Белый список корневой категории (точное совпадение category_top)
+        $allowedTops = array_values(array_filter(array_map(
+            fn ($t) => mb_strtolower(trim((string) $t)),
+            (array) ($rules['allow_top_categories'] ?? [])
+        )));
+        if ($allowedTops !== [] && !in_array($categoryTop, $allowedTops, true)) {
+            return false;
+        }
+
+        // 3. Черный список категорий (для коротких латинских аббревиатур вроде ups — строго по границам слова)
         foreach ((array) ($rules['exclude_categories'] ?? []) as $excludedCat) {
             $needle = mb_strtolower(trim((string) $excludedCat));
-            if ($needle !== '' && str_contains($categoryText, $needle)) {
+            if ($needle === '') {
+                continue;
+            }
+            if (preg_match('/^[a-z0-9]{1,4}$/', $needle)) {
+                if (preg_match('/\b' . preg_quote($needle, '/') . '\b/u', $categoryText)) {
+                    return false;
+                }
+            } elseif (str_contains($categoryText, $needle)) {
                 return false;
             }
         }
 
-        // 3. Проверка белого списка категорий (allow_categories) — например, только обувь в Epapoutsia
+        // 4. Белый список строго по дереву категорий (category_top + category_path)
+        $allowedPaths = array_filter((array) ($rules['allow_category_paths'] ?? []));
+        if ($allowedPaths !== []) {
+            $matched = false;
+            foreach ($allowedPaths as $allowedPath) {
+                $needle = mb_strtolower(trim((string) $allowedPath));
+                if ($needle !== '' && str_contains($pathScope, $needle)) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if (!$matched) {
+                return false;
+            }
+        }
+
+        // 5. Существующий белый список категорий (для обратной совместимости с modivo, pharm24 и др.)
         $allowedCategories = array_filter((array) ($rules['allow_categories'] ?? []));
         if ($allowedCategories !== []) {
             $matched = false;

@@ -29,7 +29,7 @@ class AwinFeedImporter
     /**
      * @return array{total:int, imported:int, skipped:int, deactivated:int, deactivation_skipped:bool}
      */
-    public function import(string $feedKey, ?string $source = null, int $limit = 0): array
+    public function import(string $feedKey, ?string $source = null, int $limit = 0, bool $forceDeactivate = false): array
     {
         $cfg = config("feeds.feeds.{$feedKey}");
 
@@ -52,7 +52,7 @@ class AwinFeedImporter
         [$path, $temporary] = $this->resolveSource($source);
 
         try {
-            $stats = $this->process($feedKey, $cfg, $path, $startedAt, max(0, $limit));
+            $stats = $this->process($feedKey, $cfg, $path, $startedAt, max(0, $limit), $forceDeactivate);
             Cache::forget("home.category_chips.v2.{$feedKey}");
             Cache::forget('autocomplete.brands.all.v1');
 
@@ -64,7 +64,7 @@ class AwinFeedImporter
         }
     }
 
-    protected function process(string $feedKey, array $cfg, string $path, string $startedAt, int $limit = 0): array
+    protected function process(string $feedKey, array $cfg, string $path, string $startedAt, int $limit = 0, bool $forceDeactivate = false): array
     {
         $magic = @file_get_contents($path, false, null, 0, 2);
         $streamPath = ($magic === "\x1f\x8b") ? ('compress.zlib://' . $path) : $path;
@@ -156,7 +156,7 @@ class AwinFeedImporter
         }
 
         $minRatio = (float) config('feeds.min_import_ratio', 0.5);
-        $deactivationSkipped = $limit > 0 || ($activeBefore > 0 && $imported < $activeBefore * $minRatio);
+        $deactivationSkipped = $limit > 0 || (!$forceDeactivate && $activeBefore > 0 && $imported < $activeBefore * $minRatio);
         $deactivated = 0;
 
         if ($deactivationSkipped) {
@@ -184,30 +184,7 @@ class AwinFeedImporter
         ];
     }
 
-    // Метод фильтрации
-    protected static function passesThemeFilter(array $mapped, array $cfg): bool
-{
-    $text = mb_strtolower($mapped['category_path'] . ' | ' . $mapped['name']);
 
-    if (!empty($cfg['whitelist_categories'])) {
-        $allowed = false;
-        foreach ($cfg['whitelist_categories'] as $w) {
-            if (str_contains(mb_strtolower($mapped['category_path']), mb_strtolower($w))) {
-                $allowed = true;
-                break;
-            }
-        }
-        if (!$allowed) return false;
-    }
-
-    if (!empty($cfg['blacklist_keywords'])) {
-        foreach ($cfg['blacklist_keywords'] as $b) {
-            if (str_contains($text, mb_strtolower($b))) return false;
-        }
-    }
-
-    return true;
-}
 
     protected function flush(array $batch): int
     {
@@ -272,10 +249,6 @@ class AwinFeedImporter
             return null;
         }
 
-        if (!self::passesThemeFilter($mapped, $cfg)) {
-            return null;
-        }
-
         $mapped['priority_score'] = $gatekeeper->calculatePriority(
             $feedKey,
             $mapped['brand'] ?? null,
@@ -320,8 +293,9 @@ class AwinFeedImporter
         ], $sizeList);
 
         $rawCategory = html_entity_decode($get('category'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $catPattern = str_contains($rawCategory, '>') ? '/\s*>\s*/u' : '/\s*(?:\/|\s-\s)\s*/u';
         $catSegments = array_values(array_filter(
-            array_map('trim', preg_split('/\s*(?:>|\/|\s-\s)\s*/u', $rawCategory) ?: []),
+            array_map('trim', preg_split($catPattern, $rawCategory) ?: []),
             fn ($s) => $s !== '' && mb_strtolower($s) !== mb_strtolower($feedKey)
         ));
         $categoryPath = implode(', ', $catSegments);
@@ -330,13 +304,11 @@ class AwinFeedImporter
         $forcedGender = config("feed_rules.stores.{$feedKey}.force_gender");
         $gender = $forcedGender ?: self::resolveGender('', $categoryPath, $name);
         $colour = html_entity_decode($get('colour') ?: $get('color'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $model = $get('model_name') ?: ($get('product_id') ?: $get('mpn'));
 
-        // -----------------------------
         $imageCandidates = array_values(array_filter(array_unique(array_merge(
             [$get('image_url'), $get('thumb_url')],
             preg_split('/\s*[,|]\s*/', $get('extra_images')) ?: []
-        )), fn($u) => filter_var($u, FILTER_VALIDATE_URL)));
+        )), fn ($u) => filter_var($u, FILTER_VALIDATE_URL)));
 
         $imageUrlsJson = $imageCandidates !== [] ? json_encode($imageCandidates, JSON_UNESCAPED_SLASHES) : null;
         $image = $imageCandidates[0] ?? null;
@@ -354,7 +326,16 @@ class AwinFeedImporter
             $specs[] = 'GTIN: ' . $get('gtin');
         }
 
-        $brand = $get('brand_name') !== '' ? mb_substr($get('brand_name'), 0, 64) : ($cfg['brand'] ?? null);
+        $brandFromModel = (bool) config("feed_rules.stores.{$feedKey}.brand_from_model", false);
+        $rawBrand = $get('brand_name');
+        if ($rawBrand === '' && $brandFromModel && $get('model_name') !== '') {
+            $rawBrand = $get('model_name');
+        }
+        $brand = $rawBrand !== '' ? mb_substr($rawBrand, 0, 64) : ($cfg['brand'] ?? null);
+        $model = $brandFromModel
+            ? ($get('product_id') ?: $get('mpn'))
+            : ($get('model_name') ?: ($get('product_id') ?: $get('mpn')));
+
         $searchText = ' ' . FeedText::normalize(implode(' ', array_filter([$brand, $name, $colour, $categoryPath, $sku, $rawSku, $model]))) . ' ';
 
         return [

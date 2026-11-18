@@ -18,7 +18,8 @@ class ImportFeedCommand extends Command
         {feed=adidas : Ключ фида из config/feeds.php}
         {--source= : URL или путь к локальному .csv / .csv.gz}
         {--limit=0 : Импортировать только первые N товаров (для безопасного теста)}
-        {--no-warm : Пропустить пересборку автокомплита и прогрев кэша в конце}';
+        {--no-warm : Пропустить пересборку автокомплита и прогрев кэша в конце}
+        {--force-deactivate : Деактивировать пропавшие товары даже при падении объёма ниже min_import_ratio}';
 
     protected $description = 'Импорт партнёрского продуктового фида в таблицу feed_products';
 
@@ -26,13 +27,14 @@ class ImportFeedCommand extends Command
     {
         $feed = (string) $this->argument('feed');
         $limit = max(0, (int) $this->option('limit'));
+        $forceDeactivate = (bool) $this->option('force-deactivate');
 
         $this->info($limit > 0
             ? "Тестовый импорт фида «{$feed}» (лимит: {$limit} товаров)..."
             : "Импорт фида «{$feed}»...");
 
         try {
-            $stats = $importer->import($feed, $this->option('source') ?: null, $limit);
+            $stats = $importer->import($feed, $this->option('source') ?: null, $limit, $forceDeactivate);
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
             Log::error('Feed import failed', ['feed' => $feed, 'error' => $e->getMessage()]);
@@ -80,9 +82,15 @@ class ImportFeedCommand extends Command
             return self::SUCCESS;
         }
 
-        // Индексируем в Meilisearch ТОЛЬКО текущий обновлённый фид пачками по 5000 (вместо всей базы по 500)
         if (config('scout.driver') === 'meilisearch') {
-            $this->info("Обновление индекса Meilisearch для «{$feed}»...");
+            $this->info("Синхронизация Meilisearch для «{$feed}»...");
+            FeedProduct::query()
+                ->where('feed', $feed)
+                ->where('is_active', false)
+                ->chunkById(5000, function ($models) {
+                    $models->unsearchable();
+                });
+
             FeedProduct::query()
                 ->where('feed', $feed)
                 ->where('is_active', true)
