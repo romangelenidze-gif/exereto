@@ -9,55 +9,49 @@
 
         <!-- Фото: по клику открывается на весь экран; под ним ссылка на остальные фото в магазине -->
         @php
-            $images = !empty($product->image_urls) && is_string($product->image_urls)
-                ? json_decode($product->image_urls, true)
-                : [];
-            
-            // Если галереи нет, но есть старое одиночное фото
+            $images = is_array($product->image_urls)
+                ? $product->image_urls
+                : (is_string($product->image_urls) ? (json_decode($product->image_urls, true) ?: []) : []);
+
             if (empty($images) && $product->image_url) {
                 $images = [$product->image_url];
             }
         @endphp
 
-        <div class="apple-pdp-media">
-            <div x-data="{ activeIndex: 0, images: {{ json_encode($images) }} }" class="flex flex-col gap-4">
-                
-                <!-- Главное фото с динамическим data-pswp-src для PhotoSwipe -->
-                <button type="button" 
-                        class="apple-pdp-gallery relative group bg-white rounded-2xl p-4 flex items-center justify-center border border-black/5"
-                        :data-pswp-src="images[activeIndex]"
-                        data-pswp-alt="{{ $title }}"
-                        aria-label="{{ __('Увеличить фото') }}">
-                    
-                    @if($product->discount_percent > 0)
-                        <span class="apple-pdp-badge">-{{ $product->discount_percent }}%</span>
-                    @endif
+        <div class="apple-pdp-media" x-data="{ activeIndex: 0, images: @js($images) }">
+            <button type="button"
+                    class="apple-pdp-gallery"
+                    :data-pswp-src="images[activeIndex] || '{{ $product->image_url }}'"
+                    data-pswp-alt="{{ $title }}"
+                    aria-label="{{ __('Увеличить фото') }}">
+                @if($product->discount_percent > 0)
+                    <span class="apple-pdp-badge">-{{ $product->discount_percent }}%</span>
+                @endif
 
-                    <img :src="images[activeIndex]" alt="{{ $title }}" class="apple-pdp-image apple-photo-lift transition-opacity duration-300">
-                    
+                @if(!empty($images))
+                    <img :src="images[activeIndex]" src="{{ $images[0] }}" alt="{{ $title }}" class="apple-pdp-image apple-photo-lift">
                     <span class="apple-pdp-zoom-hint" aria-hidden="true">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m-3-3h6" />
                         </svg>
                     </span>
-                </button>
+                @endif
+            </button>
 
-                <!-- Миниатюры (только если фото больше 1) -->
-                @if(count($images) > 1)
-                <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mt-2">
+            @if(count($images) > 1)
+                <div class="flex gap-2 overflow-x-auto pb-2 mt-3">
                     @foreach($images as $index => $img)
-                        <button type="button" 
+                        <button type="button"
                                 @click="activeIndex = {{ $index }}"
                                 :class="activeIndex === {{ $index }} ? 'ring-2 ring-[#0071e3]' : 'ring-1 ring-black/10 hover:ring-black/30'"
-                                class="w-16 h-16 shrink-0 rounded-xl bg-white p-1 overflow-hidden transition-all flex items-center justify-center">
-                            <img src="{{ $img }}" class="max-w-full max-h-full object-contain" loading="lazy">
+                                class="w-16 h-16 shrink-0 rounded-xl bg-white p-1.5 overflow-hidden transition-all flex items-center justify-center cursor-pointer">
+                            <img src="{{ $img }}" alt="" class="max-w-full max-h-full object-contain" loading="lazy">
                         </button>
                     @endforeach
                 </div>
-                @endif
-            </div>
+            @endif
 
-            <p class="apple-pdp-photo-note mt-4">
+            <p class="apple-pdp-photo-note">
                 {{ __('Больше фото этого товара:') }}
                 <a href="{{ $outboundUrl }}" target="_blank" rel="sponsored nofollow noopener noreferrer">{{ __('смотреть на :store', ['store' => $storeName]) }}</a>
             </p>

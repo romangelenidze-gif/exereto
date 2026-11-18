@@ -37,6 +37,7 @@ class FeedProduct extends Model
             'is_active' => 'boolean',
             'sizes' => 'array',
             'specs' => 'array',
+            'image_urls' => 'array',
             'last_seen_at' => 'datetime',
         ];
     }
