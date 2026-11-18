@@ -11,20 +11,21 @@ Schedule::command('autocomplete:sync-hits')->everyTenMinutes();
 
 // Ежедневный ночной запуск (в 04:30)
 Schedule::call(function () {
-    $feeds = config('feeds.feeds', []);
-    
-    // 1. Импортируем все включенные фиды из конфига
-    foreach ($feeds as $key => $cfg) {
+    foreach (config('feeds.feeds', []) as $key => $cfg) {
         if (!empty($cfg['enabled'])) {
-            Log::info("Авто-запуск импорта для фида: {$key}");
-            Artisan::call("feeds:import {$key}");
+            try {
+                Log::info("Авто-запуск импорта для фида: {$key}");
+                Artisan::call("feeds:import {$key}");
+            } catch (\Throwable $e) {
+                Log::error("Ошибка импорта {$key}: " . $e->getMessage());
+            }
         }
     }
-    
-    // 2. После загрузки всех товаров запускаем каскадную склейку дублей (игрушки/техника)
-    Log::info("Авто-запуск каскадной дедупликации...");
-    Artisan::call('feeds:deduplicate');
-    
+    try {
+        Artisan::call('feeds:deduplicate');
+    } catch (\Throwable $e) {
+        Log::error("Ошибка дедупликации: " . $e->getMessage());
+    }
 })->dailyAt('04:30')->name('daily_feeds_import')->withoutOverlapping();
 
 // Ежемесячная чистка и продвижение популярных запросов автокомплита

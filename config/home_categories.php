@@ -250,6 +250,50 @@ return [
             ],
         ],
 
+        // --- ИГРУШКИ И LEGO ---
+        [
+            'slug' => 'toys-lego-gadgets',
+            'label' => 'Игрушки и LEGO',
+            'img' => 'toys.png', // положи любую иконку в public/images/categories/toys.png (иначе покажется аккуратная SVG-сумка)
+            'where' => [
+                'category_path' => [
+                    'Παιχνίδια', 'ΠΑΙΧΝΙΔΙΑ', 'Toys', 'LEGO', 'Lego', 'Playmobil', 'Funko',
+                    'Παζλ', 'Κούκλες', 'Φιγούρες', 'Αυτοκινητάκια', 'Κατασκευές', 'Βρεφικά Παιχνίδια',
+                ],
+            ],
+            'keywords' => ['toys', 'lego', 'playmobil', 'funko', 'игрушки', 'лего', 'конструктор', 'куклы', 'пазлы', 'სათამაშოები'],
+            'subcategories' => [
+                ['label' => 'Конструкторы и LEGO', 'where' => ['category_path' => ['LEGO', 'Lego', 'Κατασκευές', 'Playmobil']]],
+                ['label' => 'Фигурки и куклы', 'where' => ['category_path' => ['Φιγούρες', 'Funko', 'Κούκλες']]],
+                ['label' => 'Пазлы и творчество', 'where' => ['category_path' => ['Παζλ', 'Ζωγραφική', 'Δημιουργικά']]],
+                ['label' => 'Машинки и радиоуправление', 'where' => ['category_path' => ['Αυτοκινητάκια', 'Τηλεκατευθυνόμενα', 'Οχήματα']]],
+            ],
+        ],
+
+        // --- ЭЛЕКТРОНИКА, ГЕЙМИНГ И 3D-ПЕЧАТЬ (PUBLIC) ---
+        [
+            'slug' => 'electronics-gaming-tech',
+            'label' => 'Гаджеты, Гейминг и 3D',
+            'img' => 'electronics.png',
+            'where' => [
+                'category_path' => [
+                    'Apple', 'iPhone', 'iPad', 'MacBook', 'AirPods', 'Smartwatch', 'Smartwatches',
+                    '3D Εκτυπωτές', 'Νήματα 3D', 'Ρητίνες', 'Filaments',
+                    'Gaming', 'Κονσόλες', 'PlayStation', 'Xbox', 'Nintendo', 'Steam Deck', 'Gamepads', 'VR',
+                    'Laptops', 'Περιφερειακά', 'Πληκτρολόγια', 'Ποντίκια', 'Κάρτες Γραφικών', 'Επεξεργαστές', 'SSD',
+                    'Ακουστικά', 'Ηχεία', 'Action Cameras', 'Drones', 'Φωτογραφικές Μηχανές',
+                ],
+            ],
+            'keywords' => ['apple', 'iphone', 'playstation', 'nintendo', '3d printer', 'gaming', 'гаджеты', 'консоли', 'наушники', '3d принтер'],
+            'subcategories' => [
+                ['label' => 'Apple и смарт-устройства', 'where' => ['category_path' => ['Apple', 'iPhone', 'iPad', 'MacBook', 'AirPods', 'Smartwatch', 'Smartwatches']]],
+                ['label' => 'Гейминг и консоли', 'where' => ['category_path' => ['Gaming', 'Κονσόλες', 'PlayStation', 'Xbox', 'Nintendo', 'Gamepads', 'VR']]],
+                ['label' => '3D-принтеры и филаменты', 'where' => ['category_path' => ['3D Εκτυπωτές', 'Νήματα 3D', 'Ρητίνες', 'Filaments']]],
+                ['label' => 'ПК, комплектующие и периферия', 'where' => ['category_path' => ['Laptops', 'Περιφερειακά', 'Πληκτρολόγια', 'Ποντίκια', 'Κάρτες Γραφικών', 'SSD']]],
+                ['label' => 'Аудио, фото и экшн-камеры', 'where' => ['category_path' => ['Ακουστικά', 'Ηχεία', 'Action Cameras', 'Drones', 'Φωτογραφικές']]],
+            ],
+        ],
+
         // --- КРАСОТА И ЗДОРОВЬЕ ---
         [
             'slug' => 'perfumes',
