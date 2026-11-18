@@ -25,7 +25,7 @@ Schedule::call(function () {
     Log::info("Авто-запуск каскадной дедупликации...");
     Artisan::call('feeds:deduplicate');
     
-})->dailyAt('04:30')->withoutOverlapping();
+})->dailyAt('04:30')->name('daily_feeds_import')->withoutOverlapping();
 
 // Ежемесячная чистка и продвижение популярных запросов автокомплита
 Schedule::call(function () {

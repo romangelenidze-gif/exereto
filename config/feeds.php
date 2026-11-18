@@ -161,9 +161,8 @@ return [
             'model_keywords' => [],
             'strip_words' => ['energiers'],
         ],
-    ],
-
-        'toysgr' => [
+    
+    'toysgr' => [
             'enabled' => (bool) env('FEEDS_TOYSGR_ENABLED', true),
             'network' => env('FEEDS_TOYSGR_NETWORK', 'linkwise'),
             'label' => 'Toys.gr',
@@ -228,6 +227,11 @@ return [
                 'επιτραπέζια', 'επιτραπέζιο', 'βιβλία', 'κόμικς', 'μιλάει ελληνικά', 'στα ελληνικά', 'ελληνική έκδοση' // Греческий язык
             ],
         ],
+    
+    
+    ],
+
+        
 
     // Сколько моделей (карточек) отдавать в выдачу из фида.
     'search_limit' => (int) env('FEEDS_SEARCH_LIMIT', 20),
