@@ -8,28 +8,71 @@
     <div class="apple-pdp-grid">
 
         <!-- Фото: по клику открывается на весь экран; под ним ссылка на остальные фото в магазине -->
-        <div class="apple-pdp-media">
-        <button type="button" class="apple-pdp-gallery"
-                @if($product->image_url) data-pswp-src="{{ $product->image_url }}" data-pswp-alt="{{ $title }}" @endif
-                aria-label="{{ __('Увеличить фото') }}">
-            @if($product->discount_percent > 0)
-                <span class="apple-pdp-badge">-{{ $product->discount_percent }}%</span>
-            @endif
+        @php
+            $images = !empty($product->image_urls) && is_string($product->image_urls)
+                ? json_decode($product->image_urls, true)
+                : [];
+            
+            // Если галереи нет, но есть старое одиночное фото
+            if (empty($images) && $product->image_url) {
+                $images = [$product->image_url];
+            }
+        @endphp
 
-            @if($product->image_url)
-                <img src="{{ $product->image_url }}" alt="{{ $title }}" class="apple-pdp-image apple-photo-lift">
-                <span class="apple-pdp-zoom-hint" aria-hidden="true">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m-3-3h6" />
-                    </svg>
-                </span>
-            @endif
-        </button>
+        <div class="apple-pdp-media pswp-gallery" id="product-gallery">
+            <div x-data="{ activeIndex: 0, images: {{ json_encode($images) }} }" class="flex flex-col gap-4">
+                
+                <!-- Главное фото -->
+                <button type="button" 
+                        class="apple-pdp-gallery relative group"
+                        @click="document.getElementById('pswp-trigger-' + activeIndex).click()"
+                        aria-label="{{ __('Увеличить фото') }}">
+                    
+                    @if($product->discount_percent > 0)
+                        <span class="apple-pdp-badge">-{{ $product->discount_percent }}%</span>
+                    @endif
 
-        <p class="apple-pdp-photo-note">
-            {{ __('Больше фото этого товара:') }}
-            <a href="{{ $outboundUrl }}" target="_blank" rel="sponsored nofollow noopener noreferrer">{{ __('смотреть на :store', ['store' => $storeName]) }}</a>
-        </p>
+                    <!-- Смена src через Alpine.js -->
+                    <img :src="images[activeIndex]" alt="{{ $title }}" class="apple-pdp-image apple-photo-lift transition-opacity duration-300">
+                    
+                    <span class="apple-pdp-zoom-hint" aria-hidden="true">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m-3-3h6" />
+                        </svg>
+                    </span>
+                </button>
+
+                <!-- Миниатюры (только если фото больше 1) -->
+                @if(count($images) > 1)
+                <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mt-2">
+                    @foreach($images as $index => $img)
+                        <button type="button" 
+                                @click="activeIndex = {{ $index }}"
+                                :class="activeIndex === {{ $index }} ? 'ring-2 ring-[#0071e3]' : 'ring-1 ring-black/10 hover:ring-black/30'"
+                                class="w-16 h-16 shrink-0 rounded-xl bg-white p-1 overflow-hidden transition-all flex items-center justify-center">
+                            <img src="{{ $img }}" class="max-w-full max-h-full object-contain" loading="lazy">
+                        </button>
+                    @endforeach
+                </div>
+                @endif
+            </div>
+
+            <!-- Скрытые ссылки специально для движка PhotoSwipe -->
+            <div class="hidden">
+                @foreach($images as $index => $img)
+                    <a href="{{ $img }}" 
+                       id="pswp-trigger-{{ $index }}" 
+                       data-pswp-width="1200" 
+                       data-pswp-height="1200" 
+                       data-pswp-alt="{{ $title }}"
+                       target="_blank"></a>
+                @endforeach
+            </div>
+
+            <p class="apple-pdp-photo-note mt-4">
+                {{ __('Больше фото этого товара:') }}
+                <a href="{{ $outboundUrl }}" target="_blank" rel="sponsored nofollow noopener noreferrer">{{ __('смотреть на :store', ['store' => $storeName]) }}</a>
+            </p>
         </div>
 
         <!-- Информация -->

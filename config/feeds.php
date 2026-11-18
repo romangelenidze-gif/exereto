@@ -163,6 +163,72 @@ return [
         ],
     ],
 
+        'toysgr' => [
+            'enabled' => (bool) env('FEEDS_TOYSGR_ENABLED', true),
+            'network' => env('FEEDS_TOYSGR_NETWORK', 'linkwise'),
+            'label' => 'Toys.gr',
+            'brand' => null,
+            'store_name' => 'toys.gr',
+            'url' => env('FEED_TOYSGR_URL'),
+            'brand_aliases' => [],
+            'model_keywords' => [],
+            'strip_words' => [],
+            'cascade_priority' => 1, // Наивысший приоритет (оставляем этот дубль)
+            'blacklist_keywords' => [
+                // Исключаем греческие настолки и говорящие игрушки
+                'επιτραπέζια', 'επιτραπέζιο', 'βιβλία', 'κόμικς', 'μιλάει ελληνικά', 'στα ελληνικά', 'ελληνική έκδοση'
+            ],
+        ],
+
+        'moustakas' => [
+            'enabled' => (bool) env('FEEDS_MOUSTAKAS_ENABLED', true),
+            'network' => env('FEEDS_MOUSTAKAS_NETWORK', 'linkwise'),
+            'label' => 'Moustakas Toys',
+            'brand' => null,
+            'store_name' => 'moustakastoys.gr',
+            'url' => env('FEED_MOUSTAKAS_URL'),
+            'brand_aliases' => [],
+            'model_keywords' => [],
+            'strip_words' => [],
+            'cascade_priority' => 2, // Средний приоритет
+            'blacklist_keywords' => [
+                'επιτραπέζια', 'επιτραπέζιο', 'βιβλία', 'κόμικς', 'μιλάει ελληνικά', 'στα ελληνικά', 'ελληνική έκδοση'
+            ],
+        ],
+
+        'public' => [
+            'enabled' => (bool) env('FEEDS_PUBLIC_ENABLED', true),
+            'network' => env('FEEDS_PUBLIC_NETWORK', 'linkwise'),
+            'label' => 'Public',
+            'brand' => null,
+            'store_name' => 'public.gr',
+            'url' => env('FEED_PUBLIC_URL'),
+            'brand_aliases' => ['public'],
+            'model_keywords' => [],
+            'strip_words' => ['public'],
+            'cascade_priority' => 3, // Низший приоритет для игрушек (отдаем трафик специализированным)
+            
+            // Жёсткий тематический фильтр (пропускаем только эти ветки)
+            'whitelist_categories' => [
+                'apple', 'iphone', 'ipad', 'macbook', 'airpods', 'smartwatch', 'smartwatches', // Экосистема и мобильные
+                '3d εκτυπωτές', 'νήματα 3d', 'ρητίνες', 'filaments', // 3D-печать
+                'laptops', 'desktops', 'σταθεροί υπολογιστές', 'hardware', 'κάρτες γραφικών', 'επεξεργαστές', 'μητρικές', 'μνήμες ram', 'σκληροί δίσκοι', 'ssd', 'usb flash', 'κάρτες μνήμης', 'τροφοδοτικά', // PC Hardware
+                'περιφερειακά', 'πληκτρολόγια', 'ποντίκια', 'web κάμερες', 'μικρόφωνα', 'γραφίδες', 'docking stations', 'καλώδια', 'powerbanks', // Периферия
+                'gaming', 'κονσόλες', 'playstation', 'xbox', 'nintendo', 'steam deck', 'gamepads', 'vr', 'virtual reality', // Гейминг
+                'ακουστικά', 'ηχεία', 'φωτογραφικές μηχανές', 'φακοί', 'action cameras', 'drones', 'gopro', 'dji', // Аудио/Фото/Видео
+                'σχολικές τσάντες', 'σακίδια', 'τσάντες τρόλεϊ', 'κασετίνες', // Школьные рюкзаки
+                'παιχνίδια', 'lego', 'funko', 'playmobil', 'παζλ' // Игрушки (настолки отсекаются блеклистом)
+            ],
+            
+            // Фильтр от скрытого негабарита и мусора внутри разрешенных категорий
+            'blacklist_keywords' => [
+                'τηλεοράσεις', 'οικιακές συσκευές', 'κλιματισμός', 'έπιπλα', 'καρέκλες', 'γραφεία', // ТВ, бытовуха, мебель
+                'πολυμηχανήματα', 'laser', 'inkjet', 'οθόνες υπολογιστή', 'ups', // Тяжелая периферия
+                'χαρτικά', 'γραφική ύλη', 'τετράδια', 'στυλό', 'μολύβια', // Мелкая канцелярия
+                'επιτραπέζια', 'επιτραπέζιο', 'βιβλία', 'κόμικς', 'μιλάει ελληνικά', 'στα ελληνικά', 'ελληνική έκδοση' // Греческий язык
+            ],
+        ],
+
     // Сколько моделей (карточек) отдавать в выдачу из фида.
     'search_limit' => (int) env('FEEDS_SEARCH_LIMIT', 20),
 

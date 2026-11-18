@@ -16,7 +16,7 @@ class AwinFeedImporter
     protected const REQUIRED_COLUMNS_LINKWISE = ['tracking_url', 'product_name', 'price'];
 
     protected const UPDATE_COLUMNS = [
-        'model_code', 'brand', 'name', 'colour', 'category_path', 'category_top', 'gender', 'price',
+        'image_urls', 'model_code', 'brand', 'name', 'colour', 'category_path', 'category_top', 'gender', 'price',
         'old_price', 'discount_percent', 'currency', 'rating', 'in_stock', 'priority_score', 'sizes', 'specs',
         'image_url', 'deep_link', 'merchant_url', 'delivery_cost', 'search_text', 'is_active',
         'last_seen_at', 'updated_at',
@@ -184,6 +184,31 @@ class AwinFeedImporter
         ];
     }
 
+    // Метод фильтрации
+    protected static function passesThemeFilter(array $mapped, array $cfg): bool
+{
+    $text = mb_strtolower($mapped['category_path'] . ' | ' . $mapped['name']);
+
+    if (!empty($cfg['whitelist_categories'])) {
+        $allowed = false;
+        foreach ($cfg['whitelist_categories'] as $w) {
+            if (str_contains(mb_strtolower($mapped['category_path']), mb_strtolower($w))) {
+                $allowed = true;
+                break;
+            }
+        }
+        if (!$allowed) return false;
+    }
+
+    if (!empty($cfg['blacklist_keywords'])) {
+        foreach ($cfg['blacklist_keywords'] as $b) {
+            if (str_contains($text, mb_strtolower($b))) return false;
+        }
+    }
+
+    return true;
+}
+
     protected function flush(array $batch): int
     {
         if ($batch === []) {
@@ -247,6 +272,10 @@ class AwinFeedImporter
             return null;
         }
 
+        if (!self::passesThemeFilter($mapped, $cfg)) {
+            return null;
+        }
+
         $mapped['priority_score'] = $gatekeeper->calculatePriority(
             $feedKey,
             $mapped['brand'] ?? null,
@@ -303,17 +332,14 @@ class AwinFeedImporter
         $colour = html_entity_decode($get('colour') ?: $get('color'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $model = $get('model_name') ?: ($get('product_id') ?: $get('mpn'));
 
-        $image = null;
-        $imageCandidates = array_merge(
+        // -----------------------------
+        $imageCandidates = array_values(array_filter(array_unique(array_merge(
             [$get('image_url'), $get('thumb_url')],
             preg_split('/\s*[,|]\s*/', $get('extra_images')) ?: []
-        );
-        foreach ($imageCandidates as $candidate) {
-            if ($candidate !== '' && filter_var($candidate, FILTER_VALIDATE_URL)) {
-                $image = $candidate;
-                break;
-            }
-        }
+        )), fn($u) => filter_var($u, FILTER_VALIDATE_URL)));
+
+        $imageUrlsJson = $imageCandidates !== [] ? json_encode($imageCandidates, JSON_UNESCAPED_SLASHES) : null;
+        $image = $imageCandidates[0] ?? null;
 
         $merchantUrl = filter_var($get('site_url'), FILTER_VALIDATE_URL) ?: null;
         if ($merchantUrl === null) {
@@ -351,6 +377,7 @@ class AwinFeedImporter
             'sizes' => $sizes === [] ? null : json_encode($sizes, JSON_UNESCAPED_UNICODE),
             'specs' => $specs === [] ? null : json_encode($specs, JSON_UNESCAPED_UNICODE),
             'image_url' => $image,
+            'image_urls' => $imageUrlsJson,
             'deep_link' => $deepLink,
             'merchant_url' => $merchantUrl,
             'delivery_cost' => self::decimal($get('shipping')),
@@ -412,13 +439,19 @@ class AwinFeedImporter
         $model = $get('mpn') ?: $get('model_number');
         $rating = self::decimal($get('rating'));
 
-        $image = null;
-        foreach (['merchant_image_url', 'alternate_image', 'aw_image_url', 'large_image'] as $col) {
-            if (filter_var($get($col), FILTER_VALIDATE_URL)) {
-                $image = $get($col);
-                break;
-            }
-        }
+        // -----------------------------
+        $imageCandidates = array_values(array_filter(array_unique([
+            $get('merchant_image_url'), 
+            $get('large_image'), 
+            $get('aw_image_url'),
+            $get('alternate_image'), 
+            $get('alternate_image_two'), 
+            $get('alternate_image_three'), 
+            $get('alternate_image_four')
+        ]), fn($u) => filter_var($u, FILTER_VALIDATE_URL)));
+
+        $imageUrlsJson = $imageCandidates !== [] ? json_encode($imageCandidates, JSON_UNESCAPED_SLASHES) : null;
+        $image = $imageCandidates[0] ?? null;
 
         $brand = $get('brand_name') !== '' ? mb_substr($get('brand_name'), 0, 64) : ($cfg['brand'] ?? null);
         $searchText = ' ' . FeedText::normalize(implode(' ', array_filter([$brand, $name, $colour, $categoryPath, $sku, $model]))) . ' ';
@@ -443,6 +476,7 @@ class AwinFeedImporter
             'sizes' => $sizes === [] ? null : json_encode($sizes, JSON_UNESCAPED_UNICODE),
             'specs' => $specs === [] ? null : json_encode($specs, JSON_UNESCAPED_UNICODE),
             'image_url' => $image,
+            'image_urls' => $imageUrlsJson,
             'deep_link' => $deepLink,
             'merchant_url' => filter_var($get('merchant_deep_link'), FILTER_VALIDATE_URL) ?: null,
             'delivery_cost' => self::decimal($get('delivery_cost')),
