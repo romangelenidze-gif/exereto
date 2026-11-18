@@ -19,20 +19,20 @@
             }
         @endphp
 
-        <div class="apple-pdp-media pswp-gallery" id="product-gallery">
+        <div class="apple-pdp-media">
             <div x-data="{ activeIndex: 0, images: {{ json_encode($images) }} }" class="flex flex-col gap-4">
                 
-                <!-- Главное фото -->
+                <!-- Главное фото с динамическим data-pswp-src для PhotoSwipe -->
                 <button type="button" 
-                        class="apple-pdp-gallery relative group"
-                        @click="document.getElementById('pswp-trigger-' + activeIndex).click()"
+                        class="apple-pdp-gallery relative group bg-white rounded-2xl p-4 flex items-center justify-center border border-black/5"
+                        :data-pswp-src="images[activeIndex]"
+                        data-pswp-alt="{{ $title }}"
                         aria-label="{{ __('Увеличить фото') }}">
                     
                     @if($product->discount_percent > 0)
                         <span class="apple-pdp-badge">-{{ $product->discount_percent }}%</span>
                     @endif
 
-                    <!-- Смена src через Alpine.js -->
                     <img :src="images[activeIndex]" alt="{{ $title }}" class="apple-pdp-image apple-photo-lift transition-opacity duration-300">
                     
                     <span class="apple-pdp-zoom-hint" aria-hidden="true">
@@ -55,18 +55,6 @@
                     @endforeach
                 </div>
                 @endif
-            </div>
-
-            <!-- Скрытые ссылки специально для движка PhotoSwipe -->
-            <div class="hidden">
-                @foreach($images as $index => $img)
-                    <a href="{{ $img }}" 
-                       id="pswp-trigger-{{ $index }}" 
-                       data-pswp-width="1200" 
-                       data-pswp-height="1200" 
-                       data-pswp-alt="{{ $title }}"
-                       target="_blank"></a>
-                @endforeach
             </div>
 
             <p class="apple-pdp-photo-note mt-4">
