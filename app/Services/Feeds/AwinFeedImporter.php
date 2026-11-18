@@ -16,9 +16,9 @@ class AwinFeedImporter
     protected const REQUIRED_COLUMNS_LINKWISE = ['tracking_url', 'product_name', 'price'];
 
     protected const UPDATE_COLUMNS = [
-        'image_urls', 'model_code', 'brand', 'name', 'colour', 'category_path', 'category_top', 'gender', 'price',
+        'image_urls', 'model_code', 'ean', 'brand', 'name', 'colour', 'category_path', 'category_top', 'gender', 'price',
         'old_price', 'discount_percent', 'currency', 'rating', 'in_stock', 'priority_score', 'sizes', 'specs',
-        'image_url', 'deep_link', 'merchant_url', 'delivery_cost', 'search_text', 'is_active',
+        'image_url', 'deep_link', 'merchant_url', 'delivery_cost', 'search_text', 'is_active', 'cascade_hidden',
         'last_seen_at', 'updated_at',
     ];
 
@@ -285,13 +285,6 @@ class AwinFeedImporter
             && !str_contains($rawAvail, 'out of stock')
             && !str_contains($rawAvail, 'εξαντλη');
 
-        $sizeList = self::list($get('size'));
-        $sizes = array_map(fn (string $s) => [
-            'size' => $s,
-            'stock' => null,
-            'ean' => $get('gtin') ?: null,
-        ], $sizeList);
-
         $rawCategory = html_entity_decode($get('category'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $catPattern = str_contains($rawCategory, '>') ? '/\s*>\s*/u' : '/\s*(?:\/|\s-\s)\s*/u';
         $catSegments = array_values(array_filter(
@@ -313,6 +306,19 @@ class AwinFeedImporter
         $imageUrlsJson = $imageCandidates !== [] ? json_encode($imageCandidates, JSON_UNESCAPED_SLASHES) : null;
         $image = $imageCandidates[0] ?? null;
 
+        $imgEan = '';
+        if ($image !== null && preg_match('/\/(\d{12,14})(?:_\d+)?\.(?:jpe?g|png|webp)(?:\?.*)?$/i', $image, $m)) {
+            $imgEan = $m[1];
+        }
+        $ean = self::extractEan($get('gtin'), $get('ean'), $get('sku'), $imgEan);
+
+        $sizeList = self::list($get('size'));
+        $sizes = array_map(fn (string $s) => [
+            'size' => $s,
+            'stock' => null,
+            'ean' => $ean,
+        ], $sizeList);
+
         $merchantUrl = filter_var($get('site_url'), FILTER_VALIDATE_URL) ?: null;
         if ($merchantUrl === null) {
             parse_str((string) parse_url($deepLink, PHP_URL_QUERY), $linkQuery);
@@ -322,8 +328,8 @@ class AwinFeedImporter
         }
 
         $specs = [];
-        if ($get('gtin') !== '') {
-            $specs[] = 'GTIN: ' . $get('gtin');
+        if ($ean !== null) {
+            $specs[] = 'GTIN: ' . $ean;
         }
 
         $brandFromModel = (bool) config("feed_rules.stores.{$feedKey}.brand_from_model", false);
@@ -336,12 +342,13 @@ class AwinFeedImporter
             ? ($get('product_id') ?: $get('mpn'))
             : ($get('model_name') ?: ($get('product_id') ?: $get('mpn')));
 
-        $searchText = ' ' . FeedText::normalize(implode(' ', array_filter([$brand, $name, $colour, $categoryPath, $sku, $rawSku, $model]))) . ' ';
+        $searchText = ' ' . FeedText::normalize(implode(' ', array_filter([$brand, $name, $colour, $categoryPath, $sku, $rawSku, $model, $ean]))) . ' ';
 
         return [
             'feed' => $feedKey,
             'sku' => mb_substr($sku, 0, 64),
             'model_code' => $model !== '' ? mb_substr($model, 0, 64) : null,
+            'ean' => $ean,
             'brand' => $brand,
             'name' => mb_substr($name, 0, 255),
             'colour' => $colour !== '' ? mb_substr($colour, 0, 255) : null,
@@ -364,6 +371,7 @@ class AwinFeedImporter
             'delivery_cost' => self::decimal($get('shipping')),
             'search_text' => $searchText,
             'is_active' => 1,
+            'cascade_hidden' => 0,
             'last_seen_at' => $seenAt,
             'created_at' => $seenAt,
             'updated_at' => $seenAt,
@@ -419,28 +427,29 @@ class AwinFeedImporter
         $colour = $get('colour') ?: $get('color');
         $model = $get('mpn') ?: $get('model_number');
         $rating = self::decimal($get('rating'));
+        $ean = self::extractEan($get('gtin'), $eanList[0] ?? '');
 
-        // -----------------------------
         $imageCandidates = array_values(array_filter(array_unique([
-            $get('merchant_image_url'), 
-            $get('large_image'), 
+            $get('merchant_image_url'),
+            $get('large_image'),
             $get('aw_image_url'),
-            $get('alternate_image'), 
-            $get('alternate_image_two'), 
-            $get('alternate_image_three'), 
-            $get('alternate_image_four')
-        ]), fn($u) => filter_var($u, FILTER_VALIDATE_URL)));
+            $get('alternate_image'),
+            $get('alternate_image_two'),
+            $get('alternate_image_three'),
+            $get('alternate_image_four'),
+        ]), fn ($u) => filter_var($u, FILTER_VALIDATE_URL)));
 
         $imageUrlsJson = $imageCandidates !== [] ? json_encode($imageCandidates, JSON_UNESCAPED_SLASHES) : null;
         $image = $imageCandidates[0] ?? null;
 
         $brand = $get('brand_name') !== '' ? mb_substr($get('brand_name'), 0, 64) : ($cfg['brand'] ?? null);
-        $searchText = ' ' . FeedText::normalize(implode(' ', array_filter([$brand, $name, $colour, $categoryPath, $sku, $model]))) . ' ';
+        $searchText = ' ' . FeedText::normalize(implode(' ', array_filter([$brand, $name, $colour, $categoryPath, $sku, $model, $ean]))) . ' ';
 
         return [
             'feed' => $feedKey,
             'sku' => mb_substr($sku, 0, 64),
             'model_code' => $model !== '' ? mb_substr($model, 0, 64) : null,
+            'ean' => $ean,
             'brand' => $brand,
             'name' => mb_substr($name, 0, 255),
             'colour' => $colour !== '' ? mb_substr($colour, 0, 255) : null,
@@ -463,6 +472,7 @@ class AwinFeedImporter
             'delivery_cost' => self::decimal($get('delivery_cost')),
             'search_text' => $searchText,
             'is_active' => 1,
+            'cascade_hidden' => 0,
             'last_seen_at' => $seenAt,
             'created_at' => $seenAt,
             'updated_at' => $seenAt,
@@ -521,4 +531,36 @@ class AwinFeedImporter
 
         return array_map('trim', explode(',', $value));
     }
+
+    public static function extractEan(?string ...$candidates): ?string
+    {
+        foreach ($candidates as $raw) {
+            $val = trim((string) $raw);
+            if ($val === '' || !preg_match('/^\d{12,14}$/', $val)) {
+                continue;
+            }
+            $normalized = strlen($val) === 12 ? ('0' . $val) : $val;
+            if (self::isValidGtin($normalized)) {
+                return $normalized;
+            }
+        }
+
+        return null;
+    }
+
+    protected static function isValidGtin(string $digits): bool
+    {
+        $len = strlen($digits);
+        if ($len !== 13 && $len !== 14) {
+            return false;
+        }
+
+        $sum = 0;
+        for ($i = $len - 2, $pos = 0; $i >= 0; $i--, $pos++) {
+            $sum += ((int) $digits[$i]) * ($pos % 2 === 0 ? 3 : 1);
+        }
+
+        return ((10 - ($sum % 10)) % 10) === (int) $digits[$len - 1];
+    }
+
 }

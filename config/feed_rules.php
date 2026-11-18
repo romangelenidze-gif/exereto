@@ -278,7 +278,7 @@ return [
             'url_modifier' => null,
         ],
 
-        // 12. Public — собственный сток: Tech, Apple, Gaming, Audio/Photo, 3D, рюкзаки и игрушки (приоритет №3)
+        // 12. Public — собственный сток: Tech, Apple, Gaming, Audio/Photo, Drones, 3D, рюкзаки и игрушки (приоритет №3)
         'public' => [
             'enabled' => true,
             'store_name' => 'Public',
@@ -312,7 +312,6 @@ return [
                 'Apple',
                 'Pop Culture',
             ],
-            // Проверяем строго по пути категории (без попадания батареек/тонеров/чехлов)
             'allow_category_paths' => [
                 'smartphones', 'wearables', 'smartwatch', 'tablets', 'apple', 'iphone', 'ipad', 'macbook', 'airpods',
                 'laptops', 'σταθεροί υπολογιστές', 'αναβάθμιση υπολογιστή', 'αξεσουάρ laptop',
@@ -329,7 +328,7 @@ return [
             'exclude_categories' => [
                 'refurbished', 'ανακατασκευασμέν', 'certified refurbished',
                 'σταθερή τηλεφωνία', 'κινητά απλής χρήσης', 'car audio',
-                'emobility', 'ηλεκτρικά πατίνια', 'πατίνια', 'ποδήλατα', 'hoverboard',
+                ', emobility', 'ηλεκτρικά πατίνια', 'πατίνια', 'ποδήλατα', 'hoverboard',
                 'τηλεοράσεις', 'οικιακές συσκευές', 'κλιματισμός', 'έπιπλα', 'καρέκλες', 'γραφεία',
                 'μελάνια', 'toner', 'μπαταρίες', 'πολυμηχανήματα', 'εκτυπωτές', 'laser', 'inkjet', 'οθόνες', 'monitor', 'ups',
                 'αξεσουάρ tablet', 'θήκες', 'προστατευτικ',
