@@ -972,7 +972,7 @@ body.overflow-hidden {
     width: 100%;
     aspect-ratio: 1 / 1;
     padding: 0;
-    background-color: #eaeeef;
+    background-color: #ffffff;
     border: 1px solid var(--apple-border);
     border-radius: 1.5rem;
     overflow: hidden;
@@ -1002,7 +1002,7 @@ body.overflow-hidden {
     align-items: center;
     justify-content: center;
     color: var(--apple-text-primary);
-    background-color: rgba(255, 255, 255, 0.85);
+    background-color: rgb(255, 255, 255);
     border: 1px solid var(--apple-border);
     border-radius: var(--apple-radius-pill);
     pointer-events: none;

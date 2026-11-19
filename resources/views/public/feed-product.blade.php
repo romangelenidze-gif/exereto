@@ -7,49 +7,140 @@
 
     <div class="apple-pdp-grid">
 
-        <!-- Фото: по клику открывается на весь экран; под ним ссылка на остальные фото в магазине -->
+        <!-- Галерея в стиле Skroutz: до 5 миниатюр слева (+N на 5-й), нативный PhotoSwipe на весь экран -->
         @php
             $images = is_array($product->image_urls)
                 ? $product->image_urls
                 : (is_string($product->image_urls) ? (json_decode($product->image_urls, true) ?: []) : []);
 
+            $images = array_values(array_filter(array_unique($images)));
+
             if (empty($images) && $product->image_url) {
                 $images = [$product->image_url];
             }
+
+            $totalImages = count($images);
+            $maxVisibleThumbs = 5;
+            $hasOverflow = $totalImages > $maxVisibleThumbs;
+            $visibleThumbs = array_slice($images, 0, $maxVisibleThumbs);
+            $overflowCount = $totalImages - ($maxVisibleThumbs - 1);
+            $galleryJson = json_encode($images, JSON_UNESCAPED_SLASHES);
         @endphp
 
-        <div class="apple-pdp-media" x-data="{ activeIndex: 0, images: @js($images) }">
-            <button type="button"
-                    class="apple-pdp-gallery"
-                    :data-pswp-src="images[activeIndex] || '{{ $product->image_url }}'"
-                    data-pswp-alt="{{ $title }}"
-                    aria-label="{{ __('Увеличить фото') }}">
-                @if($product->discount_percent > 0)
-                    <span class="apple-pdp-badge">-{{ $product->discount_percent }}%</span>
+        <div class="apple-pdp-media"
+             x-data="{
+                 activeIndex: 0,
+                 images: @js($images),
+                 prev() {
+                     if (this.images.length < 2) return;
+                     this.activeIndex = (this.activeIndex - 1 + this.images.length) % this.images.length;
+                 },
+                 next() {
+                     if (this.images.length < 2) return;
+                     this.activeIndex = (this.activeIndex + 1) % this.images.length;
+                 }
+             }"
+             @pswp-change="activeIndex = $event.detail">
+
+            <div class="relative flex flex-col-reverse sm:flex-row items-center gap-3 sm:gap-5 rounded-[24px] bg-[#f5f5f7] p-4 sm:p-6 select-none">
+
+                {{-- Вертикальная колонка миниатюр слева (на мобильном — снизу), максимум 5 img в DOM --}}
+                @if($totalImages > 1)
+                    <div class="flex flex-row sm:flex-col items-center justify-center gap-2 sm:gap-2.5 shrink-0 z-10">
+                        @foreach($visibleThumbs as $index => $thumbUrl)
+                            @php
+                                $isOverflowSlot = $hasOverflow && $index === ($maxVisibleThumbs - 1);
+                            @endphp
+
+                            @if($isOverflowSlot)
+                                <button type="button"
+                                        data-pswp-gallery="{{ $galleryJson }}"
+                                        data-pswp-index="{{ $index }}"
+                                        data-pswp-alt="{{ $title }}"
+                                        :class="activeIndex >= {{ $index }} ? 'border-zinc-900 shadow-sm' : 'border-black/10 hover:border-black/30'"
+                                        class="relative w-14 h-14 sm:w-[60px] sm:h-[60px] rounded-xl bg-white border overflow-hidden cursor-pointer transition-all shrink-0"
+                                        aria-label="{{ __('Показать все фото') }} (+{{ $overflowCount }})">
+                                    <img src="{{ $thumbUrl }}"
+                                         alt=""
+                                         loading="lazy"
+                                         decoding="async"
+                                         fetchpriority="low"
+                                         class="w-full h-full object-contain p-1">
+                                    <span class="absolute inset-0 bg-black/55 flex items-center justify-center text-white text-sm font-semibold">
+                                        +{{ $overflowCount }}
+                                    </span>
+                                </button>
+                            @else
+                                <button type="button"
+                                        @click="activeIndex = {{ $index }}"
+                                        :class="activeIndex === {{ $index }} ? 'border-zinc-900 shadow-sm' : 'border-black/10 hover:border-black/30 opacity-80 hover:opacity-100'"
+                                        class="w-14 h-14 sm:w-[60px] sm:h-[60px] rounded-xl bg-white border p-1.5 overflow-hidden cursor-pointer transition-all flex items-center justify-center shrink-0"
+                                        aria-label="{{ __('Фото') }} {{ $index + 1 }}">
+                                    <img src="{{ $thumbUrl }}"
+                                         alt=""
+                                         loading="{{ $index === 0 ? 'eager' : 'lazy' }}"
+                                         decoding="async"
+                                         fetchpriority="low"
+                                         class="max-w-full max-h-full object-contain">
+                                </button>
+                            @endif
+                        @endforeach
+                    </div>
                 @endif
 
-                @if(!empty($images))
-                    <img :src="images[activeIndex]" src="{{ $images[0] }}" alt="{{ $title }}" class="apple-pdp-image apple-photo-lift">
-                    <span class="apple-pdp-zoom-hint" aria-hidden="true">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m-3-3h6" />
-                        </svg>
-                    </span>
-                @endif
-            </button>
+                {{-- Главная сцена фото со стрелками < > и бесшовным фоном --}}
+                <div class="relative flex-1 min-w-0 w-full flex items-center justify-center aspect-square max-h-[520px]">
 
-            @if(count($images) > 1)
-                <div class="flex gap-2 overflow-x-auto pb-2 mt-3">
-                    @foreach($images as $index => $img)
+                    @if($product->discount_percent > 0)
+                        <span class="apple-pdp-badge z-20">-{{ $product->discount_percent }}%</span>
+                    @endif
+
+                    @if($totalImages > 1)
                         <button type="button"
-                                @click="activeIndex = {{ $index }}"
-                                :class="activeIndex === {{ $index }} ? 'ring-2 ring-[#0071e3]' : 'ring-1 ring-black/10 hover:ring-black/30'"
-                                class="w-16 h-16 shrink-0 rounded-xl bg-white p-1.5 overflow-hidden transition-all flex items-center justify-center cursor-pointer">
-                            <img src="{{ $img }}" alt="" class="max-w-full max-h-full object-contain" loading="lazy">
+                                @click.stop="prev()"
+                                class="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-black/5 flex items-center justify-center transition-colors cursor-pointer"
+                                aria-label="{{ __('Предыдущее фото') }}">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                            </svg>
                         </button>
-                    @endforeach
+
+                        <button type="button"
+                                @click.stop="next()"
+                                class="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-black/5 flex items-center justify-center transition-colors cursor-pointer"
+                                aria-label="{{ __('Следующее фото') }}">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                    @endif
+
+                    @if($totalImages > 0)
+                        <button type="button"
+                                data-pswp-gallery="{{ $galleryJson }}"
+                                :data-pswp-index="activeIndex"
+                                data-pswp-alt="{{ $title }}"
+                                class="w-full h-full flex items-center justify-center px-8 sm:px-10 py-2 cursor-zoom-in focus:outline-none"
+                                aria-label="{{ __('Увеличить фото') }}">
+                            <img data-pdp-main
+                                 :src="images[activeIndex]"
+                                 src="{{ $images[0] }}"
+                                 alt="{{ $title }}"
+                                 fetchpriority="high"
+                                 class="max-w-full max-h-full object-contain mix-blend-multiply transition-opacity duration-200">
+                        </button>
+
+                        <span class="pointer-events-none absolute right-1 bottom-1 z-10 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/80 text-zinc-600 text-xs font-medium shadow-sm">
+                            @if($totalImages > 1)
+                                <span x-text="(activeIndex + 1) + ' / ' + images.length">1 / {{ $totalImages }}</span>
+                            @endif
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m-3-3h6" />
+                            </svg>
+                        </span>
+                    @endif
                 </div>
-            @endif
+            </div>
 
             <p class="apple-pdp-photo-note">
                 {{ __('Больше фото этого товара:') }}

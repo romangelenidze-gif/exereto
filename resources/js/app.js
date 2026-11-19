@@ -21,16 +21,87 @@ const updateScrollbarWidth = () => {
 window.addEventListener('resize', updateScrollbarWidth);
 document.addEventListener('DOMContentLoaded', updateScrollbarWidth);
 
-// Просмотр фото на весь экран (PhotoSwipe): двойной тап, щипок, перетаскивание, закрытие свайпом.
-// Любой элемент с data-pswp-src открывает просмотр по клику.
+// Просмотр фото на весь экран (нативный PhotoSwipe 5):
+// - [data-pswp-gallery] — полноценная галерея со всеми фото товара, стрелками, счётчиком и ленивой подгрузкой
+// - [data-pswp-src]     — одиночное фото (обратная совместимость для остальных страниц)
 document.addEventListener('click', (e) => {
-    const trigger = e.target.closest('[data-pswp-src]');
+    const trigger = e.target.closest('[data-pswp-gallery], [data-pswp-src]');
     if (!trigger) return;
 
-    const src = trigger.dataset.pswpSrc;
     const alt = trigger.dataset.pswpAlt || '';
-    const probe = new Image();
+    const galleryRaw = trigger.dataset.pswpGallery;
 
+    if (galleryRaw) {
+        let urls = [];
+        try {
+            urls = JSON.parse(galleryRaw);
+        } catch {
+            urls = [];
+        }
+
+        if (!Array.isArray(urls) || urls.length === 0) return;
+
+        const startIndex = Math.max(
+            0,
+            Math.min(parseInt(trigger.dataset.pswpIndex || '0', 10) || 0, urls.length - 1)
+        );
+
+        const mainImg = trigger.closest('.apple-pdp-media')?.querySelector('img[data-pdp-main]');
+        const matchVisible = mainImg && mainImg.naturalWidth > 0 && mainImg.currentSrc === urls[startIndex];
+
+        const dataSource = urls.map((src, idx) => ({
+            src,
+            msrc: src,
+            alt: urls.length > 1 ? `${alt} (${idx + 1}/${urls.length})` : alt,
+            width: idx === startIndex && matchVisible ? mainImg.naturalWidth : 1200,
+            height: idx === startIndex && matchVisible ? mainImg.naturalHeight : 1200,
+        }));
+
+        const pswp = new PhotoSwipe({
+            dataSource,
+            index: startIndex,
+            bgOpacity: 0.96,
+            preload: [1, 1],
+            secondaryZoomLevel: 2,
+            maxZoomLevel: 4,
+            wheelToZoom: true,
+            pinchToZoom: true,
+            closeOnVerticalDrag: true,
+            counter: urls.length > 1,
+            arrowPrev: urls.length > 1,
+            arrowNext: urls.length > 1,
+            padding: { top: 24, bottom: 24, left: 16, right: 16 },
+        });
+
+        // Подгоняем реальные пропорции каждого слайда сразу после его загрузки (без искажений)
+        pswp.on('loadComplete', ({ content }) => {
+            const img = content.element;
+            if (!img || !img.naturalWidth || !img.naturalHeight) return;
+            if (content.data.width !== img.naturalWidth || content.data.height !== img.naturalHeight) {
+                content.data.width = img.naturalWidth;
+                content.data.height = img.naturalHeight;
+                content.width = img.naturalWidth;
+                content.height = img.naturalHeight;
+                content.slide?.updateContentSize(true);
+            }
+        });
+
+        // Синхронизируем выбранный кадр обратно в карточку товара
+        pswp.on('change', () => {
+            trigger.dispatchEvent(new CustomEvent('pswp-change', {
+                detail: pswp.currIndex,
+                bubbles: true,
+            }));
+        });
+
+        pswp.init();
+        return;
+    }
+
+    const src = trigger.dataset.pswpSrc;
+    if (!src) return;
+
+    const probe = new Image();
     probe.onload = () => {
         const pswp = new PhotoSwipe({
             dataSource: [{
