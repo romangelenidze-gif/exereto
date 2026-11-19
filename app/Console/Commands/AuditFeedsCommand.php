@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\FeedProduct;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class AuditFeedsCommand extends Command
@@ -18,7 +19,7 @@ class AuditFeedsCommand extends Command
         $critical = [];
 
         $rows = DB::table('feed_products')
-            ->selectRaw('feed, COUNT(*) as total, SUM(is_active = 1) as active, SUM(is_active = 0) as inactive, SUM(is_active = 1 AND in_stock = 0) as active_oos, SUM(is_active = 1 AND ean IS NOT NULL) as with_ean, SUM(cascade_hidden = 1) as cascade, MAX(last_seen_at) as last_seen')
+            ->selectRaw('feed, COUNT(*) as total, SUM(is_active = 1) as active, SUM(is_active = 0) as inactive, SUM(is_active = 1 AND in_stock = 0) as active_oos, SUM(is_active = 1 AND ean IS NOT NULL) as with_ean, SUM(cascade_hidden = 1) as cascade_cnt, MAX(last_seen_at) as last_seen')
             ->groupBy('feed')
             ->orderByDesc('active')
             ->get();
@@ -35,11 +36,11 @@ class AuditFeedsCommand extends Command
                 $r->inactive,
                 $r->active_oos,
                 $r->with_ean,
-                $r->cascade,
+                $r->cascade_cnt,
                 $r->last_seen,
             ];
 
-            if ($r->last_seen && now()->diffInHours($r->last_seen) > 36) {
+            if ($r->last_seen && Carbon::parse($r->last_seen)->lt(now()->subHours(36))) {
                 $warnings[] = "Фид {$r->feed} не обновлялся более 36 часов (last_seen: {$r->last_seen})";
             }
         }
