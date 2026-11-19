@@ -4,29 +4,12 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
-use Illuminate\Support\Facades\Log;
 
 Schedule::command('quotes:expire')->hourly();
 Schedule::command('autocomplete:sync-hits')->everyTenMinutes();
 
-// Ежедневный ночной запуск (в 04:30)
-Schedule::call(function () {
-    foreach (config('feeds.feeds', []) as $key => $cfg) {
-        if (!empty($cfg['enabled'])) {
-            try {
-                Log::info("Авто-запуск импорта для фида: {$key}");
-                Artisan::call("feeds:import {$key}");
-            } catch (\Throwable $e) {
-                Log::error("Ошибка импорта {$key}: " . $e->getMessage());
-            }
-        }
-    }
-    try {
-        Artisan::call('feeds:deduplicate');
-    } catch (\Throwable $e) {
-        Log::error("Ошибка дедупликации: " . $e->getMessage());
-    }
-})->dailyAt('04:30')->name('daily_feeds_import')->withoutOverlapping();
+// Ежедневный ночной цикл обновления всех фидов, каскада, Meilisearch и кэша (04:30)
+Schedule::command('feeds:sync-all')->dailyAt('04:30')->withoutOverlapping();
 
 // Ежемесячная чистка и продвижение популярных запросов автокомплита
 Schedule::call(function () {
