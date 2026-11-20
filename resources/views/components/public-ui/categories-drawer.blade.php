@@ -46,7 +46,7 @@
         >
             <!-- Шапка шторки -->
             <div class="relative flex items-center justify-center px-5 py-4 border-b border-black/[0.06] shrink-0">
-                <h2 class="app-text-title font-semibold text-[#1d1d1f]">
+                <h2 class="text-[19px] font-semibold tracking-tight text-[#1d1d1f]">
                     {{ __('Категории') }}
                 </h2>
                 <button type="button"
@@ -65,8 +65,8 @@
                     @foreach($tabs as $t)
                         <button type="button"
                                 @click="switchTab('{{ $t['key'] }}')"
-                                :class="activeTab === '{{ $t['key'] }}' ? 'bg-white text-[#1d1d1f] shadow-xs font-semibold' : 'text-[#6e6e73] hover:text-[#1d1d1f]'"
-                                class="py-2 px-1 rounded-xl text-xs transition-all cursor-pointer truncate">
+                                :class="activeTab === '{{ $t['key'] }}' ? 'bg-white text-[#1d1d1f] shadow-xs font-semibold' : 'text-[#6e6e73] hover:text-[#1d1d1f] font-medium'"
+                                class="py-2.5 px-1.5 rounded-xl text-[13px] transition-all cursor-pointer truncate">
                             {{ $t['label'] }}
                         </button>
                     @endforeach
@@ -74,42 +74,58 @@
             </div>
 
             <!-- Прокручиваемое дерево категорий -->
-            <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5">
+            <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
 
-                <!-- Быстрый вход в скидки -->
+                <!-- Премиальный блок скидок (без сходства с уведомлением об ошибке) -->
                 <a href="{{ $salesUrl }}"
-                   class="flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-red-50 hover:bg-red-100/80 border border-red-200/60 transition-colors group">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <span class="w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center text-sm font-bold shrink-0">%</span>
+                   class="flex items-center justify-between gap-3.5 px-4 py-4 rounded-2xl bg-[#1d1d1f] hover:bg-[#2c2c2e] text-white transition-colors group">
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <span class="w-11 h-11 rounded-xl bg-white/12 text-white flex items-center justify-center text-lg font-bold shrink-0">
+                            %
+                        </span>
                         <div class="min-w-0">
-                            <div class="text-sm font-semibold text-red-700 truncate">{{ __('Скидки и акции') }}</div>
-                            <div class="text-xs text-red-600/80 truncate">{{ __('Товары со сниженной ценой') }}</div>
+                            <div class="text-[17px] font-semibold leading-tight tracking-tight truncate">
+                                {{ __('Скидки и акции') }}
+                            </div>
+                            <div class="text-[13px] text-white/70 mt-0.5 truncate">
+                                {{ __('Товары со сниженной ценой') }}
+                            </div>
                         </div>
                     </div>
-                    <svg class="w-4 h-4 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg class="w-5 h-5 text-white/60 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
                 </a>
 
-                <!-- 7 департаментов L1 с раскрытием L2 -->
+                <!-- 7 департаментов L1 с крупной графикой и типографикой -->
                 <template x-for="dept in departments" :key="activeTab + ':' + dept.slug">
-                    <div class="rounded-2xl bg-[#f5f5f7] overflow-hidden border border-black/[0.04]">
+                    <div class="rounded-2xl bg-[#f5f5f7] overflow-hidden border border-black/[0.04]"
+                         x-data="{ imgError: false }">
                         <button type="button"
                                 @click="dept.children.length ? toggleDept(dept.slug) : (window.location.href = dept.url)"
-                                class="w-full flex items-center justify-between gap-3 p-3.5 text-left hover:bg-[#ececf0] transition-colors cursor-pointer">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-10 h-10 rounded-xl bg-white p-1.5 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
-                                    <img :src="'/images/categories/' + dept.img"
+                                class="w-full flex items-center justify-between gap-3.5 pl-2.5 pr-4 py-2 text-left hover:bg-[#ececf0] transition-colors cursor-pointer">
+                            <div class="flex items-center gap-4 min-w-0">
+                                <!-- Крупный слот под фото на всю высоту карточки без тесной белой рамки -->
+                                <div class="w-[72px] h-[72px] rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+                                    <img x-show="!imgError"
+                                         :src="'/images/categories/' + dept.img"
                                          :alt="dept.label"
-                                         onerror="this.style.display='none'"
-                                         class="max-w-full max-h-full object-contain">
+                                         @error="imgError = true"
+                                         class="w-full h-full object-contain mix-blend-multiply scale-105">
+                                    <div x-show="imgError" x-cloak class="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center text-[#86868b]">
+                                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                        </svg>
+                                    </div>
                                 </div>
-                                <div class="min-w-0">
-                                    <div class="text-[15px] font-semibold text-[#1d1d1f] truncate" x-text="dept.label"></div>
-                                    <div class="text-xs text-[#86868b]" x-text="dept.count.toLocaleString()"></div>
+                                <div class="min-w-0 py-1">
+                                    <div class="text-[18px] sm:text-[19px] font-semibold leading-snug tracking-tight text-[#1d1d1f] truncate"
+                                         x-text="dept.label"></div>
+                                    <div class="text-[14px] text-[#6e6e73] font-medium mt-0.5"
+                                         x-text="dept.count.toLocaleString()"></div>
                                 </div>
                             </div>
-                            <svg class="w-4 h-4 text-[#86868b] shrink-0 transition-transform duration-200"
+                            <svg class="w-5 h-5 text-[#86868b] shrink-0 transition-transform duration-200"
                                  :class="openDept === dept.slug ? 'rotate-90 text-[#1d1d1f]' : ''"
                                  fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -120,17 +136,17 @@
                         <div x-show="openDept === dept.slug"
                              x-collapse
                              x-cloak
-                             class="bg-white/80 border-t border-black/[0.05] divide-y divide-black/[0.04]">
+                             class="bg-white/90 border-t border-black/[0.05] divide-y divide-black/[0.04]">
                             <a :href="dept.url"
-                               class="flex items-center justify-between px-4 py-2.5 text-sm font-semibold text-[#0071e3] hover:bg-[#0071e3]/[0.05] transition-colors">
+                               class="flex items-center justify-between px-4 py-3 text-[15px] font-semibold text-[#0071e3] hover:bg-[#0071e3]/[0.05] transition-colors">
                                 <span>{{ __('Смотреть все') }} &rarr;</span>
-                                <span class="text-xs text-[#86868b] font-normal" x-text="dept.count.toLocaleString()"></span>
+                                <span class="text-[13px] text-[#6e6e73] font-normal" x-text="dept.count.toLocaleString()"></span>
                             </a>
                             <template x-for="child in dept.children" :key="child.slug">
                                 <a :href="child.url"
-                                   class="flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors">
+                                   class="flex items-center justify-between gap-2 px-4 py-3 text-[15px] text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors">
                                     <span class="truncate" x-text="child.label"></span>
-                                    <span class="text-xs text-[#86868b] shrink-0" x-text="child.count.toLocaleString()"></span>
+                                    <span class="text-[13px] text-[#6e6e73] shrink-0" x-text="child.count.toLocaleString()"></span>
                                 </a>
                             </template>
                         </div>
