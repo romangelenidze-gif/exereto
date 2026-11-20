@@ -16,14 +16,14 @@ class HomeController extends Controller
         $locale = app()->getLocale();
         $tiles = $categoryTiles->get();
 
-        // 1. Тематические блоки главной страницы (кэш на 60 минут по языкам)
+        // 1. Тематические блоки главной страницы (в кэше строго чистые массивы — без объектов Collection)
         $blocks = Cache::remember(
-            "home.thematic_blocks.v1.{$locale}",
+            "home.thematic_blocks.v2.{$locale}",
             now()->addMinutes(60),
             function () use ($localizer, $locale, $tiles) {
                 $definitions = $this->blockDefinitions($tiles);
                 $rawBySlug = Cache::remember(
-                    'home.thematic_blocks.raw.v1',
+                    'home.thematic_blocks.raw.v2',
                     now()->addMinutes(60),
                     function () use ($definitions) {
                         $out = [];
@@ -47,10 +47,10 @@ class HomeController extends Controller
                         continue;
                     }
 
-                    $localized = array_map(
+                    $localized = array_values(array_map(
                         fn (array $c) => $this->localizeCardUrl($c),
                         $localizer->localizeCardTitles($rawCards, $locale)
-                    );
+                    ));
 
                     $result[$def['slug']] = [
                         'slug' => $def['slug'],
@@ -60,7 +60,7 @@ class HomeController extends Controller
                         'url' => $def['url'],
                         'banner' => $def['banner'],
                         'gradient' => $def['gradient'],
-                        'products' => collect($localized),
+                        'products' => $localized,
                     ];
                 }
 
@@ -84,16 +84,16 @@ class HomeController extends Controller
             ];
         }
 
-        // Разделяем блоки: первый — над популярными брендами, остальные — под ними
+        // Первый блок — над популярными брендами, остальные — под ними
         $heroBlock = $blocks['fashion'] ?? null;
-        $bottomBlocks = collect($blocks)->except('fashion')->values()->all();
+        $bottomBlocks = array_values(array_diff_key($blocks, ['fashion' => true]));
 
         return view('public.home', compact('heroBlock', 'bottomBlocks', 'brands', 'tiles'));
     }
 
     /**
      * Конфигурация тематических блоков главной.
-     * Баннеры кладутся в public/images/home-banners/{slug}.webp (пока файла нет — рендерится стильный градиент).
+     * Баннеры кладутся в public/images/home-banners/{slug}.webp (пока файла нет — рендерится градиент).
      *
      * @param  iterable<int, mixed>  $tiles
      * @return array<int, array<string, mixed>>
