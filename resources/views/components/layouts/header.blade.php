@@ -3,12 +3,50 @@
     $headerCategories = app(\App\Services\FeedCategoryTiles::class)->get();
 @endphp
 
-<!-- Статичный хедер -->
-<header class="text-[#1d1d1f] relative w-full z-40">
-    <div class="max-w-[96rem] mx-auto px-6 sm:px-6 lg:px-8 w-full ">
+<!-- На мобильном (< lg): умная липкая шапка (прячется при скролле вниз, появляется при скролле вверх). На десктопе (>= lg): статичная -->
+<header class="sticky top-0 lg:static z-40 text-[#1d1d1f] w-full transition-transform duration-300 ease-out will-change-transform"
+        x-data="{
+            hidden: false,
+            scrolled: false,
+            lastY: 0,
+            onScroll() {
+                if (window.innerWidth >= 1024) {
+                    this.hidden = false;
+                    this.scrolled = false;
+                    return;
+                }
+
+                const y = Math.max(0, window.scrollY || window.pageYOffset);
+                this.scrolled = y > 8;
+
+                const inputFocused = document.activeElement
+                    && document.activeElement.tagName === 'INPUT'
+                    && this.$el.contains(document.activeElement);
+
+                if (y <= 64 || categoriesDrawerOpen || searchOpen || inputFocused) {
+                    this.hidden = false;
+                    this.lastY = y;
+                    return;
+                }
+
+                const delta = y - this.lastY;
+                if (Math.abs(delta) < 10) return;
+
+                this.hidden = delta > 0;
+                this.lastY = y;
+            }
+        }"
+        @scroll.window.passive="onScroll()"
+        @resize.window.passive="if (window.innerWidth >= 1024) { hidden = false; scrolled = false; }"
+        :class="[
+            hidden ? '-translate-y-full lg:translate-y-0' : 'translate-y-0',
+            scrolled ? 'bg-[#f5f5f7]/90 backdrop-blur-md lg:bg-transparent lg:backdrop-blur-none' : 'bg-transparent'
+        ]">
+
+    <div class="max-w-[96rem] mx-auto px-3.5 sm:px-6 lg:px-8 w-full">
 
         <!-- МОБИЛЬНАЯ ШАПКА (< lg): воздух сверху, логотип слева + широкий плоский поиск без тени и гамбургер категорий -->
-        <div class="flex lg:hidden items-center gap-6.5 pt-6 pb-2.5" 
+        <div class="relative flex lg:hidden items-center gap-2.5 pt-4 pb-2.5"
              x-data="{
                 query: @js((string) request('q', '')),
                 suggestions: [],
@@ -56,11 +94,11 @@
              @click.outside="openSuggestions = false"
              @scroll.window="openSuggestions = false">
 
-            <a href="{{ route('home') }}" class="text-[28px] leading-none font-semibold tracking-tight text-[#1d1d1f] shrink-0">
+            <a href="{{ route('home') }}" class="text-[23px] leading-none font-bold tracking-tight text-[#1d1d1f] shrink-0">
                 exereto
             </a>
 
-            <div class="relative flex-1 min-w-0 border rounded-full border-black/[0.20]">
+            <div class="flex-1 min-w-0">
                 <form action="{{ route('product-search') }}" method="GET"
                       class="flex items-center gap-2 bg-white rounded-full pl-3.5 pr-1.5 h-11">
                     <button type="submit" aria-label="{{ __('Найти') }}" class="text-zinc-400 hover:text-[#0071e3] shrink-0 cursor-pointer">
@@ -91,24 +129,24 @@
                         </svg>
                     </button>
                 </form>
+            </div>
 
-                <!-- Подсказки автокомплита под мобильной шапкой -->
-                <div x-show="openSuggestions"
-                     x-cloak
-                     role="listbox"
-                     class="fixed left-3.5 right-3.5 top-[72px] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-black/[0.06] overflow-y-auto max-h-80 z-50 text-left">
-                    <template x-for="item in suggestions" :key="item.url || item.value">
-                        <div role="option"
-                             @click="selectSuggestion(item)"
-                             class="px-4 py-2.5 flex items-center justify-between gap-2.5 cursor-pointer hover:bg-black/[0.04] border-b border-black/[0.04] last:border-b-0">
-                            <div class="flex items-center gap-2.5 min-w-0">
-                                <img x-show="item.image" :src="item.image" alt="" class="w-8 h-8 rounded-lg object-cover bg-[#f5f5f7] shrink-0">
-                                <span class="text-sm font-medium text-[#1d1d1f] truncate" x-text="item.label"></span>
-                            </div>
-                            <span class="text-[11px] px-2 py-0.5 bg-[#0071e3]/10 text-[#0071e3] rounded-full font-semibold shrink-0" x-text="item.badge"></span>
+            <!-- Подсказки автокомплита (привязаны прямо к шапке на всю ширину) -->
+            <div x-show="openSuggestions"
+                 x-cloak
+                 role="listbox"
+                 class="absolute left-0 right-0 top-full mt-1 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-black/[0.06] overflow-y-auto max-h-80 z-50 text-left">
+                <template x-for="item in suggestions" :key="item.url || item.value">
+                    <div role="option"
+                         @click="selectSuggestion(item)"
+                         class="px-4 py-2.5 flex items-center justify-between gap-2.5 cursor-pointer hover:bg-black/[0.04] border-b border-black/[0.04] last:border-b-0">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <img x-show="item.image" :src="item.image" alt="" class="w-8 h-8 rounded-lg object-cover bg-[#f5f5f7] shrink-0">
+                            <span class="text-sm font-medium text-[#1d1d1f] truncate" x-text="item.label"></span>
                         </div>
-                    </template>
-                </div>
+                        <span class="text-[11px] px-2 py-0.5 bg-[#0071e3]/10 text-[#0071e3] rounded-full font-semibold shrink-0" x-text="item.badge"></span>
+                    </div>
+                </template>
             </div>
         </div>
 
@@ -151,8 +189,8 @@
         </div>
 
     </div>
-
-    <!-- Единая выдвижная шторка категорий каталога -->
-    <x-public-ui.categories-drawer :categories="$headerCategories" />
-    <x-layouts.search-sheet />
 </header>
+
+<!-- Вынесены из <header>, чтобы CSS transform при скрытии шапки не ломал position: fixed -->
+<x-public-ui.categories-drawer :categories="$headerCategories" />
+<x-layouts.search-sheet />
