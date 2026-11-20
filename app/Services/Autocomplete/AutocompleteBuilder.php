@@ -10,16 +10,80 @@ use App\Services\Feeds\FeedEntityLocalizer;
 use App\Services\Feeds\FeedText;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Lang;
+use Meilisearch\Client;
 
 class AutocompleteBuilder
 {
-    private const LOCALES = ['en', 'ru', 'ka', 'el'];
-    private const MAX_FACET_BRANDS = 25;
+    private const MAX_FACET_BRANDS = 30;
+    private const MIN_FACET_COUNT = 5;
     private const MAX_MODELS = 6000;
     private const PER_FEED_MODEL_SAMPLE = 1200;
     private const TOP_DISCOUNT_MODEL_SAMPLE = 4000;
     private const UPSERT_CHUNK = 500;
+
+    /** Разговорные синонимы для мгновенного попадания в нужную категорию */
+    private const CATEGORY_SYNONYMS = [
+        'jackets' => ['куртки', 'куртка', 'ветровка', 'верхняя одежда', 'jacket', 'coat'],
+        'puffer-jackets' => ['пуховик', 'пуховики', 'парка', 'puffer', 'down jacket'],
+        'coats' => ['пальто', 'тренч', 'плащ', 'coat', 'trench'],
+        'hoodies' => ['худи', 'толстовка', 'толстовки', 'свитшот', 'кофта', 'hoodie', 'sweatshirt'],
+        'sweaters' => ['свитер', 'свитеры', 'джемпер', 'кардиган', 'пуловер', 'sweater', 'knitwear'],
+        't-shirts' => ['футболка', 'футболки', 'майка', 'tshirt', 't-shirt', 'tee'],
+        'shirts' => ['рубашка', 'рубашки', 'блузка', 'блуза', 'shirt', 'blouse'],
+        'dresses' => ['платье', 'платья', 'сарафан', 'комбинезон', 'dress', 'jumpsuit'],
+        'skirts' => ['юбка', 'юбки', 'skirt'],
+        'jeans' => ['джинсы', 'деним', 'jeans', 'denim'],
+        'pants' => ['брюки', 'штаны', 'pants', 'trousers'],
+        'shorts' => ['шорты', 'бермуды', 'shorts'],
+        'sportswear' => ['спорт', 'спортивная одежда', 'спорттовары', 'sportswear'],
+        'tracksuits' => ['спортивный костюм', 'спортивные костюмы', 'костюм', 'tracksuit'],
+        'track-pants' => ['спортивные штаны', 'спортивки', 'джоггеры', 'joggers', 'track pants'],
+        'leggings' => ['леггинсы', 'легинсы', 'лосины', 'тайтсы', 'leggings'],
+        'swimwear' => ['купальник', 'купальники', 'плавки', 'бикини', 'bikini', 'swimwear'],
+        'underwear-socks' => ['белье', 'нижнее белье', 'трусы', 'лифчик', 'бюстгальтер', 'underwear', 'lingerie'],
+        'socks' => ['носки', 'гольфы', 'колготки', 'socks'],
+        'sleepwear' => ['пижама', 'пижамы', 'халат', 'домашняя одежда', 'pyjama', 'sleepwear'],
+        'shoes' => ['обувь', 'shoes', 'footwear'],
+        'sneakers' => ['кроссовки', 'кросы', 'кеды', 'сникерсы', 'sneakers', 'trainers'],
+        'running-shoes' => ['беговые кроссовки', 'для бега', 'running'],
+        'football-boots' => ['бутсы', 'футбольные бутсы', 'сороконожки', 'шиповки', 'football boots', 'cleats'],
+        'boots' => ['ботинки', 'сапоги', 'берцы', 'boots'],
+        'ankle-boots' => ['ботильоны', 'челси', 'полусапожки', 'chelsea', 'ankle boots'],
+        'heels' => ['туфли', 'каблуки', 'лодочки', 'heels', 'pumps'],
+        'sandals' => ['сандалии', 'босоножки', 'сандали', 'sandals'],
+        'slides' => ['шлепанцы', 'шлепки', 'сланцы', 'тапочки', 'тапки', 'кроксы', 'slides', 'slippers', 'crocs'],
+        'bags' => ['сумка', 'сумки', 'сумочка', 'bags', 'handbag'],
+        'backpacks' => ['рюкзак', 'рюкзаки', 'портфель', 'backpack'],
+        'luggage-travel' => ['чемодан', 'чемоданы', 'дорожная сумка', 'luggage', 'suitcase'],
+        'wallets' => ['кошелек', 'кошельки', 'портмоне', 'картхолдер', 'wallet'],
+        'belts' => ['ремень', 'ремни', 'пояс', 'belt'],
+        'eyewear' => ['очки', 'оправа', 'eyewear', 'glasses'],
+        'sunglasses' => ['солнцезащитные очки', 'солнечные очки', 'очки от солнца', 'sunglasses'],
+        'watches' => ['часы', 'наручные часы', 'watches'],
+        'jewelry' => ['украшения', 'бижутерия', 'серьги', 'колье', 'браслет', 'кольцо', 'jewelry'],
+        'hats-scarves' => ['шапка', 'кепка', 'бейсболка', 'шарф', 'перчатки', 'cap', 'hat', 'scarf'],
+        'perfume' => ['парфюм', 'духи', 'парфюмерия', 'туалетная вода', 'одеколон', 'perfume', 'fragrance'],
+        'makeup' => ['косметика', 'макияж', 'помада', 'тушь', 'тональник', 'консилер', 'тени', 'makeup'],
+        'skincare' => ['крем', 'сыворотка', 'уход за лицом', 'умывалка', 'маска для лица', 'skincare'],
+        'haircare' => ['шампунь', 'волосы', 'краска для волос', 'маска для волос', 'haircare'],
+        'suncare' => ['спф', 'spf', 'от солнца', 'солнцезащитный крем', 'suncare'],
+        'pharmacy-health' => ['витамины', 'бады', 'аптека', 'здоровье', 'vitamins', 'pharmacy'],
+        'toys' => ['игрушки', 'игрушка', 'toys'],
+        'lego-building' => ['лего', 'конструктор', 'конструкторы', 'lego', 'playmobil'],
+        'dolls' => ['кукла', 'куклы', 'барби', 'barbie', 'dolls'],
+        'plush-toys' => ['мягкая игрушка', 'мягкие игрушки', 'плюшевая', 'plush'],
+        'puzzles-boardgames' => ['пазлы', 'пазл', 'настолки', 'настольные игры', 'puzzle', 'board games'],
+        'gaming' => ['игры', 'гейминг', 'приставка', 'playstation', 'ps5', 'nintendo', 'xbox', 'gaming'],
+        'video-games' => ['игры ps5', 'игры switch', 'диски ps5', 'video games'],
+        'laptops' => ['ноутбук', 'ноутбуки', 'ноут', 'макбук', 'macbook', 'laptop'],
+        'smartphones' => ['смартфон', 'смартфоны', 'телефон', 'айфон', 'iphone', 'smartphone'],
+        'tablets' => ['планшет', 'планшеты', 'айпад', 'ipad', 'tablet'],
+        'wearables' => ['смарт часы', 'умные часы', 'эпл вотч', 'apple watch', 'smartwatch'],
+        'headphones' => ['наушники', 'аирподс', 'airpods', 'гарнитура', 'headphones', 'earbuds'],
+        'speakers' => ['колонка', 'колонки', 'блютуз колонка', 'jbl', 'speaker'],
+        'kids' => ['детское', 'детская одежда', 'детская обувь', 'детям', 'ребенку', 'kids', 'children'],
+        'sales-offers' => ['скидки', 'акции', 'распродажа', 'sale', 'discount', 'offers'],
+    ];
 
     public function __construct(private FeedCategoryTiles $categoryTiles)
     {
@@ -48,7 +112,7 @@ class AutocompleteBuilder
         $buffer = [];
         $stats = ['brands' => 0, 'categories' => 0, 'facets' => 0, 'models' => 0, 'total' => 0];
 
-        // 1. Активные бренды (покрывающий индекс idx_fp_active_stock_brand — без тяжёлого COUNT(DISTINCT ...))
+        // 1. Активные бренды
         $brandRows = FeedProduct::query()
             ->where('is_active', true)
             ->where('in_stock', true)
@@ -96,35 +160,33 @@ class AutocompleteBuilder
             $this->flushIfNeeded($buffer, $stats['total']);
         }
 
-        $topFacetBrands = array_slice($activeBrands, 0, self::MAX_FACET_BRANDS, true);
-        $topBrandNames = array_keys($topFacetBrands);
+        // 2. Все активные узлы дерева categories (L1 + L2 + L3) + виртуальные хабы (kids, sales-offers)
+        $categoriesBySlug = $this->loadTreeCategoriesWithCounts();
 
-        // 2. Категории таксономии (только те, где реально есть товары)
-        $tiles = $this->categoryTiles->get();
-        foreach ($tiles as $tile) {
-            $slug = (string) ($tile['slug'] ?? '');
-            $count = (int) ($tile['count'] ?? 0);
-            $rawLabel = (string) ($tile['label'] ?? '');
-
-            if ($slug === '' || $count <= 0 || $rawLabel === '') {
+        foreach ($categoriesBySlug as $slug => $cat) {
+            $count = (int) $cat['count'];
+            if ($count <= 0) {
                 continue;
             }
 
-            $labels = $this->translateUiLabel($rawLabel);
             $key = 'cat:' . $slug;
+            $synonyms = self::CATEGORY_SYNONYMS[$slug] ?? [];
 
             $buffer[$key] = [
                 'entry_key' => $key,
                 'type' => 'category',
-                'title_en' => $labels['en'],
-                'title_ru' => $labels['ru'],
-                'title_ka' => $labels['ka'],
-                'title_el' => $labels['el'],
+                'title_en' => $cat['name_en'],
+                'title_ru' => $cat['name_ru'],
+                'title_ka' => $cat['name_ka'],
+                'title_el' => $cat['name_el'],
                 'badge_en' => 'Category',
                 'badge_ru' => 'Категория',
                 'badge_ka' => 'კატეგორია',
                 'badge_el' => 'Κατηγορία',
-                'search_keywords' => $this->packKeywords(array_merge(array_values($labels), [$slug])),
+                'search_keywords' => $this->packKeywords(array_merge(
+                    [$cat['name_en'], $cat['name_ru'], $cat['name_ka'], $cat['name_el'], str_replace('-', ' ', $slug), $slug],
+                    $synonyms
+                )),
                 'url' => route('feed-category.show', ['slug' => $slug], false),
                 'image_url' => null,
                 'price' => null,
@@ -136,48 +198,63 @@ class AutocompleteBuilder
             ];
             $stats['categories']++;
             $this->flushIfNeeded($buffer, $stats['total']);
+        }
 
-            // 3. Фасеты Бренд + Категория (через Meilisearch за ~10мс, с безопасным MySQL-фолбэком)
-            if ($topBrandNames !== []) {
-                $brandCounts = $this->getTileBrandCounts($tile, $topBrandNames);
+        // 3. Фасеты Бренд + Категория (1 запрос к Meilisearch на бренд вместо 1 на категорию)
+        $topFacetBrands = array_slice($activeBrands, 0, self::MAX_FACET_BRANDS, true);
+        foreach ($topFacetBrands as $brand => $brandTotal) {
+            $slugCounts = $this->getBrandCategoryCounts($brand);
+            if ($slugCounts === []) {
+                continue;
+            }
 
-                foreach ($topFacetBrands as $brand => $brandTotal) {
-                    $facetCount = (int) ($brandCounts[$brand] ?? 0);
-                    if ($facetCount <= 0) {
-                        continue;
-                    }
+            $aliases = $brandAliasesMap[mb_strtolower($brand)] ?? [$brand];
 
-                    $facetKey = 'facet:' . mb_strtolower($brand) . ':' . $slug;
-                    $aliases = $brandAliasesMap[mb_strtolower($brand)] ?? [$brand];
-
-                    $buffer[$facetKey] = [
-                        'entry_key' => $facetKey,
-                        'type' => 'facet',
-                        'title_en' => $brand . ' — ' . $labels['en'],
-                        'title_ru' => $brand . ' — ' . $labels['ru'],
-                        'title_ka' => $brand . ' — ' . $labels['ka'],
-                        'title_el' => $brand . ' — ' . $labels['el'],
-                        'badge_en' => 'Category',
-                        'badge_ru' => 'Категория',
-                        'badge_ka' => 'კატეგორია',
-                        'badge_el' => 'Κατηγορία',
-                        'search_keywords' => $this->packKeywords(array_merge($aliases, array_values($labels), [$slug])),
-                        'url' => route('product-search', ['q' => $brand . ' ' . $labels['ru']], false),
-                        'image_url' => null,
-                        'price' => null,
-                        'products_count' => $facetCount,
-                        'popularity_hits' => (int) ($existingHits[$facetKey] ?? 0),
-                        'is_active' => true,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                    $stats['facets']++;
-                    $this->flushIfNeeded($buffer, $stats['total']);
+            foreach ($slugCounts as $slug => $facetCount) {
+                if ($facetCount < self::MIN_FACET_COUNT || !isset($categoriesBySlug[$slug])) {
+                    continue;
                 }
+
+                $cat = $categoriesBySlug[$slug];
+                // Для виртуальных хабов отдельные бренд-фасеты не плодим
+                if (!empty($cat['is_virtual'])) {
+                    continue;
+                }
+
+                $facetKey = 'facet:' . mb_strtolower($brand) . ':' . $slug;
+                $synonyms = self::CATEGORY_SYNONYMS[$slug] ?? [];
+
+                $buffer[$facetKey] = [
+                    'entry_key' => $facetKey,
+                    'type' => 'facet',
+                    'title_en' => $brand . ' — ' . $cat['name_en'],
+                    'title_ru' => $brand . ' — ' . $cat['name_ru'],
+                    'title_ka' => $brand . ' — ' . $cat['name_ka'],
+                    'title_el' => $brand . ' — ' . $cat['name_el'],
+                    'badge_en' => 'Category',
+                    'badge_ru' => 'Категория',
+                    'badge_ka' => 'კატეგორია',
+                    'badge_el' => 'Κατηγορία',
+                    'search_keywords' => $this->packKeywords(array_merge(
+                        $aliases,
+                        [$cat['name_en'], $cat['name_ru'], $cat['name_ka'], $cat['name_el'], str_replace('-', ' ', $slug)],
+                        $synonyms
+                    )),
+                    'url' => route('feed-category.show', ['slug' => $slug, 'brands' => [$brand]], false),
+                    'image_url' => null,
+                    'price' => null,
+                    'products_count' => (int) $facetCount,
+                    'popularity_hits' => (int) ($existingHits[$facetKey] ?? 0),
+                    'is_active' => true,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+                $stats['facets']++;
+                $this->flushIfNeeded($buffer, $stats['total']);
             }
         }
 
-        // 4. Топ уникальных моделей через индексные выборки по фидам и скидкам (без дискового GROUP BY по 450k строк)
+        // 4. Топ уникальных моделей через индексные выборки по фидам и скидкам
         $selectedModels = $this->collectTopModels();
 
         foreach ($selectedModels as $item) {
@@ -249,51 +326,161 @@ class AutocompleteBuilder
     }
 
     /**
-     * @param  array<string, mixed>  $tile
-     * @param  string[]  $brandNames
-     * @return array<string, int>
+     * Загружает все активные узлы дерева categories с реальными счётчиками из Meilisearch (или MySQL-фолбэком).
+     *
+     * @return array<string, array{name_en:string, name_ru:string, name_ka:string, name_el:string, count:int, is_virtual:bool}>
      */
-    private function getTileBrandCounts(array $tile, array $brandNames): array
+    private function loadTreeCategoriesWithCounts(): array
     {
-        $slug = (string) ($tile['slug'] ?? '');
-        if ($slug !== '' && config('scout.driver') === 'meilisearch') {
-            try {
-                $client = app(\Meilisearch\Client::class);
-                $indexName = (new FeedProduct())->searchableAs();
-                $escapedSlug = str_replace(['\\', '"'], ['\\\\', '\"'], $slug);
+        $rows = DB::table('categories')
+            ->where('is_active', 1)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'parent_id', 'slug', 'name_en', 'name_ru', 'name_ka', 'name_el']);
 
-                $res = $client->index($indexName)->search('', [
-                    'filter' => 'is_active = true AND in_stock = true AND tile_slugs = "' . $escapedSlug . '"',
-                    'facets' => ['brand'],
+        $slugCounts = [];
+        $kidsCount = 0;
+        $salesCount = 0;
+
+        $index = $this->meiliIndex();
+        if ($index !== null) {
+            try {
+                $res = $index->search('', [
+                    'filter' => 'is_active = true AND in_stock = true',
+                    'facets' => ['category_slugs', 'gender'],
                     'limit' => 0,
                 ]);
+                $dist = method_exists($res, 'getFacetDistribution')
+                    ? (array) $res->getFacetDistribution()
+                    : (array) ($res['facetDistribution'] ?? []);
 
-                $facets = method_exists($res, 'getFacetDistribution')
-                    ? $res->getFacetDistribution()
-                    : ($res['facetDistribution'] ?? []);
+                $slugCounts = (array) ($dist['category_slugs'] ?? []);
+                $kidsCount = (int) ($dist['gender']['kids'] ?? 0);
 
-                $dist = $facets['brand'] ?? null;
-                if (is_array($dist) && $dist !== []) {
+                $salesRes = $index->search('', [
+                    'filter' => 'is_active = true AND in_stock = true AND discount_percent > 0',
+                    'limit' => 0,
+                ]);
+                $salesCount = is_object($salesRes)
+                    ? (int) ($salesRes->getEstimatedTotalHits() ?? 0)
+                    : (int) ($salesRes['estimatedTotalHits'] ?? 0);
+            } catch (\Throwable) {
+            }
+        }
+
+        // MySQL-фолбэк, если Meilisearch временно недоступен
+        if ($slugCounts === []) {
+            $directCounts = DB::table('feed_products')
+                ->where('is_active', 1)
+                ->where('in_stock', 1)
+                ->whereNotNull('category_id')
+                ->selectRaw('category_id, COUNT(*) as cnt')
+                ->groupBy('category_id')
+                ->pluck('cnt', 'category_id')
+                ->all();
+
+            $byId = $rows->keyBy('id');
+            foreach ($directCounts as $catId => $cnt) {
+                $curr = $byId->get($catId);
+                $guard = 0;
+                while ($curr !== null && $guard < 6) {
+                    $slugCounts[$curr->slug] = ($slugCounts[$curr->slug] ?? 0) + (int) $cnt;
+                    $curr = $curr->parent_id ? $byId->get($curr->parent_id) : null;
+                    $guard++;
+                }
+            }
+        }
+
+        $result = [];
+        foreach ($rows as $r) {
+            $cnt = (int) ($slugCounts[$r->slug] ?? 0);
+            if ($cnt <= 0) {
+                continue;
+            }
+
+            $result[(string) $r->slug] = [
+                'name_en' => (string) $r->name_en,
+                'name_ru' => (string) ($r->name_ru ?: $r->name_en),
+                'name_ka' => (string) ($r->name_ka ?: $r->name_en),
+                'name_el' => (string) ($r->name_el ?: $r->name_en),
+                'count' => $cnt,
+                'is_virtual' => false,
+            ];
+        }
+
+        if ($kidsCount > 0) {
+            $result['kids'] = [
+                'name_en' => 'Kids & Teens',
+                'name_ru' => 'Детские товары',
+                'name_ka' => 'საბავშვო',
+                'name_el' => 'Παιδικά',
+                'count' => $kidsCount,
+                'is_virtual' => true,
+            ];
+        }
+
+        if ($salesCount > 0) {
+            $result['sales-offers'] = [
+                'name_en' => 'Sales & Offers',
+                'name_ru' => 'Скидки и акции',
+                'name_ka' => 'ფასდაკლებები',
+                'name_el' => 'Προσφορές',
+                'count' => $salesCount,
+                'is_virtual' => true,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Возвращает карту [category_slug => count] для одного бренда за один фасетный запрос к Meilisearch.
+     *
+     * @return array<string, int>
+     */
+    private function getBrandCategoryCounts(string $brand): array
+    {
+        $index = $this->meiliIndex();
+        if ($index !== null) {
+            try {
+                $escapedBrand = str_replace(['\\', '"'], ['\\\\', '\"'], $brand);
+                $res = $index->search('', [
+                    'filter' => 'is_active = true AND in_stock = true AND brand = "' . $escapedBrand . '"',
+                    'facets' => ['category_slugs'],
+                    'limit' => 0,
+                ]);
+                $dist = method_exists($res, 'getFacetDistribution')
+                    ? (array) $res->getFacetDistribution()
+                    : (array) ($res['facetDistribution'] ?? []);
+
+                $catDist = $dist['category_slugs'] ?? [];
+                if (is_array($catDist) && $catDist !== []) {
                     $out = [];
-                    foreach ($brandNames as $b) {
-                        if (!empty($dist[$b])) {
-                            $out[$b] = (int) $dist[$b];
+                    foreach ($catDist as $slug => $cnt) {
+                        if ((int) $cnt > 0) {
+                            $out[(string) $slug] = (int) $cnt;
                         }
                     }
 
                     return $out;
                 }
             } catch (\Throwable) {
-                // Фолбэк на MySQL ниже
             }
         }
 
-        return (clone $this->categoryTiles->productsQuery($tile))
-            ->whereIn('brand', $brandNames)
-            ->selectRaw('brand, COUNT(*) as cnt')
-            ->groupBy('brand')
-            ->pluck('cnt', 'brand')
-            ->all();
+        return [];
+    }
+
+    private function meiliIndex(): ?\Meilisearch\Endpoints\Indexes
+    {
+        $host = (string) (config('scout.meilisearch.host') ?: config('scout.meilisearch.url'));
+        if (config('scout.driver') !== 'meilisearch' || $host === '') {
+            return null;
+        }
+
+        $client = new Client($host, config('scout.meilisearch.key') ?: null);
+
+        return $client->index((new FeedProduct())->searchableAs());
     }
 
     /**
@@ -345,7 +532,6 @@ class AutocompleteBuilder
             }
         };
 
-        // 1. По индексу idx_fp_active_stock_feed_rating — гарантированное представительство каждого активного фида
         $activeFeeds = array_keys(array_filter(
             (array) config('feeds.feeds', []),
             fn ($cfg) => !empty($cfg['enabled'])
@@ -363,7 +549,6 @@ class AutocompleteBuilder
             $ingest($rows);
         }
 
-        // 2. По индексу idx_fp_active_stock_discount — топ товаров со скидками по всей витрине
         $discountRows = DB::table('feed_products')
             ->where('is_active', true)
             ->where('in_stock', true)
@@ -452,20 +637,6 @@ class AutocompleteBuilder
         }
 
         return $map;
-    }
-
-    /**
-     * @return array{en: string, ru: string, ka: string, el: string}
-     */
-    private function translateUiLabel(string $label): array
-    {
-        $out = [];
-        foreach (self::LOCALES as $loc) {
-            $tr = Lang::get($label, [], $loc);
-            $out[$loc] = is_string($tr) && $tr !== '' ? $tr : $label;
-        }
-
-        return $out;
     }
 
     /**
