@@ -15,7 +15,7 @@
          @open-categories.window="categoriesDrawerOpen = true"
          x-effect="document.body.classList.toggle('overflow-hidden', categoriesDrawerOpen)"
          @keydown.escape.window="categoriesDrawerOpen = false"
-         class="fixed inset-0 z-[9998] flex justify-end bg-black/40 backdrop-blur-xs"
+         class="fixed inset-0 z-[9998] flex justify-end"
          @click.self="categoriesDrawerOpen = false"
     >
         <div x-show="categoriesDrawerOpen"
@@ -25,7 +25,7 @@
              x-transition:leave="transition ease-in duration-200"
              x-transition:leave-start="translate-y-0 sm:translate-x-0 opacity-100"
              x-transition:leave-end="translate-y-full sm:translate-y-0 sm:translate-x-full opacity-0"
-             class="w-full sm:max-w-md bg-white h-full flex flex-col shadow-2xl overflow-hidden rounded-t-3xl sm:rounded-none"
+             class="w-full sm:max-w-md bg-white h-full flex flex-col shadow-2xl overflow-hidden sm:rounded-none"
         >
             <!-- Шапка шторки -->
             <div class="relative flex items-center justify-center px-5 py-4 border-b border-black/[0.06] shrink-0">

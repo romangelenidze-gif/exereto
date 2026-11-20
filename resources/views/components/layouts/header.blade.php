@@ -5,10 +5,10 @@
 
 <!-- Статичный хедер -->
 <header class="text-[#1d1d1f] relative w-full z-40">
-    <div class="max-w-[96rem] mx-auto px-3.5 sm:px-6 lg:px-8 w-full">
+    <div class="max-w-[96rem] mx-auto px-6 sm:px-6 lg:px-8 w-full ">
 
         <!-- МОБИЛЬНАЯ ШАПКА (< lg): воздух сверху, логотип слева + широкий плоский поиск без тени и гамбургер категорий -->
-        <div class="flex lg:hidden items-center gap-2.5 pt-4 pb-2.5"
+        <div class="flex lg:hidden items-center gap-6.5 pt-6 pb-2.5" 
              x-data="{
                 query: @js((string) request('q', '')),
                 suggestions: [],
@@ -56,11 +56,11 @@
              @click.outside="openSuggestions = false"
              @scroll.window="openSuggestions = false">
 
-            <a href="{{ route('home') }}" class="text-[23px] leading-none font-bold tracking-tight text-[#1d1d1f] shrink-0">
+            <a href="{{ route('home') }}" class="text-[30px] leading-none font-semibold tracking-tight text-[#1d1d1f] shrink-0">
                 exereto
             </a>
 
-            <div class="relative flex-1 min-w-0">
+            <div class="relative flex-1 min-w-0 border rounded-full border-black/[0.20]">
                 <form action="{{ route('product-search') }}" method="GET"
                       class="flex items-center gap-2 bg-white rounded-full pl-3.5 pr-1.5 h-11">
                     <button type="submit" aria-label="{{ __('Найти') }}" class="text-zinc-400 hover:text-[#0071e3] shrink-0 cursor-pointer">
