@@ -95,10 +95,10 @@ class HomeController extends Controller
      * Конфигурация тематических блоков главной.
      * Баннеры кладутся в public/images/home-banners/{slug}.webp (пока файла нет — рендерится стильный градиент).
      *
-     * @param  array<int, array<string, mixed>>  $tiles
+     * @param  iterable<int, mixed>  $tiles
      * @return array<int, array<string, mixed>>
      */
-    private function blockDefinitions(array $tiles): array
+    private function blockDefinitions(iterable $tiles): array
     {
         return [
             [
@@ -170,15 +170,16 @@ class HomeController extends Controller
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $tiles
+     * @param  iterable<int, mixed>  $tiles
      * @param  string[]  $candidateSlugs
      */
-    private function resolveBlockUrl(array $tiles, array $candidateSlugs, string $fallbackQuery): string
+    private function resolveBlockUrl(iterable $tiles, array $candidateSlugs, string $fallbackQuery): string
     {
         $available = [];
         foreach ($tiles as $tile) {
-            if (!empty($tile['slug'])) {
-                $available[(string) $tile['slug']] = true;
+            $slug = is_array($tile) ? ($tile['slug'] ?? null) : ($tile->slug ?? null);
+            if (!empty($slug)) {
+                $available[(string) $slug] = true;
             }
         }
 
