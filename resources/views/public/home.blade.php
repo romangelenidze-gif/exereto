@@ -1,15 +1,15 @@
-<x-layouts.public 
+<x-layouts.public
     title="{{ __('Брендовые товары из Греции с доставкой в Грузию') }} | Exereto"
-    description="{{ __('Оригинальная одежда, обувь, парфюмерия и аксессуары из официальных магазинов Греции с доставкой в Грузию.') }}"
+    description="{{ __('Оригинальная одежда, обувь, парфюмерия, игрушки и техника из официальных магазинов Греции с доставкой в Грузию.') }}"
 >
 
-    <div class="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] antialiased pb-20 space-y-14 relative"
+    <div class="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] antialiased pb-16 space-y-10 lg:space-y-16 relative"
          x-data="{ loading: false }"
          @pageshow.window="loading = false"
          @submit.window="loading = true"
          @search-loading.window="loading = true"
     >
-        
+
         <template x-teleport="body">
             <div x-show="loading" x-cloak class="fixed inset-0 z-[9999] bg-white/80 backdrop-blur-md flex flex-col items-center justify-center space-y-4">
                 <svg class="animate-spin h-10 w-10 text-[#0071e3]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -19,39 +19,58 @@
                 <span class="app-text-body font-semibold animate-pulse">{{ __('Загружаем каталог...') }}</span>
             </div>
         </template>
-        
-        <!-- Поисковый Spotlight с кнопкой «☰ Категории» -->
+
+        <!-- Мобильный слоган / Десктопный поиск -->
         <x-public-ui.search-spotlight :categories="$tiles ?? []" />
 
-        <!-- Мультибрендовые рекомендации (на месте блока категорий, 5 карточек в ряд) -->
-        @if(isset($popularProducts) && $popularProducts->isNotEmpty())
-        <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-            <div class="flex flex-wrap justify-between items-end gap-4">
-                <div>
-                    <h2 class="apple-section-title">{{ __('Рекомендуемые предложения') }}</h2>
-                    <p class="apple-section-subtitle mt-1">{{ __('Подборка оригинальных моделей разных брендов') }}</p>
-                </div>
-                <a href="{{ route('feed-category.show', ['slug' => 'sales-offers']) }}" class="app-text-body font-semibold text-[#0071e3] hover:underline">
-                    {{ __('Все акции') }} &rarr;
+        <!-- Тематический блок №1: Одежда и бренды (над популярными брендами) -->
+        @if(!empty($heroBlock))
+            @php $hasBanner = file_exists(public_path($heroBlock['banner'])); @endphp
+            <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-4 lg:space-y-6">
+                <a href="{{ $heroBlock['url'] }}"
+                   class="block relative w-full h-36 sm:h-48 lg:h-64 rounded-2xl lg:rounded-3xl overflow-hidden bg-gradient-to-r {{ $heroBlock['gradient'] }} shadow-sm group">
+                    @if($hasBanner)
+                        <img src="{{ asset($heroBlock['banner']) }}"
+                             alt="{{ $heroBlock['title'] }}"
+                             fetchpriority="high"
+                             class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500">
+                    @else
+                        <div class="w-full h-full flex flex-col justify-end p-5 lg:p-8 text-white">
+                            <span class="text-xs uppercase tracking-widest text-white/70 font-semibold">Exereto Selection</span>
+                            <span class="text-2xl lg:text-4xl font-bold tracking-tight mt-1">{{ $heroBlock['title'] }}</span>
+                        </div>
+                    @endif
                 </a>
-            </div>
 
-            <div class="apple-product-grid apple-product-grid--6">
-                @foreach($popularProducts as $index => $product)
-                    <x-public-ui.product-card :product="$product" :is-first="$index === 0" />
-                @endforeach
-            </div>
-        </section>
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+                    <div>
+                        <h2 class="text-xl lg:text-2xl font-bold tracking-tight text-[#1d1d1f]">{{ $heroBlock['title'] }}</h2>
+                        <p class="text-sm text-zinc-500 mt-0.5">{{ $heroBlock['subtitle'] }}</p>
+                    </div>
+                    <a href="{{ $heroBlock['url'] }}" class="text-sm font-semibold text-[#0071e3] hover:underline shrink-0">
+                        {{ $heroBlock['cta'] }} &rarr;
+                    </a>
+                </div>
+
+                <!-- Мобильный: горизонтальный свайп (2 карточки + край 3-й); Десктоп: сетка по 4 в ряд -->
+                <div class="flex lg:grid lg:grid-cols-4 gap-3 lg:gap-5 overflow-x-auto lg:overflow-visible snap-x snap-mandatory pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    @foreach($heroBlock['products'] as $index => $product)
+                        <div class="w-[46%] sm:w-[31%] lg:w-auto shrink-0 snap-start">
+                            <x-public-ui.product-card :product="$product" :is-first="$index === 0" />
+                        </div>
+                    @endforeach
+                </div>
+            </section>
         @endif
 
-        <!-- Популярные бренды и сервисы выкупа/форвардинга -->
+        <!-- Популярные бренды -->
         @if(isset($brands) && count($brands) > 0)
-            <section class="max-w-5xl mx-auto px-6 text-center space-y-5">
-                <div class="space-y-1.5 max-w-3xl mx-auto">
-                    <h2 class="apple-section-title">
+            <section class="max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-4">
+                <div class="space-y-1 max-w-3xl mx-auto">
+                    <h2 class="text-xl lg:text-2xl font-bold tracking-tight text-[#1d1d1f]">
                         {{ __('Популярные бренды') }}
                     </h2>
-                    <p class="apple-section-subtitle">
+                    <p class="text-sm text-zinc-500">
                         {{ __('Оригинальные коллекции из официальных греческих магазинов и универмагов') }}
                     </p>
                 </div>
@@ -63,47 +82,55 @@
                         </a>
                     @endforeach
                 </div>
-
-                <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
-                    <a href="{{ route('buy-for-me') }}" class="apple-outline-pill">
-                        {{ __('Выкупите за меня') }}
-                    </a>
-                    <a href="{{ route('forwarding') }}?type=forwarding" class="apple-outline-pill">
-                        {{ __('Форвардинг') }}
-                    </a>
-                </div>
             </section>
         @endif
 
-        <!-- Скидки и специальные предложения (5 карточек в ряд) -->
-        @if(isset($discountProducts) && $discountProducts->isNotEmpty())
-        <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-            <div class="flex flex-wrap justify-between items-end gap-4">
-                <div>
-                    <span class="app-badge-text uppercase font-semibold text-red-600">Special Sales</span>
-                    <h2 class="apple-section-title mt-1">{{ __('Скидки дня') }}</h2>
-                </div>
-                <a href="{{ route('feed-category.show', ['slug' => 'sales-offers']) }}" class="app-text-body font-semibold text-[#0071e3] hover:underline">
-                    {{ __('Смотреть все') }} &rarr;
+        <!-- Тематические блоки №2–5: Детское -> Кроссовки -> Игрушки -> Техника -->
+        @foreach($bottomBlocks ?? [] as $block)
+            @php $hasBanner = file_exists(public_path($block['banner'])); @endphp
+            <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-4 lg:space-y-6">
+                <a href="{{ $block['url'] }}"
+                   class="block relative w-full h-36 sm:h-48 lg:h-64 rounded-2xl lg:rounded-3xl overflow-hidden bg-gradient-to-r {{ $block['gradient'] }} shadow-sm group">
+                    @if($hasBanner)
+                        <img src="{{ asset($block['banner']) }}"
+                             alt="{{ $block['title'] }}"
+                             loading="lazy"
+                             decoding="async"
+                             class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500">
+                    @else
+                        <div class="w-full h-full flex flex-col justify-end p-5 lg:p-8 text-white">
+                            <span class="text-xs uppercase tracking-widest text-white/70 font-semibold">Exereto Catalog</span>
+                            <span class="text-2xl lg:text-4xl font-bold tracking-tight mt-1">{{ $block['title'] }}</span>
+                        </div>
+                    @endif
                 </a>
-            </div>
 
-            <div class="apple-product-grid apple-product-grid--6">
-                @foreach($discountProducts as $product)
-                    <x-public-ui.product-card :product="$product" />
-                @endforeach
-            </div>
-        </section>
-        @endif
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+                    <div>
+                        <h2 class="text-xl lg:text-2xl font-bold tracking-tight text-[#1d1d1f]">{{ $block['title'] }}</h2>
+                        <p class="text-sm text-zinc-500 mt-0.5">{{ $block['subtitle'] }}</p>
+                    </div>
+                    <a href="{{ $block['url'] }}" class="text-sm font-semibold text-[#0071e3] hover:underline shrink-0">
+                        {{ $block['cta'] }} &rarr;
+                    </a>
+                </div>
+
+                <div class="flex lg:grid lg:grid-cols-4 gap-3 lg:gap-5 overflow-x-auto lg:overflow-visible snap-x snap-mandatory pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    @foreach($block['products'] as $product)
+                        <div class="w-[46%] sm:w-[31%] lg:w-auto shrink-0 snap-start">
+                            <x-public-ui.product-card :product="$product" />
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+        @endforeach
 
         <!-- Мессенджеры -->
-        <section class="max-w-3xl mx-auto px-6 py-8 text-center space-y-4">
-            <div class="space-y-3 pt-2">
-                <p class="app-text-body">
-                    {{ __('Мы на связи и готовы помочь с любым вопросом по выкупу и доставке в Грузию') }}
-                </p>
-                <x-messenger-row align="justify-center" />
-            </div>
+        <section class="max-w-3xl mx-auto px-6 py-4 text-center space-y-4">
+            <p class="app-text-body">
+                {{ __('Мы на связи и готовы помочь с любым вопросом по выкупу и доставке в Грузию') }}
+            </p>
+            <x-messenger-row align="justify-center" />
         </section>
 
     </div>
