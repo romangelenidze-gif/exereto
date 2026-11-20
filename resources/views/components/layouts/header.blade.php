@@ -56,7 +56,7 @@
              @click.outside="openSuggestions = false"
              @scroll.window="openSuggestions = false">
 
-            <a href="{{ route('home') }}" class="text-[30px] leading-none font-semibold tracking-tight text-[#1d1d1f] shrink-0">
+            <a href="{{ route('home') }}" class="text-[28px] leading-none font-semibold tracking-tight text-[#1d1d1f] shrink-0">
                 exereto
             </a>
 

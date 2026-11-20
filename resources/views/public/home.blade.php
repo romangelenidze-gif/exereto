@@ -25,15 +25,30 @@
 
         <!-- Тематический блок №1: Одежда и бренды (над популярными брендами) -->
         @if(!empty($heroBlock))
-            @php $hasBanner = file_exists(public_path($heroBlock['banner'])); @endphp
+            @php
+                $desktopRel = $heroBlock['banner'];
+                $mobileRel = preg_replace('/\.webp$/i', '-mobile.webp', $desktopRel);
+                $hasDesktop = file_exists(public_path($desktopRel));
+                $hasMobile = file_exists(public_path($mobileRel));
+                $hasAnyBanner = $hasDesktop || $hasMobile;
+                $fallbackSrc = $hasDesktop ? asset($desktopRel) : ($hasMobile ? asset($mobileRel) : '');
+            @endphp
             <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-4 lg:space-y-6">
                 <a href="{{ $heroBlock['url'] }}"
                    class="block relative w-full h-36 sm:h-48 lg:h-64 rounded-2xl lg:rounded-3xl overflow-hidden bg-gradient-to-r {{ $heroBlock['gradient'] }} shadow-sm group">
-                    @if($hasBanner)
-                        <img src="{{ asset($heroBlock['banner']) }}"
-                             alt="{{ $heroBlock['title'] }}"
-                             fetchpriority="high"
-                             class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500">
+                    @if($hasAnyBanner)
+                        <picture>
+                            @if($hasMobile)
+                                <source media="(max-width: 767px)" srcset="{{ asset($mobileRel) }}">
+                            @endif
+                            @if($hasDesktop)
+                                <source media="(min-width: 768px)" srcset="{{ asset($desktopRel) }}">
+                            @endif
+                            <img src="{{ $fallbackSrc }}"
+                                 alt="{{ $heroBlock['title'] }}"
+                                 fetchpriority="high"
+                                 class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500">
+                        </picture>
                     @else
                         <div class="w-full h-full flex flex-col justify-end p-5 lg:p-8 text-white">
                             <span class="text-xs uppercase tracking-widest text-white/70 font-semibold">Exereto Selection</span>
@@ -87,16 +102,31 @@
 
         <!-- Тематические блоки №2–5: Детское -> Кроссовки -> Игрушки -> Техника -->
         @foreach($bottomBlocks ?? [] as $block)
-            @php $hasBanner = file_exists(public_path($block['banner'])); @endphp
+            @php
+                $desktopRel = $block['banner'];
+                $mobileRel = preg_replace('/\.webp$/i', '-mobile.webp', $desktopRel);
+                $hasDesktop = file_exists(public_path($desktopRel));
+                $hasMobile = file_exists(public_path($mobileRel));
+                $hasAnyBanner = $hasDesktop || $hasMobile;
+                $fallbackSrc = $hasDesktop ? asset($desktopRel) : ($hasMobile ? asset($mobileRel) : '');
+            @endphp
             <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-4 lg:space-y-6">
                 <a href="{{ $block['url'] }}"
                    class="block relative w-full h-36 sm:h-48 lg:h-64 rounded-2xl lg:rounded-3xl overflow-hidden bg-gradient-to-r {{ $block['gradient'] }} shadow-sm group">
-                    @if($hasBanner)
-                        <img src="{{ asset($block['banner']) }}"
-                             alt="{{ $block['title'] }}"
-                             loading="lazy"
-                             decoding="async"
-                             class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500">
+                    @if($hasAnyBanner)
+                        <picture>
+                            @if($hasMobile)
+                                <source media="(max-width: 767px)" srcset="{{ asset($mobileRel) }}">
+                            @endif
+                            @if($hasDesktop)
+                                <source media="(min-width: 768px)" srcset="{{ asset($desktopRel) }}">
+                            @endif
+                            <img src="{{ $fallbackSrc }}"
+                                 alt="{{ $block['title'] }}"
+                                 loading="lazy"
+                                 decoding="async"
+                                 class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500">
+                        </picture>
                     @else
                         <div class="w-full h-full flex flex-col justify-end p-5 lg:p-8 text-white">
                             <span class="text-xs uppercase tracking-widest text-white/70 font-semibold">Exereto Catalog</span>
