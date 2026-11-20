@@ -65,6 +65,7 @@ class ConfigureMeilisearchCommand extends Command
                 'gender',
                 'category_top',
                 'category_id',
+                'category_slugs',
                 'tile_slugs',
                 'sub_keys',
                 'colour_main',

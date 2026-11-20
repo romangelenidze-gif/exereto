@@ -129,6 +129,9 @@ class FeedProduct extends Model
             'category_top' => (string) ($this->category_top ?? ''),
             'category_path' => (string) ($this->category_path ?? ''),
             'category_id' => $this->category_id ? (int) $this->category_id : null,
+            'category_slugs' => $this->category_id
+                ? (\App\Models\Category::ancestorSlugsMap()[(int) $this->category_id] ?? [])
+                : [],
             'gender' => (string) ($this->gender ?? 'unisex'),
             'colour_main' => $colourMain,
             'sizes_list' => $this->extractSizeLabels(),
