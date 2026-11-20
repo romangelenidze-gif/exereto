@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\Category;
 use App\Models\FeedProduct;
 use App\Services\Feeds\FeedEntityLocalizer;
 use App\Services\Feeds\ScriptTransliterator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Meilisearch\Client;
 use WeakMap;
@@ -15,6 +17,26 @@ use WeakMap;
 class FeedCategoryTiles
 {
     private const CACHE_HOURS = 30;
+
+    /** Картинки департаментов L1 / хабов (если лежат в public/images/categories/) */
+    private const CATEGORY_IMAGES = [
+        'clothing' => 'womens-jackets.png',
+        'shoes' => 'womens-sneakers.png',
+        'accessories' => 'bags-backpacks.png',
+        'beauty' => 'perfume.png',
+        'toys' => 'toys-lego.png',
+        'baby-mom' => 'childrens-fashion.png',
+        'tech' => 'gadgets-gaming.png',
+        'kids' => 'childrens-fashion.png',
+        'childrens-fashion' => 'childrens-fashion.png',
+        'sales-offers' => 'sales-offers.png',
+    ];
+
+    /** Подборка ключевых L2 для виртуального хаба «Детям» */
+    private const KIDS_SUB_SLUGS = [
+        'sneakers', 'boots', 'sandals', 'jackets', 'hoodies', 't-shirts',
+        'dresses', 'pants', 'tracksuits', 'toys', 'baby-mom', 'backpacks',
+    ];
 
     /** @var WeakMap<Builder, array<string, mixed>> */
     private WeakMap $meiliContexts;
@@ -33,11 +55,13 @@ class FeedCategoryTiles
     }
 
     /**
-     * Все активные категории с иконками, количеством товаров и списком топ-брендов в подзаголовке.
+     * Плоский список верхних департаментов (для HomeController, CategoryMatcher и обратной совместимости).
      */
     public function get(): Collection
     {
         $v = $this->catalogVersion();
+        $locale = app()->getLocale();
+
         $raw = Cache::remember(
             "home.category_tiles.v{$v}.all",
             now()->addHours(self::CACHE_HOURS),
@@ -46,7 +70,7 @@ class FeedCategoryTiles
 
         return collect($raw)->map(fn (array $tile) => [
             'slug' => $tile['slug'],
-            'label' => __($tile['label']),
+            'label' => $this->pickLocalizedLabel($tile, $locale),
             'subtitle' => $tile['subtitle'] ?? '',
             'img' => $tile['img'],
             'count' => $tile['count'],
@@ -55,7 +79,55 @@ class FeedCategoryTiles
     }
 
     /**
-     * Категории для бренда/запроса ОДНИМ запросом к Meilisearch через фасет tile_slugs.
+     * Иерархическое дерево L1 -> L2 для шторки категорий, разбитое по вкладкам пола (all, women, men, kids).
+     *
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    public function getTreeByGender(?int $targetVersion = null): array
+    {
+        $v = $targetVersion ?? $this->catalogVersion();
+        $locale = app()->getLocale();
+
+        $raw = Cache::remember(
+            "catalog.tree_by_gender.v{$v}",
+            now()->addHours(self::CACHE_HOURS),
+            fn () => $this->buildTreeByGenderRaw()
+        );
+
+        $out = [];
+        foreach (['all', 'women', 'men', 'kids'] as $tab) {
+            $departments = [];
+            foreach ((array) ($raw[$tab] ?? []) as $dept) {
+                $genderQuery = $tab === 'all' ? [] : ['genders' => [$tab]];
+                $children = [];
+
+                foreach ((array) ($dept['children'] ?? []) as $child) {
+                    $children[] = [
+                        'slug' => $child['slug'],
+                        'label' => $this->pickLocalizedLabel($child, $locale),
+                        'count' => (int) $child['count'],
+                        'url' => route('feed-category.show', array_merge(['slug' => $child['slug']], $genderQuery)),
+                    ];
+                }
+
+                $departments[] = [
+                    'slug' => $dept['slug'],
+                    'label' => $this->pickLocalizedLabel($dept, $locale),
+                    'count' => (int) $dept['count'],
+                    'img' => $dept['img'],
+                    'url' => route('feed-category.show', array_merge(['slug' => $dept['slug']], $genderQuery)),
+                    'children' => $children,
+                ];
+            }
+
+            $out[$tab] = $departments;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Категории для бренда/запроса ОДНИМ запросом к Meilisearch через фасет category_slugs.
      */
     public function getForBrand(string $brand, array $genders = []): Collection
     {
@@ -66,6 +138,7 @@ class FeedCategoryTiles
 
         sort($genders);
         $v = $this->catalogVersion();
+        $locale = app()->getLocale();
         $cacheKey = "brand.category_tiles.v{$v}." . md5($normalized . ':' . implode(',', $genders));
 
         $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($brand, $genders) {
@@ -87,30 +160,43 @@ class FeedCategoryTiles
 
                     $res = $this->meiliIndex()->search('', [
                         'filter' => implode(' AND ', $filters),
-                        'facets' => ['tile_slugs'],
+                        'facets' => ['category_slugs'],
                         'limit' => 0,
                     ]);
 
-                    $dist = $this->extractFacetDistribution($res);
-                    $slugCounts = $dist['tile_slugs'] ?? [];
+                    $slugCounts = $this->extractFacetDistribution($res)['category_slugs'] ?? [];
 
                     if ($slugCounts !== []) {
+                        $l2Cats = DB::table('categories as c')
+                            ->join('categories as p', 'p.id', '=', 'c.parent_id')
+                            ->whereNull('p.parent_id')
+                            ->where('c.is_active', 1)
+                            ->orderBy('p.sort_order')
+                            ->orderBy('c.sort_order')
+                            ->get(['c.slug', 'c.name_en', 'c.name_ru', 'c.name_ka', 'c.name_el']);
+
                         $tiles = [];
-                        foreach ((array) config('home_categories.tiles', []) as $tile) {
-                            $slug = (string) ($tile['slug'] ?? '');
-                            if ($slug === '' || empty($slugCounts[$slug])) {
+                        foreach ($l2Cats as $cat) {
+                            $cnt = (int) ($slugCounts[$cat->slug] ?? 0);
+                            if ($cnt === 0) {
                                 continue;
                             }
 
                             $tiles[] = [
-                                'slug' => $slug,
-                                'label' => (string) $tile['label'],
-                                'img' => (string) ($tile['img'] ?? ($slug . '.png')),
+                                'slug' => (string) $cat->slug,
+                                'name_en' => (string) $cat->name_en,
+                                'name_ru' => (string) $cat->name_ru,
+                                'name_ka' => (string) $cat->name_ka,
+                                'name_el' => (string) $cat->name_el,
+                                'img' => self::CATEGORY_IMAGES[$cat->slug] ?? ($cat->slug . '.png'),
+                                'count' => $cnt,
                                 'brands' => $matchedBrands,
                             ];
                         }
 
-                        return $tiles;
+                        usort($tiles, fn ($a, $b) => $b['count'] <=> $a['count']);
+
+                        return array_slice($tiles, 0, 14);
                     }
                 } catch (\Throwable) {
                 }
@@ -121,7 +207,7 @@ class FeedCategoryTiles
 
         return collect($raw)->map(fn (array $tile) => [
             'slug' => $tile['slug'],
-            'label' => __($tile['label']),
+            'label' => $this->pickLocalizedLabel($tile, $locale),
             'img' => $tile['img'],
             'url' => route('feed-category.show', array_filter([
                 'slug' => $tile['slug'],
@@ -188,16 +274,108 @@ class FeedCategoryTiles
         return array_values(array_unique(array_merge($exact, $family)));
     }
 
-    /** Описание категории по slug или null. */
+    /**
+     * Резолвит категорию по slug:
+     * 1) Виртуальные хабы (sales-offers, kids, childrens-fashion)
+     * 2) Реальное дерево categories (L1 / L2 / L3)
+     * 3) Legacy-конфиг config('home_categories.tiles') для сохранения старых SEO-ссылок
+     */
     public function tile(string $slug): ?array
     {
+        $locale = app()->getLocale();
+
+        if ($slug === 'sales-offers') {
+            return [
+                'mode' => 'virtual',
+                'virtual_type' => 'sales',
+                'slug' => 'sales-offers',
+                'label' => __('Скидки и акции'),
+                'where' => ['discount' => true],
+                'subcategories' => [],
+            ];
+        }
+
+        if ($slug === 'kids' || $slug === 'childrens-fashion') {
+            return [
+                'mode' => 'virtual',
+                'virtual_type' => 'kids',
+                'slug' => $slug,
+                'label' => __('Детские товары'),
+                'where' => ['gender' => 'kids'],
+                'subcategories' => [],
+            ];
+        }
+
+        $catMap = $this->loadCategoriesMap();
+        if (isset($catMap['by_slug'][$slug])) {
+            $row = $catMap['by_slug'][$slug];
+
+            return [
+                'mode' => 'category',
+                'category_id' => (int) $row['id'],
+                'parent_id' => $row['parent_id'] !== null ? (int) $row['parent_id'] : null,
+                'slug' => $slug,
+                'label' => $this->pickLocalizedLabel($row, $locale),
+                'descendant_ids' => $catMap['descendants'][(int) $row['id']] ?? [(int) $row['id']],
+                'subcategories' => [],
+            ];
+        }
+
         foreach ((array) config('home_categories.tiles', []) as $tile) {
             if (($tile['slug'] ?? null) === $slug) {
+                $tile['mode'] = 'tile';
+
                 return $tile;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Хлебные крошки для страницы категории (Главная -> L1 -> L2 -> L3).
+     *
+     * @param  string[]  $activeGenders
+     * @return array<int, array{label:string, url:?string}>
+     */
+    public function buildBreadcrumbs(array $tile, array $activeGenders = []): array
+    {
+        $locale = app()->getLocale();
+        $crumbs = [
+            ['label' => __('Главная'), 'url' => route('home')],
+        ];
+
+        if (($tile['mode'] ?? '') !== 'category') {
+            $crumbs[] = ['label' => __((string) ($tile['label'] ?? '')), 'url' => null];
+
+            return $crumbs;
+        }
+
+        $catMap = $this->loadCategoriesMap();
+        $chain = [];
+        $currId = (int) ($tile['category_id'] ?? 0);
+        $guard = 0;
+
+        while ($currId > 0 && isset($catMap['by_id'][$currId]) && $guard < 6) {
+            $node = $catMap['by_id'][$currId];
+            array_unshift($chain, $node);
+            $currId = (int) ($node['parent_id'] ?? 0);
+            $guard++;
+        }
+
+        $genderQuery = count($activeGenders) === 1 ? ['genders' => $activeGenders] : [];
+        $lastIdx = count($chain) - 1;
+
+        foreach ($chain as $i => $node) {
+            $crumbs[] = [
+                'label' => $this->pickLocalizedLabel($node, $locale),
+                'url' => $i === $lastIdx
+                    ? null
+                    : route('feed-category.show', array_merge(['slug' => $node['slug']], $genderQuery)),
+            ];
+        }
+
+        return $crumbs;
     }
 
     /** Базовый запрос активных товаров. */
@@ -219,10 +397,18 @@ class FeedCategoryTiles
     public function productsQuery(array $tile): Builder
     {
         $query = $this->baseActiveQuery();
-        $this->applyFilter($query, (array) ($tile['where'] ?? []));
+        $mode = (string) ($tile['mode'] ?? 'tile');
+
+        if ($mode === 'category') {
+            $ids = (array) ($tile['descendant_ids'] ?? [(int) ($tile['category_id'] ?? 0)]);
+            $query->whereIn('category_id', $ids);
+        } else {
+            $this->applyFilter($query, (array) ($tile['where'] ?? []));
+        }
 
         $this->meiliContexts[$query] = [
-            'mode' => 'tile',
+            'mode' => $mode,
+            'virtual_type' => $tile['virtual_type'] ?? null,
             'tile' => $tile,
             'tile_slug' => (string) ($tile['slug'] ?? ''),
             'sub_key' => null,
@@ -249,6 +435,7 @@ class FeedCategoryTiles
 
         $this->meiliContexts[$base] = [
             'mode' => 'search',
+            'virtual_type' => null,
             'tile' => null,
             'tile_slug' => null,
             'sub_key' => null,
@@ -351,38 +538,93 @@ class FeedCategoryTiles
     }
 
     /**
-     * Подкатегории для верхней карусели страницы категории (через Meilisearch за 2 мс).
+     * Автоматические уточняющие плитки подкатегорий для верхней карусели:
+     * - Для узлов дерева categories (L1 -> L2, L2 -> L3) строятся автоматически по реальным фасетам Meilisearch.
+     * - Для виртуальных хабов (sales-offers, kids) — активные разделы с сохранением фильтра.
+     * - Для legacy-плиток — старый механизм sub_keys.
      */
-    public function buildSubcategories(array $tile, ?int $targetVersion = null): array
+    public function buildSubcategories(array $tile, ?int $targetVersion = null, array $activeFilters = []): array
     {
-        $subs = (array) ($tile['subcategories'] ?? []);
-        if ($subs === []) {
-            return [];
-        }
-
         $v = $targetVersion ?? $this->catalogVersion();
-        $slug = (string) ($tile['slug'] ?? md5(json_encode($tile)));
-        $cacheKey = "category.subs.v{$v}.{$slug}";
+        $mode = (string) ($tile['mode'] ?? 'tile');
+        $slug = (string) ($tile['slug'] ?? '');
+        $locale = app()->getLocale();
 
-        $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($subs, $slug) {
-            $result = [];
+        if ($mode === 'category' || $mode === 'virtual') {
+            $genders = array_values(array_filter((array) ($activeFilters['genders'] ?? [])));
+            sort($genders);
+            $genderSuffix = $genders !== [] ? implode('_', $genders) : 'all';
+            $cacheKey = "category.tree_subs.v{$v}.{$slug}.{$genderSuffix}";
 
-            if ($this->isMeiliReady()) {
+            $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($tile, $mode, $slug, $genders) {
+                $catMap = $this->loadCategoriesMap();
+                $candidateNodes = [];
+                $extraClauses = [];
+
+                if ($mode === 'category') {
+                    $catId = (int) ($tile['category_id'] ?? 0);
+                    $childIds = $catMap['children'][$catId] ?? [];
+                    foreach ($childIds as $cid) {
+                        if (isset($catMap['by_id'][$cid])) {
+                            $candidateNodes[] = $catMap['by_id'][$cid];
+                        }
+                    }
+                    if ($genders !== []) {
+                        $extraClauses[] = $this->meiliIn('gender', $genders);
+                    }
+                } elseif (($tile['virtual_type'] ?? '') === 'sales') {
+                    foreach ($catMap['roots'] as $rid) {
+                        if (isset($catMap['by_id'][$rid])) {
+                            $candidateNodes[] = $catMap['by_id'][$rid];
+                        }
+                    }
+                    $extraClauses[] = 'discount_percent > 0';
+                } elseif (($tile['virtual_type'] ?? '') === 'kids') {
+                    foreach (self::KIDS_SUB_SLUGS as $kSlug) {
+                        if (isset($catMap['by_slug'][$kSlug])) {
+                            $candidateNodes[] = $catMap['by_slug'][$kSlug];
+                        }
+                    }
+                    $extraClauses[] = 'gender = "kids"';
+                }
+
+                if ($candidateNodes === [] || !$this->isMeiliReady()) {
+                    return [];
+                }
+
                 try {
-                    foreach ($subs as $idx => $sub) {
-                        $subKey = "{$slug}:{$idx}";
-                        $res = $this->meiliIndex()->search('', [
-                            'filter' => 'is_active = true AND in_stock = true AND sub_keys = ' . $this->meiliQuote($subKey),
-                            'sort' => ['priority_score:desc'],
-                            'limit' => 5,
-                            'attributesToRetrieve' => ['id', 'image_url'],
-                        ]);
+                    $facetClauses = array_merge(['is_active = true', 'in_stock = true'], $extraClauses);
+                    if ($mode === 'category') {
+                        $facetClauses[] = 'category_slugs = ' . $this->meiliQuote($slug);
+                    }
 
-                        $hits = is_object($res) ? $res->getHits() : ($res['hits'] ?? []);
-                        if ($hits === []) {
+                    $facetRes = $this->meiliIndex()->search('', [
+                        'filter' => implode(' AND ', $facetClauses),
+                        'facets' => ['category_slugs'],
+                        'limit' => 0,
+                    ]);
+                    $slugCounts = $this->extractFacetDistribution($facetRes)['category_slugs'] ?? [];
+
+                    $result = [];
+                    foreach ($candidateNodes as $idx => $node) {
+                        $nSlug = (string) $node['slug'];
+                        $cnt = (int) ($slugCounts[$nSlug] ?? 0);
+                        if ($cnt <= 0) {
                             continue;
                         }
 
+                        $imgClauses = array_merge(
+                            ['is_active = true', 'in_stock = true', 'category_slugs = ' . $this->meiliQuote($nSlug)],
+                            $extraClauses
+                        );
+
+                        $imgRes = $this->meiliIndex()->search('', [
+                            'filter' => implode(' AND ', $imgClauses),
+                            'sort' => ['priority_score:desc'],
+                            'limit' => 4,
+                            'attributesToRetrieve' => ['id', 'image_url'],
+                        ]);
+                        $hits = is_object($imgRes) ? $imgRes->getHits() : ($imgRes['hits'] ?? []);
                         $sampleImage = null;
                         foreach ($hits as $h) {
                             if (!empty($h['image_url'])) {
@@ -391,28 +633,91 @@ class FeedCategoryTiles
                             }
                         }
 
-                        if ($sampleImage === null) {
-                            $firstId = (int) ($hits[0]['id'] ?? 0);
-                            if ($firstId > 0) {
-                                $sampleImage = FeedProduct::query()->where('id', $firstId)->value('image_url');
-                            }
-                        }
-
-                        if (!$sampleImage) {
-                            continue;
-                        }
-
                         $result[] = [
                             'index' => $idx,
-                            'label' => (string) ($sub['label'] ?? ''),
-                            'count' => 1,
+                            'slug' => $nSlug,
+                            'name_en' => $node['name_en'],
+                            'name_ru' => $node['name_ru'],
+                            'name_ka' => $node['name_ka'],
+                            'name_el' => $node['name_el'],
+                            'count' => $cnt,
                             'image' => $sampleImage,
                         ];
                     }
 
                     return $result;
                 } catch (\Throwable) {
+                    return [];
                 }
+            });
+
+            $queryParams = [];
+            if (($tile['virtual_type'] ?? '') === 'sales') {
+                $queryParams['discount'] = 1;
+            } elseif (($tile['virtual_type'] ?? '') === 'kids') {
+                $queryParams['genders'] = ['kids'];
+            } elseif ($genders !== []) {
+                $queryParams['genders'] = $genders;
+            }
+
+            return array_map(fn (array $item) => [
+                'index' => $item['index'],
+                'slug' => $item['slug'],
+                'label' => $this->pickLocalizedLabel($item, $locale),
+                'count' => (int) $item['count'],
+                'image' => $item['image'],
+                'url' => route('feed-category.show', array_merge(['slug' => $item['slug']], $queryParams)),
+            ], $raw);
+        }
+
+        // Legacy fallback для старых плиток из config/home_categories.php
+        $subs = (array) ($tile['subcategories'] ?? []);
+        if ($subs === []) {
+            return [];
+        }
+
+        $cacheKey = "category.subs.v{$v}.{$slug}";
+        $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($subs, $slug) {
+            $result = [];
+            if (!$this->isMeiliReady()) {
+                return $result;
+            }
+
+            try {
+                foreach ($subs as $idx => $sub) {
+                    $subKey = "{$slug}:{$idx}";
+                    $res = $this->meiliIndex()->search('', [
+                        'filter' => 'is_active = true AND in_stock = true AND sub_keys = ' . $this->meiliQuote($subKey),
+                        'sort' => ['priority_score:desc'],
+                        'limit' => 5,
+                        'attributesToRetrieve' => ['id', 'image_url'],
+                    ]);
+
+                    $hits = is_object($res) ? $res->getHits() : ($res['hits'] ?? []);
+                    if ($hits === []) {
+                        continue;
+                    }
+
+                    $sampleImage = null;
+                    foreach ($hits as $h) {
+                        if (!empty($h['image_url'])) {
+                            $sampleImage = (string) $h['image_url'];
+                            break;
+                        }
+                    }
+
+                    if (!$sampleImage) {
+                        continue;
+                    }
+
+                    $result[] = [
+                        'index' => $idx,
+                        'label' => (string) ($sub['label'] ?? ''),
+                        'count' => 1,
+                        'image' => $sampleImage,
+                    ];
+                }
+            } catch (\Throwable) {
             }
 
             return $result;
@@ -436,20 +741,12 @@ class FeedCategoryTiles
         $normalizedFilters = $this->normalizeFiltersForCache($activeFilters);
         $cacheKey = "category.facets.v{$v}.{$slug}." . md5(json_encode($normalizedFilters));
 
-        return Cache::remember($cacheKey, now()->addHours(4), function () use ($tile, $slug, $normalizedFilters) {
-            $subKey = null;
-            if (isset($normalizedFilters['sub']) && isset($tile['subcategories'][$normalizedFilters['sub']])) {
-                $subKey = "{$slug}:" . (int) $normalizedFilters['sub'];
-            }
+        return Cache::remember($cacheKey, now()->addHours(6), function () use ($tile, $slug, $normalizedFilters) {
+            $baseClauses = $this->buildTileBaseClauses($tile, $normalizedFilters);
 
             return $this->computeMeiliFacets(
                 searchQuery: '',
-                baseClauses: array_filter([
-                    'is_active = true',
-                    'in_stock = true',
-                    'tile_slugs = ' . $this->meiliQuote($slug),
-                    $subKey !== null ? ('sub_keys = ' . $this->meiliQuote($subKey)) : null,
-                ]),
+                baseClauses: $baseClauses,
                 filters: $normalizedFilters
             );
         });
@@ -497,8 +794,36 @@ class FeedCategoryTiles
     }
 
     /**
-     * Вычисляет фасеты через Meilisearch.
+     * @return array<int, string>
      */
+    private function buildTileBaseClauses(array $tile, array $normalizedFilters = []): array
+    {
+        $clauses = ['is_active = true', 'in_stock = true'];
+        $mode = (string) ($tile['mode'] ?? 'tile');
+        $slug = (string) ($tile['slug'] ?? '');
+
+        if ($mode === 'category') {
+            if ($slug !== '') {
+                $clauses[] = 'category_slugs = ' . $this->meiliQuote($slug);
+            }
+        } elseif ($mode === 'virtual') {
+            if (($tile['virtual_type'] ?? '') === 'sales') {
+                $clauses[] = 'discount_percent > 0';
+            } elseif (($tile['virtual_type'] ?? '') === 'kids') {
+                $clauses[] = 'gender = "kids"';
+            }
+        } else {
+            if ($slug !== '') {
+                $clauses[] = 'tile_slugs = ' . $this->meiliQuote($slug);
+            }
+            if (isset($normalizedFilters['sub']) && isset($tile['subcategories'][$normalizedFilters['sub']])) {
+                $clauses[] = 'sub_keys = ' . $this->meiliQuote("{$slug}:" . (int) $normalizedFilters['sub']);
+            }
+        }
+
+        return $clauses;
+    }
+
     private function computeMeiliFacets(string $searchQuery, array $baseClauses, array $filters): array
     {
         if (!$this->isMeiliReady()) {
@@ -603,7 +928,7 @@ class FeedCategoryTiles
     }
 
     /**
-     * Возвращает уже переведённые карточки страницы и $total из Redis (за 1 мс при повторном заходе).
+     * Возвращает переведённые карточки страницы и $total из Redis (строго чистые массивы).
      *
      * @return array{0: array<int, array<string, mixed>>, 1: int}
      */
@@ -613,7 +938,7 @@ class FeedCategoryTiles
         $locale = app()->getLocale();
         $pageCacheKey = "catalog_page:v{$v}:{$locale}:{$cachePrefix}:{$sort}:p{$page}";
 
-        return Cache::remember($pageCacheKey, now()->addHours(4), function () use ($filteredBase, $sort, $page, $perPage, $locale) {
+        return Cache::remember($pageCacheKey, now()->addHours(6), function () use ($filteredBase, $sort, $page, $perPage, $locale) {
             $result = null;
             if ($this->isMeiliReady() && isset($this->meiliContexts[$filteredBase])) {
                 $result = $this->paginateViaMeilisearch($this->meiliContexts[$filteredBase], $sort, $page, $perPage);
@@ -633,7 +958,7 @@ class FeedCategoryTiles
     }
 
     /**
-     * @param array<string, mixed> $ctx
+     * @param  array<string, mixed>  $ctx
      * @return array{0: array<int, array<string, mixed>>, 1: int}|null
      */
     private function paginateViaMeilisearch(array $ctx, string $sort, int $page, int $perPage): ?array
@@ -641,8 +966,20 @@ class FeedCategoryTiles
         try {
             $clauses = ['is_active = true', 'in_stock = true'];
             $searchQuery = '';
+            $mode = (string) ($ctx['mode'] ?? '');
 
-            if (($ctx['mode'] ?? '') === 'tile') {
+            if ($mode === 'category') {
+                $slug = (string) ($ctx['tile_slug'] ?? '');
+                if ($slug !== '') {
+                    $clauses[] = 'category_slugs = ' . $this->meiliQuote($slug);
+                }
+            } elseif ($mode === 'virtual') {
+                if (($ctx['virtual_type'] ?? '') === 'sales') {
+                    $clauses[] = 'discount_percent > 0';
+                } elseif (($ctx['virtual_type'] ?? '') === 'kids') {
+                    $clauses[] = 'gender = "kids"';
+                }
+            } elseif ($mode === 'tile') {
                 $slug = (string) ($ctx['tile_slug'] ?? '');
                 if ($slug !== '') {
                     $clauses[] = 'tile_slugs = ' . $this->meiliQuote($slug);
@@ -650,7 +987,7 @@ class FeedCategoryTiles
                 if (!empty($ctx['sub_key'])) {
                     $clauses[] = 'sub_keys = ' . $this->meiliQuote((string) $ctx['sub_key']);
                 }
-            } elseif (($ctx['mode'] ?? '') === 'search') {
+            } elseif ($mode === 'search') {
                 $matchedBrands = (array) ($ctx['matched_brands'] ?? []);
                 if ($matchedBrands !== []) {
                     $clauses[] = $this->meiliIn('brand', $matchedBrands);
@@ -725,7 +1062,7 @@ class FeedCategoryTiles
     }
 
     /**
-     * Быстрый резервный SQL-фоллбэк без тяжёлых GROUP BY и MD5, если Meilisearch недоступен.
+     * Быстрый резервный SQL-фоллбэк, если Meilisearch недоступен.
      *
      * @return array{0: array<int, array<string, mixed>>, 1: int}
      */
@@ -767,12 +1104,14 @@ class FeedCategoryTiles
     }
 
     /**
-     * Прогрев новой версии кэша (плитки, подкатегории, фасеты и 1-я страница товаров для всех языков).
+     * Атомарный прогрев новой версии кэша (дерево шторки, департаменты L1, подкатегории, фасеты и 1-я страница).
      */
     public function warmAll(): void
     {
         $nextVersion = $this->catalogVersion() + 1;
         $originalLocale = app()->getLocale();
+
+        Cache::forget('catalog.categories_map.v1');
 
         Cache::put(
             "home.category_tiles.v{$nextVersion}.all",
@@ -780,12 +1119,32 @@ class FeedCategoryTiles
             now()->addHours(self::CACHE_HOURS)
         );
 
+        Cache::put(
+            "catalog.tree_by_gender.v{$nextVersion}",
+            $this->buildTreeByGenderRaw(),
+            now()->addHours(self::CACHE_HOURS)
+        );
+
         $perPage = (int) config('feeds.search_limit', 24);
         $defaultFilterHash = md5(json_encode([]));
 
-        foreach ((array) config('home_categories.tiles', []) as $tile) {
-            $slug = (string) ($tile['slug'] ?? '');
-            if ($slug === '') {
+        $catMap = $this->loadCategoriesMap();
+        $warmSlugs = ['sales-offers', 'kids'];
+        foreach ($catMap['roots'] as $rid) {
+            if (isset($catMap['by_id'][$rid])) {
+                $warmSlugs[] = (string) $catMap['by_id'][$rid]['slug'];
+            }
+        }
+        // Дополнительно прогреваем самые популярные L2-разделы
+        foreach (['sneakers', 'sportswear', 'jackets', 'hoodies', 'bags', 'perfume', 'makeup', 'lego-building', 'gaming'] as $popularL2) {
+            if (isset($catMap['by_slug'][$popularL2])) {
+                $warmSlugs[] = $popularL2;
+            }
+        }
+
+        foreach (array_unique($warmSlugs) as $slug) {
+            $tile = $this->tile($slug);
+            if ($tile === null) {
                 continue;
             }
 
@@ -828,57 +1187,289 @@ class FeedCategoryTiles
     }
 
     /**
-     * Строит все 25 плиток главной страницы через Meilisearch за ~30 мс.
+     * Строит верхние департаменты L1 + виртуальные хабы (kids, sales-offers) для быстрого доступа.
      */
     private function build(): array
     {
-        $tilesConfig = (array) config('home_categories.tiles', []);
+        $catMap = $this->loadCategoriesMap();
+        $slugCounts = [];
+        $kidsCount = 0;
+        $salesCount = 0;
 
         if ($this->isMeiliReady()) {
             try {
                 $res = $this->meiliIndex()->search('', [
                     'filter' => 'is_active = true AND in_stock = true',
-                    'facets' => ['tile_slugs'],
+                    'facets' => ['category_slugs', 'gender'],
                     'limit' => 0,
                 ]);
-
                 $dist = $this->extractFacetDistribution($res);
-                $slugCounts = $dist['tile_slugs'] ?? [];
+                $slugCounts = $dist['category_slugs'] ?? [];
+                $kidsCount = (int) ($dist['gender']['kids'] ?? 0);
 
-                if ($slugCounts !== []) {
-                    $tiles = [];
-                    foreach ($tilesConfig as $tile) {
-                        $slug = (string) ($tile['slug'] ?? '');
-                        $count = (int) ($slugCounts[$slug] ?? 0);
-                        if ($slug === '' || $count === 0) {
-                            continue;
-                        }
-
-                        $bRes = $this->meiliIndex()->search('', [
-                            'filter' => 'is_active = true AND in_stock = true AND tile_slugs = ' . $this->meiliQuote($slug),
-                            'facets' => ['brand'],
-                            'limit' => 0,
-                        ]);
-                        $bDist = $this->extractFacetDistribution($bRes)['brand'] ?? [];
-                        arsort($bDist);
-                        $topBrands = array_slice(array_keys(array_filter($bDist, fn ($c, $k) => trim((string) $k) !== '' && $c > 0, ARRAY_FILTER_USE_BOTH)), 0, 3);
-
-                        $tiles[] = [
-                            'slug' => $slug,
-                            'label' => (string) $tile['label'],
-                            'subtitle' => implode(', ', $topBrands),
-                            'img' => (string) ($tile['img'] ?? ($slug . '.png')),
-                            'count' => $count,
-                        ];
-                    }
-
-                    return $tiles;
-                }
+                $salesRes = $this->meiliIndex()->search('', [
+                    'filter' => 'is_active = true AND in_stock = true AND discount_percent > 0',
+                    'limit' => 0,
+                ]);
+                $salesCount = is_object($salesRes)
+                    ? (int) ($salesRes->getEstimatedTotalHits() ?? 0)
+                    : (int) ($salesRes['estimatedTotalHits'] ?? 0);
             } catch (\Throwable) {
             }
         }
 
-        return [];
+        $tiles = [];
+
+        foreach ($catMap['roots'] as $rid) {
+            $node = $catMap['by_id'][$rid] ?? null;
+            if (!$node) {
+                continue;
+            }
+            $slug = (string) $node['slug'];
+            $count = (int) ($slugCounts[$slug] ?? 0);
+            if ($count === 0) {
+                continue;
+            }
+
+            $topBrands = $this->fetchTopBrandsForClause('category_slugs = ' . $this->meiliQuote($slug));
+
+            $tiles[] = [
+                'slug' => $slug,
+                'name_en' => $node['name_en'],
+                'name_ru' => $node['name_ru'],
+                'name_ka' => $node['name_ka'],
+                'name_el' => $node['name_el'],
+                'subtitle' => implode(', ', $topBrands),
+                'img' => self::CATEGORY_IMAGES[$slug] ?? ($slug . '.png'),
+                'count' => $count,
+            ];
+        }
+
+        if ($kidsCount > 0) {
+            $tiles[] = [
+                'slug' => 'kids',
+                'name_en' => 'Kids & Teens',
+                'name_ru' => 'Детские товары',
+                'name_ka' => 'საბავშვო',
+                'name_el' => 'Παιδικά',
+                'subtitle' => implode(', ', $this->fetchTopBrandsForClause('gender = "kids"')),
+                'img' => self::CATEGORY_IMAGES['kids'],
+                'count' => $kidsCount,
+            ];
+        }
+
+        if ($salesCount > 0) {
+            $tiles[] = [
+                'slug' => 'sales-offers',
+                'name_en' => 'Sales & Offers',
+                'name_ru' => 'Скидки и акции',
+                'name_ka' => 'ფასდაკლებები',
+                'name_el' => 'Προσφορές',
+                'subtitle' => '',
+                'img' => self::CATEGORY_IMAGES['sales-offers'],
+                'count' => $salesCount,
+            ];
+        }
+
+        return $tiles;
+    }
+
+    /**
+     * Строит сырое мультиязычное дерево L1 -> L2 для всех 4 вкладок пола за 4 фасетных запроса Meilisearch (~12 мс).
+     *
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    private function buildTreeByGenderRaw(): array
+    {
+        $catMap = $this->loadCategoriesMap();
+        $tabs = [
+            'all' => null,
+            'women' => 'gender = "women"',
+            'men' => 'gender = "men"',
+            'kids' => 'gender = "kids"',
+        ];
+
+        $result = [];
+
+        foreach ($tabs as $tab => $genderClause) {
+            $slugCounts = [];
+            if ($this->isMeiliReady()) {
+                try {
+                    $clauses = ['is_active = true', 'in_stock = true'];
+                    if ($genderClause !== null) {
+                        $clauses[] = $genderClause;
+                    }
+                    $res = $this->meiliIndex()->search('', [
+                        'filter' => implode(' AND ', $clauses),
+                        'facets' => ['category_slugs'],
+                        'limit' => 0,
+                    ]);
+                    $slugCounts = $this->extractFacetDistribution($res)['category_slugs'] ?? [];
+                } catch (\Throwable) {
+                }
+            }
+
+            $depts = [];
+            foreach ($catMap['roots'] as $rid) {
+                $root = $catMap['by_id'][$rid] ?? null;
+                if (!$root) {
+                    continue;
+                }
+                $rSlug = (string) $root['slug'];
+                $rCount = (int) ($slugCounts[$rSlug] ?? 0);
+                if ($rCount <= 0) {
+                    continue;
+                }
+
+                $children = [];
+                foreach ($catMap['children'][$rid] ?? [] as $cid) {
+                    $child = $catMap['by_id'][$cid] ?? null;
+                    if (!$child) {
+                        continue;
+                    }
+                    $cSlug = (string) $child['slug'];
+                    $cCount = (int) ($slugCounts[$cSlug] ?? 0);
+                    if ($cCount <= 0) {
+                        continue;
+                    }
+
+                    $children[] = [
+                        'slug' => $cSlug,
+                        'name_en' => $child['name_en'],
+                        'name_ru' => $child['name_ru'],
+                        'name_ka' => $child['name_ka'],
+                        'name_el' => $child['name_el'],
+                        'count' => $cCount,
+                    ];
+                }
+
+                $depts[] = [
+                    'slug' => $rSlug,
+                    'name_en' => $root['name_en'],
+                    'name_ru' => $root['name_ru'],
+                    'name_ka' => $root['name_ka'],
+                    'name_el' => $root['name_el'],
+                    'img' => self::CATEGORY_IMAGES[$rSlug] ?? ($rSlug . '.png'),
+                    'count' => $rCount,
+                    'children' => $children,
+                ];
+            }
+
+            $result[$tab] = $depts;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Загружает всю таблицу categories в компактную карту (строго чистые массивы).
+     *
+     * @return array{by_id:array<int,array<string,mixed>>, by_slug:array<string,array<string,mixed>>, roots:int[], children:array<int,int[]>, descendants:array<int,int[]>}
+     */
+    private function loadCategoriesMap(): array
+    {
+        return Cache::remember('catalog.categories_map.v1', now()->addHours(self::CACHE_HOURS), function () {
+            $rows = DB::table('categories')
+                ->where('is_active', 1)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get(['id', 'parent_id', 'slug', 'name_en', 'name_ru', 'name_ka', 'name_el', 'sort_order']);
+
+            $byId = [];
+            $bySlug = [];
+            $roots = [];
+            $children = [];
+
+            foreach ($rows as $r) {
+                $item = [
+                    'id' => (int) $r->id,
+                    'parent_id' => $r->parent_id !== null ? (int) $r->parent_id : null,
+                    'slug' => (string) $r->slug,
+                    'name_en' => (string) $r->name_en,
+                    'name_ru' => (string) $r->name_ru,
+                    'name_ka' => (string) $r->name_ka,
+                    'name_el' => (string) $r->name_el,
+                    'sort_order' => (int) $r->sort_order,
+                ];
+                $byId[$item['id']] = $item;
+                $bySlug[$item['slug']] = $item;
+
+                if ($item['parent_id'] === null) {
+                    $roots[] = $item['id'];
+                } else {
+                    $children[$item['parent_id']][] = $item['id'];
+                }
+            }
+
+            $collectDescendants = function (int $id) use (&$collectDescendants, $children): array {
+                $ids = [$id];
+                foreach ($children[$id] ?? [] as $cid) {
+                    $ids = array_merge($ids, $collectDescendants($cid));
+                }
+
+                return $ids;
+            };
+
+            $descendants = [];
+            foreach (array_keys($byId) as $id) {
+                $descendants[$id] = $collectDescendants($id);
+            }
+
+            return [
+                'by_id' => $byId,
+                'by_slug' => $bySlug,
+                'roots' => $roots,
+                'children' => $children,
+                'descendants' => $descendants,
+            ];
+        });
+    }
+
+    /**
+     * @return string[]
+     */
+    private function fetchTopBrandsForClause(string $clause): array
+    {
+        if (!$this->isMeiliReady()) {
+            return [];
+        }
+
+        try {
+            $bRes = $this->meiliIndex()->search('', [
+                'filter' => 'is_active = true AND in_stock = true AND ' . $clause,
+                'facets' => ['brand'],
+                'limit' => 0,
+            ]);
+            $bDist = $this->extractFacetDistribution($bRes)['brand'] ?? [];
+            arsort($bDist);
+
+            return array_slice(
+                array_keys(array_filter($bDist, fn ($c, $k) => trim((string) $k) !== '' && $c > 0, ARRAY_FILTER_USE_BOTH)),
+                0,
+                3
+            );
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    private function pickLocalizedLabel(array $item, string $locale): string
+    {
+        $key = match ($locale) {
+            'ru' => 'name_ru',
+            'ka' => 'name_ka',
+            'el' => 'name_el',
+            default => 'name_en',
+        };
+
+        if (!empty($item[$key])) {
+            return (string) $item[$key];
+        }
+        if (!empty($item['name_en'])) {
+            return (string) $item['name_en'];
+        }
+
+        return __((string) ($item['label'] ?? $item['slug'] ?? ''));
     }
 
     /**

@@ -490,7 +490,15 @@ class CategoryTaxonomy
         }
 
         // 2. Мультибрендовая мода (modivo, notos, stradivarius, energiers)
-        return $this->classifyFashion($text, $feed);
+        $slug = $this->classifyFashion($text, $feed);
+        if ($slug === null && $path !== '' && $name !== '') {
+            $slug = $this->classifyFashion(self::norm($name), $feed);
+        }
+        if ($slug === null && $feed === 'energiers') {
+            return 'clothing';
+        }
+
+        return $slug;
     }
 
     private function classifyCosselie(string $t): string
@@ -817,7 +825,7 @@ class CategoryTaxonomy
 
         // Обувь
         if (self::hasAny($t, [
-            'παπουτσ', 'shoes', 'footwear', 'sneaker', 'μποτακ', 'μποτεσ', 'boots', 'σανδαλ', 'πεδιλ', 'sandal',
+            'παπουτσ', 'υποδηματ', 'shoes', 'footwear', 'sneaker', 'μποτακ', 'μποτεσ', 'boots', 'σανδαλ', 'πεδιλ', 'sandal',
             'παντοφλ', 'σαγιοναρ', 'slipper', 'slide', 'γοβεσ', 'heels', 'μπαλαριν', 'μοκασιν', 'loafer', 'εσπαντριγ', 'oxford', 'derby', 'αθλητικα παπουτσ',
         ])) {
             return $this->classifyShoes($t);

@@ -76,6 +76,8 @@ class ImportFeedCommand extends Command
             $this->info("Поставлено в очередь на перевод новых сущностей: {$dispatched}.");
         }
 
+        $this->call('feeds:classify-categories', ['--feed' => $feed]);
+
         if ($this->option('no-warm')) {
             $this->info('Индексация и прогрев кэша пропущены (--no-warm).');
 

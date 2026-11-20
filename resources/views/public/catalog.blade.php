@@ -221,11 +221,26 @@
             </div>
         </div>
 
-        <!-- Хлебные крошки: скрыты на мобильном, видны только на десктопе -->
-        <nav class="hidden lg:flex items-center gap-2 app-text-xs text-[#86868b]">
-            <a href="{{ route('home') }}" class="hover:text-[#0071e3] transition-colors">{{ __('Главная') }}</a>
-            <span>&rsaquo;</span>
-            <span class="text-[#1d1d1f] font-medium truncate">{{ $pageTitle }}</span>
+<!-- Хлебные крошки: Главная › L1 › L2 › L3 -->
+        <nav class="flex items-center gap-1.5 app-text-xs text-[#86868b] overflow-x-auto no-scrollbar whitespace-nowrap">
+            @if(!empty($breadcrumbs))
+                @foreach($breadcrumbs as $crumb)
+                    @if(!$loop->first)
+                        <span class="shrink-0">&rsaquo;</span>
+                    @endif
+                    @if(!empty($crumb['url']))
+                        <a href="{{ $crumb['url'] }}" class="hover:text-[#0071e3] transition-colors shrink-0">
+                            {{ $crumb['label'] }}
+                        </a>
+                    @else
+                        <span class="text-[#1d1d1f] font-medium truncate">{{ $crumb['label'] }}</span>
+                    @endif
+                @endforeach
+            @else
+                <a href="{{ route('home') }}" class="hover:text-[#0071e3] transition-colors">{{ __('Главная') }}</a>
+                <span>&rsaquo;</span>
+                <span class="text-[#1d1d1f] font-medium truncate">{{ $pageTitle }}</span>
+            @endif
         </nav>
 
         <!-- Двухколоночная сетка на всю ширину: Слева сайдбар (десктоп), Справа подкатегории + выдача -->

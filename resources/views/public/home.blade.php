@@ -26,12 +26,12 @@
         <!-- Тематический блок №1: Одежда и бренды (над популярными брендами) -->
         @if(!empty($heroBlock))
             @php
-                $desktopRel = $heroBlock['banner'];
+                $desktopRel = ltrim($heroBlock['banner'], '/');
                 $mobileRel = preg_replace('/\.webp$/i', '-mobile.webp', $desktopRel);
                 $hasDesktop = file_exists(public_path($desktopRel));
                 $hasMobile = file_exists(public_path($mobileRel));
                 $hasAnyBanner = $hasDesktop || $hasMobile;
-                $fallbackSrc = $hasDesktop ? asset($desktopRel) : ($hasMobile ? asset($mobileRel) : '');
+                $fallbackSrc = $hasDesktop ? '/' . $desktopRel : ($hasMobile ? '/' . $mobileRel : '');
             @endphp
             <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-4 lg:space-y-6">
                 <a href="{{ $heroBlock['url'] }}"
@@ -39,10 +39,10 @@
                     @if($hasAnyBanner)
                         <picture>
                             @if($hasMobile)
-                                <source media="(max-width: 767px)" srcset="{{ asset($mobileRel) }}">
+                                <source media="(max-width: 767px)" srcset="/{{ $mobileRel }}">
                             @endif
                             @if($hasDesktop)
-                                <source media="(min-width: 768px)" srcset="{{ asset($desktopRel) }}">
+                                <source media="(min-width: 768px)" srcset="/{{ $desktopRel }}">
                             @endif
                             <img src="{{ $fallbackSrc }}"
                                  alt="{{ $heroBlock['title'] }}"
@@ -67,8 +67,8 @@
                     </a>
                 </div>
 
-                <!-- Мобильный: горизонтальный свайп (2 карточки + край 3-й); Десктоп: сетка по 4 в ряд -->
-                <div class="flex lg:grid lg:grid-cols-4 gap-3 lg:gap-5 overflow-x-auto lg:overflow-visible snap-x snap-mandatory pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <!-- Мобильный: горизонтальный свайп с точным левым отступом (scroll-px); Десктоп: сетка по 4 в ряд -->
+                <div class="flex lg:grid lg:grid-cols-4 gap-3 lg:gap-5 overflow-x-auto lg:overflow-visible snap-x snap-mandatory scroll-px-4 sm:scroll-px-6 lg:scroll-px-0 pb-2 lg:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     @foreach($heroBlock['products'] as $index => $product)
                         <div class="w-[46%] sm:w-[31%] lg:w-auto shrink-0 snap-start">
                             <x-public-ui.product-card :product="$product" :is-first="$index === 0" />
@@ -103,12 +103,12 @@
         <!-- Тематические блоки №2–5: Детское -> Кроссовки -> Игрушки -> Техника -->
         @foreach($bottomBlocks ?? [] as $block)
             @php
-                $desktopRel = $block['banner'];
+                $desktopRel = ltrim($block['banner'], '/');
                 $mobileRel = preg_replace('/\.webp$/i', '-mobile.webp', $desktopRel);
                 $hasDesktop = file_exists(public_path($desktopRel));
                 $hasMobile = file_exists(public_path($mobileRel));
                 $hasAnyBanner = $hasDesktop || $hasMobile;
-                $fallbackSrc = $hasDesktop ? asset($desktopRel) : ($hasMobile ? asset($mobileRel) : '');
+                $fallbackSrc = $hasDesktop ? '/' . $desktopRel : ($hasMobile ? '/' . $mobileRel : '');
             @endphp
             <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-4 lg:space-y-6">
                 <a href="{{ $block['url'] }}"
@@ -116,10 +116,10 @@
                     @if($hasAnyBanner)
                         <picture>
                             @if($hasMobile)
-                                <source media="(max-width: 767px)" srcset="{{ asset($mobileRel) }}">
+                                <source media="(max-width: 767px)" srcset="/{{ $mobileRel }}">
                             @endif
                             @if($hasDesktop)
-                                <source media="(min-width: 768px)" srcset="{{ asset($desktopRel) }}">
+                                <source media="(min-width: 768px)" srcset="/{{ $desktopRel }}">
                             @endif
                             <img src="{{ $fallbackSrc }}"
                                  alt="{{ $block['title'] }}"
@@ -145,7 +145,7 @@
                     </a>
                 </div>
 
-                <div class="flex lg:grid lg:grid-cols-4 gap-3 lg:gap-5 overflow-x-auto lg:overflow-visible snap-x snap-mandatory pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div class="flex lg:grid lg:grid-cols-4 gap-3 lg:gap-5 overflow-x-auto lg:overflow-visible snap-x snap-mandatory scroll-px-4 sm:scroll-px-6 lg:scroll-px-0 pb-2 lg:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     @foreach($block['products'] as $product)
                         <div class="w-[46%] sm:w-[31%] lg:w-auto shrink-0 snap-start">
                             <x-public-ui.product-card :product="$product" />

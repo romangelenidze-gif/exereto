@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Http\Controllers\HomeController;
 use App\Models\FeedProduct;
 use App\Services\FeedCategoryTiles;
 use Illuminate\Console\Command;
@@ -79,9 +80,16 @@ class SyncAllFeedsCommand extends Command
 
         $this->info('=== Прогрев кэша категорий (EN / RU / KA) ===');
         $categoryTiles->warmAll();
-        Cache::forget('home.popular_cards.v4');
-        Cache::forget('home.discount_cards.v4');
-        Cache::forget('home.top_brands.v4');
+
+        $this->info('=== Прогрев тематических блоков главной (EN / RU / KA / EL) ===');
+        Cache::forget('home.thematic_blocks.raw.v2');
+        $origLocale = app()->getLocale();
+        foreach (['en', 'ru', 'ka', 'el'] as $loc) {
+            Cache::forget("home.thematic_blocks.v2.{$loc}");
+            app()->setLocale($loc);
+            app()->call([app(HomeController::class), 'index']);
+        }
+        app()->setLocale($origLocale);
 
         $elapsed = round(microtime(true) - $started, 1);
         $this->info("Ночной цикл завершён за {$elapsed} сек. Успешно: " . count($syncedFeeds) . ' | Ошибок: ' . count($failed));
