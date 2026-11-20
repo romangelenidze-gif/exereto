@@ -22,6 +22,27 @@ class AwinFeedImporter
         'last_seen_at', 'updated_at',
     ];
 
+    protected const SIZE_ORDER = [
+        'xxxs' => 1, '3xs' => 1,
+        'xxs' => 2, '2xs' => 2,
+        'xs' => 3,
+        'xs/s' => 4,
+        's' => 5,
+        's/m' => 6,
+        'm' => 7,
+        'm/l' => 8,
+        'l' => 9,
+        'l/xl' => 10,
+        'xl' => 11,
+        'xl/xxl' => 12,
+        'xxl' => 13, '2xl' => 13,
+        'xxxl' => 14, '3xl' => 14,
+        '4xl' => 15,
+        '5xl' => 16,
+        '6xl' => 17,
+        'os' => 99, 'one size' => 99, 'onesize' => 99,
+    ];
+
     public function __construct(
         protected FeedImportGatekeeper $gatekeeper
     ) {}
@@ -110,9 +131,11 @@ class AwinFeedImporter
             $activeBefore = DB::table('feed_products')->where('feed', $feedKey)->where('is_active', true)->count();
 
             $total = 0;
-            $imported = 0;
+            $validRows = 0;
             $skipped = 0;
             $batch = [];
+            $seenSkus = [];
+            $mergedMeta = [];
 
             while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
                 if ($row === [null]) {
@@ -132,21 +155,29 @@ class AwinFeedImporter
                     continue;
                 }
 
+                $validRows++;
+
+                if ($network === 'linkwise' && $mapped['sizes'] !== null) {
+                    $mapped = $this->mergeLinkwiseVariant($mapped, $mergedMeta, $feedKey);
+                }
+
+                $seenSkus[$mapped['sku']] = true;
                 $batch[$mapped['sku']] = $mapped;
 
-                if ($limit > 0 && ($imported + count($batch)) >= $limit) {
-                    $imported += $this->flush($batch);
+                if ($limit > 0 && count($seenSkus) >= $limit) {
+                    $this->flush($batch);
                     $batch = [];
                     break;
                 }
 
                 if (count($batch) >= self::BATCH) {
-                    $imported += $this->flush($batch);
+                    $this->flush($batch);
                     $batch = [];
                 }
             }
 
-            $imported += $this->flush($batch);
+            $this->flush($batch);
+            $imported = count($seenSkus);
         } finally {
             fclose($handle);
         }
@@ -156,12 +187,12 @@ class AwinFeedImporter
         }
 
         $minRatio = (float) config('feeds.min_import_ratio', 0.5);
-        $deactivationSkipped = $limit > 0 || (!$forceDeactivate && $activeBefore > 0 && $imported < $activeBefore * $minRatio);
+        $deactivationSkipped = $limit > 0 || (!$forceDeactivate && $activeBefore > 0 && max($imported, $validRows) < $activeBefore * $minRatio);
         $deactivated = 0;
 
         if ($deactivationSkipped) {
             Log::warning('Feed import: деактивация пропущена (тестовый лимит или малый объём фида)', [
-                'feed' => $feedKey, 'imported' => $imported, 'active_before' => $activeBefore, 'limit' => $limit,
+                'feed' => $feedKey, 'imported' => $imported, 'valid_rows' => $validRows, 'active_before' => $activeBefore, 'limit' => $limit,
             ]);
         } else {
             $deactivated = DB::table('feed_products')
@@ -172,7 +203,7 @@ class AwinFeedImporter
         }
 
         Log::info('Feed import finished', [
-            'feed' => $feedKey, 'total' => $total, 'imported' => $imported, 'skipped' => $skipped, 'deactivated' => $deactivated,
+            'feed' => $feedKey, 'total' => $total, 'valid_rows' => $validRows, 'imported' => $imported, 'skipped' => $skipped, 'deactivated' => $deactivated,
         ]);
 
         return [
@@ -184,7 +215,108 @@ class AwinFeedImporter
         ];
     }
 
+    /**
+     * Схлопывает поразмерные строки одного цвета/модели Linkwise в единый массив sizes,
+     * сохраняя минимальную цену в наличии и самый полный набор фото.
+     *
+     * @param  array<string, mixed>  $mapped
+     * @param  array<string, array<string, mixed>>  $mergedMeta
+     * @return array<string, mixed>
+     */
+    protected function mergeLinkwiseVariant(array $mapped, array &$mergedMeta, string $feedKey): array
+    {
+        $sku = (string) $mapped['sku'];
+        $incomingSizes = json_decode((string) $mapped['sizes'], true);
+        if (!is_array($incomingSizes)) {
+            $incomingSizes = [];
+        }
 
+        $incomingImages = $mapped['image_urls'] !== null ? json_decode((string) $mapped['image_urls'], true) : [];
+        $incomingImageCount = is_array($incomingImages) ? count($incomingImages) : 0;
+
+        if (!isset($mergedMeta[$sku])) {
+            $sizeMap = [];
+            foreach ($incomingSizes as $entry) {
+                $label = trim((string) ($entry['size'] ?? ''));
+                if ($label !== '') {
+                    $sizeMap[mb_strtolower($label)] = $entry;
+                }
+            }
+
+            $mergedMeta[$sku] = [
+                'sizes' => $sizeMap,
+                'in_stock' => (int) $mapped['in_stock'],
+                'price' => (float) $mapped['price'],
+                'old_price' => $mapped['old_price'],
+                'discount_percent' => (int) $mapped['discount_percent'],
+                'deep_link' => $mapped['deep_link'],
+                'ean' => $mapped['ean'],
+                'image_url' => $mapped['image_url'],
+                'image_urls' => $mapped['image_urls'],
+                'image_count' => $incomingImageCount,
+            ];
+
+            return $mapped;
+        }
+
+        $meta = &$mergedMeta[$sku];
+
+        foreach ($incomingSizes as $entry) {
+            $label = trim((string) ($entry['size'] ?? ''));
+            if ($label === '') {
+                continue;
+            }
+            $k = mb_strtolower($label);
+            if (!isset($meta['sizes'][$k]) || (empty($meta['sizes'][$k]['ean']) && !empty($entry['ean']))) {
+                $meta['sizes'][$k] = $entry;
+            }
+        }
+
+        $incomingInStock = (int) $mapped['in_stock'];
+        $incomingPrice = (float) $mapped['price'];
+
+        if (
+            ($incomingInStock === 1 && ($meta['in_stock'] === 0 || $incomingPrice < $meta['price']))
+            || ($incomingInStock === 0 && $meta['in_stock'] === 0 && $incomingPrice < $meta['price'])
+        ) {
+            $meta['in_stock'] = $incomingInStock;
+            $meta['price'] = $incomingPrice;
+            $meta['old_price'] = $mapped['old_price'];
+            $meta['discount_percent'] = (int) $mapped['discount_percent'];
+            $meta['deep_link'] = $mapped['deep_link'];
+        } elseif ($incomingInStock === 1) {
+            $meta['in_stock'] = 1;
+        }
+
+        if ($meta['ean'] === null && $mapped['ean'] !== null) {
+            $meta['ean'] = $mapped['ean'];
+        }
+
+        if ($incomingImageCount > $meta['image_count']) {
+            $meta['image_url'] = $mapped['image_url'];
+            $meta['image_urls'] = $mapped['image_urls'];
+            $meta['image_count'] = $incomingImageCount;
+        }
+
+        $sortedSizes = self::sortSizes(array_values($meta['sizes']));
+
+        $mapped['sizes'] = $sortedSizes === [] ? null : json_encode($sortedSizes, JSON_UNESCAPED_UNICODE);
+        $mapped['in_stock'] = $meta['in_stock'];
+        $mapped['price'] = $meta['price'];
+        $mapped['old_price'] = $meta['old_price'];
+        $mapped['discount_percent'] = $meta['discount_percent'];
+        $mapped['deep_link'] = $meta['deep_link'];
+        $mapped['ean'] = $meta['ean'];
+        $mapped['image_url'] = $meta['image_url'];
+        $mapped['image_urls'] = $meta['image_urls'];
+        $mapped['priority_score'] = $this->gatekeeper->calculatePriority(
+            $feedKey,
+            $mapped['brand'] ?? null,
+            (int) $mapped['discount_percent']
+        );
+
+        return $mapped;
+    }
 
     protected function flush(array $batch): int
     {
@@ -298,10 +430,17 @@ class AwinFeedImporter
         $gender = $forcedGender ?: self::resolveGender('', $categoryPath, $name);
         $colour = html_entity_decode($get('colour') ?: $get('color'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        $imageCandidates = array_values(array_filter(array_unique(array_merge(
-            [$get('image_url'), $get('thumb_url')],
-            preg_split('/\s*[,|]\s*/', $get('extra_images')) ?: []
-        )), fn ($u) => filter_var($u, FILTER_VALIDATE_URL)));
+        // Безопасное разделение extra_images: не рвём запятые внутри URL Modivo (...jpg,jpg)/...
+        $rawExtra = $get('extra_images');
+        $extraImages = $rawExtra !== ''
+            ? (preg_split('/(?:\s*\|\s*|\s*,\s*(?=https?:\/\/)|\s+(?=https?:\/\/))/i', $rawExtra) ?: [])
+            : [];
+        $primaryImage = $get('image_url');
+        $thumbImage = $get('thumb_url');
+        $imageCandidates = self::cleanImageUrls(array_merge(
+            $primaryImage !== '' ? [$primaryImage] : ($thumbImage !== '' ? [$thumbImage] : []),
+            $extraImages
+        ));
 
         $imageUrlsJson = $imageCandidates !== [] ? json_encode($imageCandidates, JSON_UNESCAPED_SLASHES) : null;
         $image = $imageCandidates[0] ?? null;
@@ -333,20 +472,42 @@ class AwinFeedImporter
         }
 
         $brandFromModel = (bool) config("feed_rules.stores.{$feedKey}.brand_from_model", false);
-        $rawBrand = $get('brand_name');
+        $rawBrand = html_entity_decode($get('brand_name'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         if ($rawBrand === '' && $brandFromModel && $get('model_name') !== '') {
-            $rawBrand = $get('model_name');
+            $rawBrand = html_entity_decode($get('model_name'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         }
         $brand = $rawBrand !== '' ? mb_substr($rawBrand, 0, 64) : ($cfg['brand'] ?? null);
         $model = $brandFromModel
             ? ($get('product_id') ?: $get('mpn'))
             : ($get('model_name') ?: ($get('product_id') ?: $get('mpn')));
 
-        $searchText = ' ' . FeedText::normalize(implode(' ', array_filter([$brand, $name, $colour, $categoryPath, $sku, $rawSku, $model, $ean]))) . ' ';
+        // Нормализация SKU / model_code для схлопывания поразмерных дублей (modivo, epapoutsia, notos, stradivarius, energiers)
+        $canonicalSku = $sku;
+        if (count($sizeList) === 1) {
+            $singleSize = $sizeList[0];
+            $strippedSku = self::stripTrailingSizeFromCode($sku, $singleSize, '[-_]');
+            if ($strippedSku !== null) {
+                $canonicalSku = $strippedSku;
+                if ($model !== '') {
+                    $strippedModel = self::stripTrailingSizeFromCode($model, $singleSize, '[-_|]');
+                    if ($strippedModel !== null) {
+                        $model = $strippedModel;
+                    }
+                }
+            } elseif (in_array($feedKey, ['stradivarius', 'energiers'], true)) {
+                $name = self::stripTrailingSizeFromName($name, $singleSize);
+                $groupSeed = mb_strtolower(trim(($brand ?? '') . '|' . $name . '|' . $colour));
+                if ($groupSeed !== '||') {
+                    $canonicalSku = $feedKey . '-' . substr(sha1($groupSeed), 0, 16);
+                }
+            }
+        }
+
+        $searchText = ' ' . FeedText::normalize(implode(' ', array_filter([$brand, $name, $colour, $categoryPath, $canonicalSku, $rawSku, $model, $ean]))) . ' ';
 
         return [
             'feed' => $feedKey,
-            'sku' => mb_substr($sku, 0, 64),
+            'sku' => mb_substr($canonicalSku, 0, 64),
             'model_code' => $model !== '' ? mb_substr($model, 0, 64) : null,
             'ean' => $ean,
             'brand' => $brand,
@@ -429,15 +590,16 @@ class AwinFeedImporter
         $rating = self::decimal($get('rating'));
         $ean = self::extractEan($get('gtin'), $eanList[0] ?? '');
 
-        $imageCandidates = array_values(array_filter(array_unique([
+        // Убираем Awin-прокси 200x200 (images2.productserve.com), если есть прямые фото бренда
+        $imageCandidates = self::cleanImageUrls([
             $get('merchant_image_url'),
             $get('large_image'),
-            $get('aw_image_url'),
             $get('alternate_image'),
             $get('alternate_image_two'),
             $get('alternate_image_three'),
             $get('alternate_image_four'),
-        ]), fn ($u) => filter_var($u, FILTER_VALIDATE_URL)));
+            $get('aw_image_url'),
+        ]);
 
         $imageUrlsJson = $imageCandidates !== [] ? json_encode($imageCandidates, JSON_UNESCAPED_SLASHES) : null;
         $image = $imageCandidates[0] ?? null;
@@ -477,6 +639,101 @@ class AwinFeedImporter
             'created_at' => $seenAt,
             'updated_at' => $seenAt,
         ];
+    }
+
+    /**
+     * Валидирует, дедуплицирует и очищает массив URL картинок (отбрасывает обрезанные URL и прокси productserve.com).
+     *
+     * @param  string[]  $rawUrls
+     * @return string[]
+     */
+    protected static function cleanImageUrls(array $rawUrls): array
+    {
+        $direct = [];
+        $fallback = [];
+
+        foreach ($rawUrls as $url) {
+            $u = trim($url);
+            if ($u === '' || !preg_match('#^https?://#i', $u) || !filter_var($u, FILTER_VALIDATE_URL)) {
+                continue;
+            }
+            // Отсекаем обрезанные URL со скобкой без закрывающей пары (например, сломанные Modivo CDN)
+            if (substr_count($u, '(') !== substr_count($u, ')')) {
+                continue;
+            }
+
+            $host = strtolower((string) parse_url($u, PHP_URL_HOST));
+            if (str_contains($host, 'productserve.com')) {
+                $fallback[$u] = true;
+            } else {
+                $direct[$u] = true;
+            }
+        }
+
+        return array_keys($direct !== [] ? $direct : $fallback);
+    }
+
+    protected static function stripTrailingSizeFromCode(string $code, string $size, string $sepRegex = '[-_]'): ?string
+    {
+        $tokens = preg_split('/[^A-Za-z0-9]+/u', trim($size), -1, PREG_SPLIT_NO_EMPTY);
+        if (!$tokens) {
+            return null;
+        }
+
+        $sizePattern = implode('[-_.]?', array_map(static fn (string $t): string => preg_quote($t, '/'), $tokens));
+        $stripped = preg_replace('/' . $sepRegex . $sizePattern . '$/iu', '', $code, 1, $count);
+
+        if ($count === 0 || !is_string($stripped)) {
+            return null;
+        }
+
+        $stripped = rtrim($stripped, '-_|');
+        if (strlen($stripped) < 6) {
+            return null;
+        }
+
+        return $stripped;
+    }
+
+    protected static function stripTrailingSizeFromName(string $name, string $size): string
+    {
+        $s = trim($size);
+        if ($s === '') {
+            return $name;
+        }
+
+        $cleaned = preg_replace('/[\s\-|]+' . preg_quote($s, '/') . '$/iu', '', $name);
+
+        return is_string($cleaned) && trim($cleaned) !== '' ? trim($cleaned) : $name;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $sizes
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function sortSizes(array $sizes): array
+    {
+        usort($sizes, static function (array $a, array $b): int {
+            $sa = mb_strtolower(trim((string) ($a['size'] ?? '')));
+            $sb = mb_strtolower(trim((string) ($b['size'] ?? '')));
+
+            $oa = self::SIZE_ORDER[$sa] ?? null;
+            $ob = self::SIZE_ORDER[$sb] ?? null;
+
+            if ($oa !== null && $ob !== null) {
+                return $oa <=> $ob;
+            }
+            if ($oa !== null) {
+                return -1;
+            }
+            if ($ob !== null) {
+                return 1;
+            }
+
+            return strnatcasecmp($sa, $sb);
+        });
+
+        return $sizes;
     }
 
     protected static function resolveGender(string $suitableFor, string $categoryPath, string $name): ?string
@@ -562,5 +819,4 @@ class AwinFeedImporter
 
         return ((10 - ($sum % 10)) % 10) === (int) $digits[$len - 1];
     }
-
 }

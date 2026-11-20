@@ -14,7 +14,7 @@ use WeakMap;
 
 class FeedCategoryTiles
 {
-    private const CACHE_HOURS = 12;
+    private const CACHE_HOURS = 30;
 
     /** @var WeakMap<Builder, array<string, mixed>> */
     private WeakMap $meiliContexts;

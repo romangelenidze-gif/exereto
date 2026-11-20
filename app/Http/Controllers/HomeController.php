@@ -19,12 +19,12 @@ class HomeController extends Controller
         // 1. Тематические блоки главной страницы (в кэше строго чистые массивы — без объектов Collection)
         $blocks = Cache::remember(
             "home.thematic_blocks.v2.{$locale}",
-            now()->addMinutes(60),
+            now()->addHours(30),
             function () use ($localizer, $locale, $tiles) {
                 $definitions = $this->blockDefinitions($tiles);
                 $rawBySlug = Cache::remember(
                     'home.thematic_blocks.raw.v2',
-                    now()->addMinutes(60),
+                    now()->addHours(30),
                     function () use ($definitions) {
                         $out = [];
                         foreach ($definitions as $def) {
