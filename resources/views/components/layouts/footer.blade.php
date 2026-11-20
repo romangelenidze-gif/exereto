@@ -45,8 +45,11 @@
 
         </div>
 
-        <div class="apple-footer-bottom">
+        <div class="apple-footer-bottom flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>© {{ date('Y') }} exereto. {{ __('Все права защищены.') }}</div>
+            <div class="shrink-0">
+                <x-language-switcher theme="light" direction="up" />
+            </div>
         </div>
     </div>
 </footer>

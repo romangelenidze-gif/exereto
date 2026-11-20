@@ -5,10 +5,10 @@
 
 <!-- Статичный хедер -->
 <header class="text-[#1d1d1f] relative w-full z-40">
-    <div class="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 w-full">
+    <div class="max-w-[96rem] mx-auto px-3.5 sm:px-6 lg:px-8 w-full">
 
-        <!-- МОБИЛЬНАЯ ШАПКА (< lg): увеличенный логотип слева + поиск с автокомплитом и гамбургером категорий -->
-        <div class="flex lg:hidden items-center gap-3 h-16"
+        <!-- МОБИЛЬНАЯ ШАПКА (< lg): воздух сверху, логотип слева + широкий плоский поиск без тени и гамбургер категорий -->
+        <div class="flex lg:hidden items-center gap-2.5 pt-4 pb-2.5"
              x-data="{
                 query: @js((string) request('q', '')),
                 suggestions: [],
@@ -56,15 +56,15 @@
              @click.outside="openSuggestions = false"
              @scroll.window="openSuggestions = false">
 
-            <a href="{{ route('home') }}" class="text-[26px] leading-none font-bold tracking-tight text-[#1d1d1f] shrink-0">
+            <a href="{{ route('home') }}" class="text-[23px] leading-none font-bold tracking-tight text-[#1d1d1f] shrink-0">
                 exereto
             </a>
 
             <div class="relative flex-1 min-w-0">
                 <form action="{{ route('product-search') }}" method="GET"
-                      class="flex items-center gap-1.5 bg-white rounded-full border border-black/[0.08] shadow-sm pl-3 pr-1.5 h-10">
-                    <button type="submit" aria-label="{{ __('Найти') }}" class="text-zinc-500 hover:text-[#0071e3] shrink-0 cursor-pointer">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                      class="flex items-center gap-2 bg-white rounded-full pl-3.5 pr-1.5 h-11">
+                    <button type="submit" aria-label="{{ __('Найти') }}" class="text-zinc-400 hover:text-[#0071e3] shrink-0 cursor-pointer">
+                        <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </button>
@@ -80,12 +80,12 @@
                            maxlength="200"
                            autocomplete="off"
                            spellcheck="false"
-                           class="w-full min-w-0 bg-transparent border-none text-sm text-[#1d1d1f] placeholder:text-zinc-400 focus:outline-none focus:ring-0">
+                           class="w-full min-w-0 bg-transparent border-none text-[15px] text-[#1d1d1f] placeholder:text-zinc-400 focus:outline-none focus:ring-0">
 
                     <button type="button"
                             @click="$dispatch('open-categories')"
                             aria-label="{{ __('Категории') }}"
-                            class="p-1.5 rounded-full text-[#1d1d1f] hover:bg-black/[0.05] transition-colors shrink-0 cursor-pointer">
+                            class="p-2 rounded-full text-[#1d1d1f] hover:bg-black/[0.05] transition-colors shrink-0 cursor-pointer">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
@@ -96,7 +96,7 @@
                 <div x-show="openSuggestions"
                      x-cloak
                      role="listbox"
-                     class="fixed left-4 right-4 top-[68px] bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-black/[0.08] overflow-y-auto max-h-80 z-50 text-left">
+                     class="fixed left-3.5 right-3.5 top-[72px] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-black/[0.06] overflow-y-auto max-h-80 z-50 text-left">
                     <template x-for="item in suggestions" :key="item.url || item.value">
                         <div role="option"
                              @click="selectSuggestion(item)"
@@ -152,7 +152,7 @@
 
     </div>
 
-    <!-- Единая выдвижная шторка категорий каталога (управляется через categoriesDrawerOpen в public.blade.php) -->
+    <!-- Единая выдвижная шторка категорий каталога -->
     <x-public-ui.categories-drawer :categories="$headerCategories" />
     <x-layouts.search-sheet />
 </header>
