@@ -1,5 +1,5 @@
 @php
-    $isHomePage = request()->routeIs('home');
+    $isHomePage = request()->routeIs(['home', '*.home']);
     $headerCategories = app(\App\Services\FeedCategoryTiles::class)->get();
 @endphp
 
@@ -159,16 +159,16 @@
             @endunless
 
             <nav class="flex items-center space-x-1 shrink-0">
-                <a href="{{ route('how-it-works') }}" class="apple-nav-link {{ request()->routeIs('how-it-works') ? 'active' : '' }}">
+                <a href="{{ route('how-it-works') }}" class="apple-nav-link {{ request()->routeIs(['how-it-works', '*.how-it-works']) ? 'active' : '' }}">
                     {{ __('Как это работает') }}
                 </a>
-                <a href="{{ route('buy-for-me') }}" class="apple-nav-link {{ request()->routeIs('buy-for-me') ? 'active' : '' }}">
+                <a href="{{ route('buy-for-me') }}" class="apple-nav-link {{ request()->routeIs(['buy-for-me', '*.buy-for-me']) ? 'active' : '' }}">
                     {{ __('Выкупите за меня') }}
                 </a>
-                <a href="{{ route('forwarding') }}" class="apple-nav-link {{ request()->routeIs('forwarding') ? 'active' : '' }}">
+                <a href="{{ route('forwarding') }}" class="apple-nav-link {{ request()->routeIs(['forwarding', '*.forwarding']) ? 'active' : '' }}">
                     {{ __('Форвардинг') }}
                 </a>
-                <a href="{{ route('help') }}" class="apple-nav-link {{ request()->routeIs('help') ? 'active' : '' }}">
+                <a href="{{ route('help') }}" class="apple-nav-link {{ request()->routeIs(['help', '*.help']) ? 'active' : '' }}">
                     {{ __('Помощь / FAQ') }}
                 </a>
             </nav>

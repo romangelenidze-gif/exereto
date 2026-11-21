@@ -115,6 +115,7 @@ class FeedCategoryTiles
                     'label' => $this->pickLocalizedLabel($dept, $locale),
                     'count' => (int) $dept['count'],
                     'img' => $dept['img'],
+                    'image' => $dept['image'] ?? (!empty($dept['img']) ? '/images/categories/' . $dept['img'] : null),
                     'url' => route('feed-category.show', array_merge(['slug' => $dept['slug']], $genderQuery)),
                     'children' => $children,
                 ];
@@ -1343,13 +1344,16 @@ class FeedCategoryTiles
                     ];
                 }
 
+                $imgFile = self::CATEGORY_IMAGES[$rSlug] ?? ($rSlug . '.png');
+
                 $depts[] = [
                     'slug' => $rSlug,
                     'name_en' => $root['name_en'],
                     'name_ru' => $root['name_ru'],
                     'name_ka' => $root['name_ka'],
                     'name_el' => $root['name_el'],
-                    'img' => self::CATEGORY_IMAGES[$rSlug] ?? ($rSlug . '.png'),
+                    'img' => $imgFile,
+                    'image' => $this->resolveDepartmentImage($rSlug, $imgFile, $genderClause),
                     'count' => $rCount,
                     'children' => $children,
                 ];
@@ -1360,6 +1364,49 @@ class FeedCategoryTiles
 
         return $result;
     }
+
+
+    /**
+     * Возвращает локальную иконку из public/images/categories/, а если файла нет —
+     * подтягивает реальное фото топового товара из Meilisearch (с учётом пола).
+     */
+    private function resolveDepartmentImage(string $slug, string $imgFile, ?string $genderClause = null): ?string
+    {
+        if ($imgFile !== '' && is_file(public_path('images/categories/' . $imgFile))) {
+            return '/images/categories/' . $imgFile;
+        }
+
+        if ($this->isMeiliReady()) {
+            try {
+                $clauses = [
+                    'is_active = true',
+                    'in_stock = true',
+                    'category_slugs = ' . $this->meiliQuote($slug),
+                ];
+                if ($genderClause !== null) {
+                    $clauses[] = $genderClause;
+                }
+
+                $res = $this->meiliIndex()->search('', [
+                    'filter' => implode(' AND ', $clauses),
+                    'sort' => ['priority_score:desc'],
+                    'limit' => 5,
+                    'attributesToRetrieve' => ['id', 'image_url'],
+                ]);
+
+                $hits = is_object($res) ? $res->getHits() : ($res['hits'] ?? []);
+                foreach ($hits as $h) {
+                    if (!empty($h['image_url'])) {
+                        return (string) $h['image_url'];
+                    }
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        return null;
+    }
+    
 
     /**
      * Загружает всю таблицу categories в компактную карту (строго чистые массивы).

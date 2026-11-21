@@ -105,14 +105,15 @@
                                 @click="dept.children.length ? toggleDept(dept.slug) : (window.location.href = dept.url)"
                                 class="w-full flex items-center justify-between gap-3.5 pl-2.5 pr-4 py-2 text-left hover:bg-[#ececf0] transition-colors cursor-pointer">
                             <div class="flex items-center gap-4 min-w-0">
-                                <!-- Крупный слот под фото на всю высоту карточки без тесной белой рамки -->
+                                <!-- Крупный слот под фото (локальная иконка или реальное фото товара) -->
                                 <div class="w-[72px] h-[72px] rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
-                                    <img x-show="!imgError"
-                                         :src="'/images/categories/' + dept.img"
+                                    <img x-show="dept.image && !imgError"
+                                         :src="dept.image"
                                          :alt="dept.label"
+                                         loading="lazy"
                                          @error="imgError = true"
-                                         class="w-full h-full object-contain mix-blend-multiply scale-105">
-                                    <div x-show="imgError" x-cloak class="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center text-[#86868b]">
+                                         class="w-full h-full object-contain mix-blend-multiply">
+                                    <div x-show="!dept.image || imgError" x-cloak class="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center text-[#86868b]">
                                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                         </svg>

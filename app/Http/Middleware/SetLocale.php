@@ -4,19 +4,15 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\App;
+use Symfony\Component\HttpFoundation\Response;
 
 class SetLocale
 {
-    public function handle(Request $request, Closure $next)
-    {
-        $firstSegment = $request->segment(1);
+    private const SUPPORTED = ['en', 'ru', 'ka'];
 
-        if (in_array($firstSegment, ['ru', 'ka'], true)) {
-            App::setLocale($firstSegment);
-        } else {
-            App::setLocale('en');
-        }
+    public function handle(Request $request, Closure $next, string $locale = 'en'): Response
+    {
+        app()->setLocale(in_array($locale, self::SUPPORTED, true) ? $locale : 'en');
 
         return $next($request);
     }
