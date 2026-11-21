@@ -81,7 +81,9 @@ class SyncAllFeedsCommand extends Command
         $this->info('=== Прогрев кэша категорий (EN / RU / KA) ===');
         $categoryTiles->warmAll();
 
-        $this->info('=== Прогрев тематических блоков главной (EN / RU / KA / EL) ===');
+        $this->info('=== Прогрев тематических блоков и витрин брендов главной (EN / RU / KA / EL) ===');
+        Cache::forget('home.all_brands_index.v1');
+        Cache::forget('home.brand_showcases.v1');
         Cache::forget('home.thematic_blocks.raw.v2');
         $origLocale = app()->getLocale();
         foreach (['en', 'ru', 'ka', 'el'] as $loc) {

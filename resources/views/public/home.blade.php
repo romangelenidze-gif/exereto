@@ -92,7 +92,7 @@
             </section>
         @endif
 
-        <!-- Популярные бренды: бренд-витрины с живыми коллажами (1 слева + 2 справа) + шторка всех брендов A–Z -->
+        <!-- Популярные бренды: мозаика 3 full-bleed фото (1 слева + 2 справа) + шторка всех брендов A–Z -->
         @if(!empty($brandShowcases))
             <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-4 lg:space-y-6">
                 <div class="flex items-end justify-between gap-4">
@@ -113,7 +113,7 @@
                 </div>
 
                 <!-- Мобильный: горизонтальная свайп-лента; Десктоп: ровная сетка 4×2 (7 витрин + 1 карточка A–Z) -->
-                <div class="flex lg:grid lg:grid-cols-4 gap-3 lg:gap-5 overflow-x-auto lg:overflow-visible snap-x snap-mandatory scroll-px-4 sm:scroll-px-6 lg:scroll-px-0 pb-2 lg:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div class="flex items-stretch lg:grid lg:grid-cols-4 gap-3.5 lg:gap-5 overflow-x-auto lg:overflow-visible snap-x snap-mandatory scroll-px-4 sm:scroll-px-6 lg:scroll-px-0 pb-2 lg:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     @foreach($brandShowcases as $brand)
                         @php
                             $imgs = $brand['images'] ?? [];
@@ -123,55 +123,55 @@
                         @endphp
                         <a href="{{ $brand['url'] }}"
                            @click="loading = true"
-                           class="w-[76%] sm:w-[44%] lg:w-auto shrink-0 snap-start bg-white rounded-3xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-black/10 p-3 flex flex-col gap-3 transition-all group">
-                            <!-- Коллаж из 3 живых фото: 1 крупное слева + 2 миниатюры справа -->
-                            <div class="grid grid-cols-[1.35fr_1fr] gap-2 h-[176px] sm:h-[192px]">
-                                <div class="rounded-2xl bg-[#f5f5f7] p-2.5 flex items-center justify-center overflow-hidden">
+                           class="w-[82%] sm:w-[46%] lg:w-auto shrink-0 snap-start bg-white rounded-3xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-black/10 p-3 flex flex-col justify-between gap-3.5 transition-all group">
+                            <!-- Коллаж из 3 фото в край без внутренних рамок и наездов (строгое min-h-0 + overflow-hidden) -->
+                            <div class="grid grid-cols-[1.3fr_1fr] gap-1.5 h-[200px] sm:h-[212px] rounded-2xl overflow-hidden shrink-0">
+                                <div class="relative min-h-0 min-w-0 h-full bg-[#f5f5f7] overflow-hidden">
                                     @if($imgMain)
                                         <img src="{{ $imgMain }}"
                                              alt="{{ $brand['name'] }}"
                                              loading="lazy"
                                              decoding="async"
-                                             class="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300">
+                                             class="w-full h-full object-cover object-[50%_20%] group-hover:scale-105 transition-transform duration-500">
                                     @endif
                                 </div>
-                                <div class="grid grid-rows-2 gap-2">
-                                    <div class="rounded-2xl bg-[#f5f5f7] p-2 flex items-center justify-center overflow-hidden">
+                                <div class="grid grid-rows-2 gap-1.5 min-h-0 min-w-0 h-full">
+                                    <div class="relative min-h-0 min-w-0 h-full bg-[#f5f5f7] overflow-hidden">
                                         @if($imgTop)
                                             <img src="{{ $imgTop }}"
                                                  alt="{{ $brand['name'] }}"
                                                  loading="lazy"
                                                  decoding="async"
-                                                 class="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300">
+                                                 class="w-full h-full object-cover object-[50%_20%] group-hover:scale-105 transition-transform duration-500">
                                         @endif
                                     </div>
-                                    <div class="rounded-2xl bg-[#f5f5f7] p-2 flex items-center justify-center overflow-hidden">
+                                    <div class="relative min-h-0 min-w-0 h-full bg-[#f5f5f7] overflow-hidden">
                                         @if($imgBottom)
                                             <img src="{{ $imgBottom }}"
                                                  alt="{{ $brand['name'] }}"
                                                  loading="lazy"
                                                  decoding="async"
-                                                 class="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300">
+                                                 class="w-full h-full object-cover object-[50%_20%] group-hover:scale-105 transition-transform duration-500">
                                         @endif
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Название бренда, счётчик и максимальная скидка -->
-                            <div class="flex items-end justify-between gap-2 px-1 pb-0.5">
-                                <div class="min-w-0">
-                                    <div class="text-[17px] sm:text-[18px] font-bold tracking-tight text-[#1d1d1f] truncate group-hover:text-[#0071e3] transition-colors">
-                                        {{ $brand['name'] }}
-                                    </div>
-                                    <div class="text-[13px] font-medium text-[#6e6e73] mt-0.5 tabular-nums">
-                                        {{ number_format((int) $brand['count']) }} {{ __('товаров') }}
-                                    </div>
+                            <!-- Свободный 2-строчный подвал: название на всю ширину, ниже счётчик и бейдж скидки -->
+                            <div class="px-1.5 pb-1 space-y-1.5">
+                                <div class="text-[18px] sm:text-[19px] font-bold tracking-tight leading-tight text-[#1d1d1f] truncate group-hover:text-[#0071e3] transition-colors">
+                                    {{ $brand['name'] }}
                                 </div>
-                                @if(($brand['max_discount'] ?? 0) >= 10)
-                                    <span class="px-2.5 py-1 rounded-full bg-red-50 text-red-600 text-[11px] font-bold shrink-0 tabular-nums">
-                                        {{ __('до') }} -{{ (int) $brand['max_discount'] }}%
+                                <div class="flex items-center justify-between gap-2 min-h-[24px]">
+                                    <span class="text-[13px] font-medium text-[#6e6e73] tabular-nums truncate">
+                                        {{ number_format((int) $brand['count']) }} {{ __('товаров') }}
                                     </span>
-                                @endif
+                                    @if(($brand['max_discount'] ?? 0) >= 10)
+                                        <span class="px-2.5 py-0.5 rounded-full bg-red-50 text-red-600 text-[12px] font-bold shrink-0 tabular-nums">
+                                            {{ __('до') }} -{{ (int) $brand['max_discount'] }}%
+                                        </span>
+                                    @endif
+                                </div>
                             </div>
                         </a>
                     @endforeach
@@ -179,7 +179,7 @@
                     <!-- 8-я контрастная карточка: вход в каталог всех брендов A–Z -->
                     <button type="button"
                             @click="$dispatch('open-brands')"
-                            class="w-[62%] sm:w-[44%] lg:w-auto shrink-0 snap-start bg-[#1d1d1f] hover:bg-[#2c2c2e] text-white rounded-3xl p-6 flex flex-col items-start justify-between text-left transition-colors cursor-pointer group min-h-[250px]">
+                            class="w-[68%] sm:w-[46%] lg:w-auto shrink-0 snap-start bg-[#1d1d1f] hover:bg-[#2c2c2e] text-white rounded-3xl p-6 flex flex-col items-start justify-between text-left transition-colors cursor-pointer group">
                         <span class="px-3 py-1 rounded-full bg-white/12 text-[12px] font-semibold tracking-wider text-white/90">
                             A–Z
                         </span>
@@ -187,7 +187,7 @@
                             <div class="text-3xl sm:text-4xl font-bold tracking-tight tabular-nums">
                                 {{ number_format($totalBrandsCount ?? 0) }}+
                             </div>
-                            <div class="text-[16px] font-semibold text-white/95 leading-snug">
+                            <div class="text-[17px] font-semibold text-white/95 leading-snug">
                                 {{ __('Все бренды каталога') }}
                             </div>
                             <div class="text-[13px] text-white/60 leading-snug">
