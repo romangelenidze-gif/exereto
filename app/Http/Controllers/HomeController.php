@@ -58,6 +58,7 @@ class HomeController extends Controller
                         'subtitle' => $def['subtitle'],
                         'cta' => $def['cta'],
                         'url' => $def['url'],
+                        'count' => (int) ($def['count'] ?? 0),
                         'banner' => $def['banner'],
                         'gradient' => $def['gradient'],
                         'products' => $localized,
@@ -100,13 +101,20 @@ class HomeController extends Controller
      */
     private function blockDefinitions(iterable $tiles): array
     {
+        $fashion = $this->resolveBlockTarget($tiles, ['clothing', 'sales-offers'], 'Guess');
+        $kids = $this->resolveBlockTarget($tiles, ['kids', 'kids-clothing', 'children'], 'Energiers');
+        $shoes = $this->resolveBlockTarget($tiles, ['shoes', 'sneakers'], 'Sneakers');
+        $toys = $this->resolveBlockTarget($tiles, ['toys', 'lego', 'kids-toys'], 'LEGO');
+        $tech = $this->resolveBlockTarget($tiles, ['tech', 'electronics', 'gaming', 'gadgets'], 'Apple');
+
         return [
             [
                 'slug' => 'fashion',
                 'title' => __('Рекомендуемые предложения'),
                 'subtitle' => __('Подборка оригинальной одежды, сумок и аксессуаров от мировых брендов'),
-                'cta' => __('Все предложения'),
-                'url' => $this->resolveBlockUrl($tiles, ['clothing', 'sales-offers'], 'Guess'),
+                'cta' => __('Смотреть все предложения'),
+                'url' => $fashion['url'],
+                'count' => $fashion['count'],
                 'banner' => 'images/home-banners/fashion.webp',
                 'gradient' => 'from-stone-900 via-zinc-800 to-stone-700',
                 'feeds' => ['modivo', 'notos', 'stradivarius', 'cosselie', 'sephora'],
@@ -119,7 +127,8 @@ class HomeController extends Controller
                 'title' => __('Детская одежда и стиль'),
                 'subtitle' => __('Качественные коллекции для детей и подростков из греческих магазинов'),
                 'cta' => __('Все детские товары'),
-                'url' => $this->resolveBlockUrl($tiles, ['kids', 'kids-clothing', 'children'], 'Energiers'),
+                'url' => $kids['url'],
+                'count' => $kids['count'],
                 'banner' => 'images/home-banners/kids.webp',
                 'gradient' => 'from-amber-800 via-orange-700 to-amber-600',
                 'feeds' => ['energiers', 'adidas', 'modivo'],
@@ -132,7 +141,8 @@ class HomeController extends Controller
                 'title' => __('Кроссовки и обувь'),
                 'subtitle' => __('Новые релизы и хиты adidas, New Balance, Puma, Vans, Geox и других брендов'),
                 'cta' => __('Вся обувь'),
-                'url' => $this->resolveBlockUrl($tiles, ['shoes', 'sneakers'], 'Sneakers'),
+                'url' => $shoes['url'],
+                'count' => $shoes['count'],
                 'banner' => 'images/home-banners/sneakers.webp',
                 'gradient' => 'from-neutral-800 via-stone-700 to-neutral-600',
                 'feeds' => ['epapoutsia', 'adidas'],
@@ -145,7 +155,8 @@ class HomeController extends Controller
                 'title' => __('Игрушки и конструкторы'),
                 'subtitle' => __('LEGO, Playmobil, развивающие и STEM-наборы из официальных магазинов Греции'),
                 'cta' => __('Все игрушки'),
-                'url' => $this->resolveBlockUrl($tiles, ['toys', 'lego', 'kids-toys'], 'LEGO'),
+                'url' => $toys['url'],
+                'count' => $toys['count'],
                 'banner' => 'images/home-banners/toys.webp',
                 'gradient' => 'from-indigo-900 via-slate-800 to-blue-900',
                 'feeds' => ['toysgr', 'moustakas'],
@@ -158,7 +169,8 @@ class HomeController extends Controller
                 'title' => __('Техника и гаджеты'),
                 'subtitle' => __('Смартфоны, ноутбуки, планшеты, гейминг, аудио и дроны со склада Public'),
                 'cta' => __('Вся техника'),
-                'url' => $this->resolveBlockUrl($tiles, ['tech', 'electronics', 'gaming', 'gadgets'], 'Apple'),
+                'url' => $tech['url'],
+                'count' => $tech['count'],
                 'banner' => 'images/home-banners/tech.webp',
                 'gradient' => 'from-slate-950 via-zinc-900 to-slate-800',
                 'feeds' => ['public'],
@@ -172,24 +184,32 @@ class HomeController extends Controller
     /**
      * @param  iterable<int, mixed>  $tiles
      * @param  string[]  $candidateSlugs
+     * @return array{url: string, count: int}
      */
-    private function resolveBlockUrl(iterable $tiles, array $candidateSlugs, string $fallbackQuery): string
+    private function resolveBlockTarget(iterable $tiles, array $candidateSlugs, string $fallbackQuery): array
     {
         $available = [];
         foreach ($tiles as $tile) {
             $slug = is_array($tile) ? ($tile['slug'] ?? null) : ($tile->slug ?? null);
+            $count = is_array($tile) ? (int) ($tile['count'] ?? 0) : (int) ($tile->count ?? 0);
             if (!empty($slug)) {
-                $available[(string) $slug] = true;
+                $available[(string) $slug] = $count;
             }
         }
 
         foreach ($candidateSlugs as $slug) {
             if (isset($available[$slug])) {
-                return route('feed-category.show', ['slug' => $slug]);
+                return [
+                    'url' => route('feed-category.show', ['slug' => $slug]),
+                    'count' => $available[$slug],
+                ];
             }
         }
 
-        return route('product-search', ['q' => $fallbackQuery]);
+        return [
+            'url' => route('product-search', ['q' => $fallbackQuery]),
+            'count' => 0,
+        ];
     }
 
     /**
@@ -229,10 +249,10 @@ class HomeController extends Controller
 
             if ($onlyDiscounts) {
                 $q->where('discount_percent', '>=', 20)
-                  ->orderByDesc('discount_percent');
+                    ->orderByDesc('discount_percent');
             } else {
                 $q->orderByDesc('priority_score')
-                  ->orderByDesc('id');
+                    ->orderByDesc('id');
             }
 
             $chunk = $q->limit(24)

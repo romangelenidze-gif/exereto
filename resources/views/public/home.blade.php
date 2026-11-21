@@ -62,18 +62,32 @@
                         <h2 class="text-xl lg:text-2xl font-bold tracking-tight text-[#1d1d1f]">{{ $heroBlock['title'] }}</h2>
                         <p class="text-sm text-zinc-500 mt-0.5">{{ $heroBlock['subtitle'] }}</p>
                     </div>
-                    <a href="{{ $heroBlock['url'] }}" class="text-sm font-semibold text-[#0071e3] hover:underline shrink-0">
+                    <a href="{{ $heroBlock['url'] }}" class="hidden lg:inline-flex items-center gap-1 text-sm font-semibold text-[#0071e3] hover:underline shrink-0">
                         {{ $heroBlock['cta'] }} &rarr;
                     </a>
                 </div>
 
-                <!-- Мобильный: горизонтальный свайп с точным левым отступом (scroll-px); Десктоп: сетка по 4 в ряд -->
+                <!-- Мобильный: горизонтальный свайп с финальной карточкой CTA; Десктоп: сетка по 4 в ряд -->
                 <div class="flex lg:grid lg:grid-cols-4 gap-3 lg:gap-5 overflow-x-auto lg:overflow-visible snap-x snap-mandatory scroll-px-4 sm:scroll-px-6 lg:scroll-px-0 pb-2 lg:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     @foreach($heroBlock['products'] as $index => $product)
                         <div class="w-[46%] sm:w-[31%] lg:w-auto shrink-0 snap-start">
                             <x-public-ui.product-card :product="$product" :is-first="$index === 0" />
                         </div>
                     @endforeach
+
+                    <!-- Финальная карточка перехода в категорию (мобильный / планшет) -->
+                    <a href="{{ $heroBlock['url'] }}"
+                       @click="loading = true"
+                       class="lg:hidden w-[46%] sm:w-[31%] shrink-0 snap-start flex flex-col items-center justify-center text-center gap-1.5 rounded-3xl px-4 py-8 hover:bg-white/60 active:bg-white transition-colors group">
+                        <span class="text-[16px] font-semibold leading-snug text-[#0071e3] group-hover:underline">
+                            {{ $heroBlock['cta'] }}
+                        </span>
+                        @if(!empty($heroBlock['count']))
+                            <span class="text-[15px] font-medium text-[#1d1d1f] tabular-nums">
+                                {{ number_format((int) $heroBlock['count']) }}
+                            </span>
+                        @endif
+                    </a>
                 </div>
             </section>
         @endif
@@ -140,7 +154,7 @@
                         <h2 class="text-xl lg:text-2xl font-bold tracking-tight text-[#1d1d1f]">{{ $block['title'] }}</h2>
                         <p class="text-sm text-zinc-500 mt-0.5">{{ $block['subtitle'] }}</p>
                     </div>
-                    <a href="{{ $block['url'] }}" class="text-sm font-semibold text-[#0071e3] hover:underline shrink-0">
+                    <a href="{{ $block['url'] }}" class="hidden lg:inline-flex items-center gap-1 text-sm font-semibold text-[#0071e3] hover:underline shrink-0">
                         {{ $block['cta'] }} &rarr;
                     </a>
                 </div>
@@ -151,6 +165,20 @@
                             <x-public-ui.product-card :product="$product" />
                         </div>
                     @endforeach
+
+                    <!-- Финальная карточка перехода в категорию (мобильный / планшет) -->
+                    <a href="{{ $block['url'] }}"
+                       @click="loading = true"
+                       class="lg:hidden w-[46%] sm:w-[31%] shrink-0 snap-start flex flex-col items-center justify-center text-center gap-1.5 rounded-3xl px-4 py-8 hover:bg-white/60 active:bg-white transition-colors group">
+                        <span class="text-[16px] font-semibold leading-snug text-[#0071e3] group-hover:underline">
+                            {{ $block['cta'] }}
+                        </span>
+                        @if(!empty($block['count']))
+                            <span class="text-[15px] font-medium text-[#1d1d1f] tabular-nums">
+                                {{ number_format((int) $block['count']) }}
+                            </span>
+                        @endif
+                    </a>
                 </div>
             </section>
         @endforeach
