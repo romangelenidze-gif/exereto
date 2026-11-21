@@ -45,111 +45,37 @@
 
     <div class="max-w-[96rem] mx-auto px-6 sm:px-6 lg:px-8 w-full">
 
-        <!-- МОБИЛЬНАЯ ШАПКА (< lg): стилистика apple-search-bar (мягкая тень, синяя лупа, контрастный текст) -->
-        <div class="relative flex lg:hidden items-center gap-6.5 pt-6 pb-2.5"
-             x-data="{
-                query: @js((string) request('q', '')),
-                suggestions: [],
-                openSuggestions: false,
-                activeIndex: -1,
-                abortCtrl: null,
-                fetchSuggestions() {
-                    this.activeIndex = -1;
-                    if (this.query.trim().length < 2) {
-                        this.suggestions = [];
-                        this.openSuggestions = false;
-                        return;
-                    }
-                    if (this.abortCtrl) this.abortCtrl.abort();
-                    this.abortCtrl = new AbortController();
-
-                    fetch(`{{ route('api.autocomplete') }}?q=${encodeURIComponent(this.query.trim())}`, {
-                        signal: this.abortCtrl.signal,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept-Language': '{{ app()->getLocale() }}'
-                        },
-                        credentials: 'same-origin'
-                    })
-                    .then(r => r.json())
-                    .then(data => {
-                        this.suggestions = data.suggestions || [];
-                        this.activeIndex = -1;
-                        this.openSuggestions = this.suggestions.length > 0;
-                    })
-                    .catch(err => {
-                        if (err.name !== 'AbortError') {
-                            this.suggestions = [];
-                            this.openSuggestions = false;
-                        }
-                    });
-                },
-                selectSuggestion(item) {
-                    this.query = item.label || item.value;
-                    this.openSuggestions = false;
-                    this.$dispatch('search-loading');
-                    window.location.href = item.url || `{{ route('product-search') }}?q=${encodeURIComponent(item.value)}`;
-                }
-             }"
-             @click.outside="openSuggestions = false"
-             @scroll.window="openSuggestions = false">
-
+        <!-- МОБИЛЬНАЯ ШАПКА (< lg): лёгкий триггер полноэкранного поиска -->
+        <div class="relative flex lg:hidden items-center gap-6.5 pt-6 pb-2.5">
             <a href="{{ route('home') }}" class="text-[28px] leading-none font-semibold tracking-tight text-[#1d1d1f] shrink-0">
                 exereto
             </a>
 
-            <div class="flex-1 min-w-0 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-black/[0.05] focus-within:border-[#0071e3]/35 focus-within:ring-2 focus-within:ring-[#0071e3]/15 transition-all">
-                <form action="{{ route('product-search') }}" method="GET"
-                      class="flex items-center gap-2 pl-4 pr-2 h-12">
-                    <button type="submit" aria-label="{{ __('Найти') }}" class="text-[#0071e3] hover:opacity-85 transition-opacity shrink-0 cursor-pointer">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <div class="flex-1 min-w-0 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-black/[0.05]">
+                <div class="flex items-center gap-2 pl-4 pr-2 h-12">
+                    <button type="button"
+                            @click="$dispatch('open-search')"
+                            aria-label="{{ __('Поиск') }}"
+                            class="flex-1 min-w-0 flex items-center gap-2.5 h-full text-left cursor-pointer focus:outline-none">
+                        <svg class="w-5 h-5 text-[#0071e3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
+                        @if(filled(request('q')))
+                            <span class="text-[15px] font-medium text-[#1d1d1f] truncate">{{ request('q') }}</span>
+                        @else
+                            <span class="text-[15px] font-medium text-[#6e6e73] truncate">{{ __('Что вы ищете?') }}</span>
+                        @endif
                     </button>
 
-                    <input type="text"
-                           name="q"
-                           x-model="query"
-                           @focus="if (suggestions.length > 0) openSuggestions = true"
-                           @input.debounce.180ms="fetchSuggestions()"
-                           @keydown.escape="openSuggestions = false"
-                           placeholder="{{ __('Что вы ищете?') }}"
-                           required
-                           maxlength="200"
-                           autocomplete="off"
-                           spellcheck="false"
-                           class="w-full min-w-0 bg-transparent border-none text-[15px] font-medium text-[#1d1d1f] placeholder:text-[#6e6e73] focus:outline-none focus:ring-0">
-
                     <button type="button"
-                            @click="$dispatch('open-categories')"
+                            @click.stop="$dispatch('open-categories')"
                             aria-label="{{ __('Категории') }}"
                             class="p-2 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors shrink-0 cursor-pointer">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
                     </button>
-                </form>
-            </div>
-
-            <!-- Подсказки автокомплита на всю ширину мобильной шапки -->
-            <div x-show="openSuggestions"
-                 x-cloak
-                 role="listbox"
-                 class="absolute left-0 right-0 top-full mt-1.5 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-black/[0.06] overflow-y-auto max-h-80 z-50 text-left">
-                <template x-for="item in suggestions" :key="item.url || item.value">
-                    <div role="option"
-                         @click="selectSuggestion(item)"
-                         class="px-4 py-2.5 flex items-center justify-between gap-2.5 cursor-pointer hover:bg-black/[0.04] border-b border-black/[0.04] last:border-b-0">
-                        <div class="flex items-center gap-2.5 min-w-0">
-                            <img x-show="item.image" :src="item.image" alt="" class="w-8 h-8 rounded-lg object-cover bg-[#f5f5f7] shrink-0">
-                            <span class="text-sm font-medium text-[#1d1d1f] truncate" x-text="item.label"></span>
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                            <span x-show="item.price" class="text-xs font-semibold text-[#1d1d1f]" x-text="item.price"></span>
-                            <span class="text-[11px] px-2 py-0.5 bg-[#0071e3]/10 text-[#0071e3] rounded-full font-semibold" x-text="item.badge"></span>
-                        </div>
-                    </div>
-                </template>
+                </div>
             </div>
         </div>
 

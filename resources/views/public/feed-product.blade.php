@@ -242,4 +242,18 @@
         </section>
     @endif
 
+<script>
+    if (window.ExeretoRecent) {
+        window.ExeretoRecent.push(@js([
+            'feed' => (string) $product->feed,
+            'sku' => (string) $product->sku,
+            'brand' => (string) ($product->brand ?? ''),
+            'title' => (string) $title,
+            'price' => '€' . number_format((float) $product->price, 2, '.', ' '),
+            'discount' => (int) ($product->discount_percent ?? 0),
+            'image' => (string) ($product->image_url ?? ''),
+        ]));
+    }
+</script>    
+
 </x-layouts.public>
