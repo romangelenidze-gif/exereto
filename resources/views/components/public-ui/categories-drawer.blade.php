@@ -15,11 +15,33 @@
     <div x-show="categoriesDrawerOpen"
          x-cloak
          @open-categories.window="categoriesDrawerOpen = true"
-         x-effect="document.body.classList.toggle('overflow-hidden', categoriesDrawerOpen)"
+         x-effect="
+            if (categoriesDrawerOpen) {
+                const sbw = window.innerWidth - document.documentElement.clientWidth;
+                if (sbw > 0) document.body.style.paddingRight = sbw + 'px';
+                document.body.classList.add('overflow-hidden');
+            } else {
+                document.body.classList.remove('overflow-hidden');
+                document.body.style.paddingRight = '';
+            }
+         "
          @keydown.escape.window="categoriesDrawerOpen = false"
-         class="fixed inset-0 z-[9998] flex justify-end bg-black/35 backdrop-blur-[2px]"
-         @click.self="categoriesDrawerOpen = false"
+         x-transition:enter="transition duration-300"
+         x-transition:leave="transition duration-200"
+         class="fixed inset-0 z-[9998] flex justify-end"
     >
+        <!-- Белый матовый фон с плавным появлением и исчезновением -->
+        <div x-show="categoriesDrawerOpen"
+             x-transition:enter="transition-opacity ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition-opacity ease-in duration-200"
+             x-transition:leave-start="opacity-0"
+             x-transition:leave-end="opacity-0"
+             @click="categoriesDrawerOpen = false"
+             class="fixed inset-0 bg-white/40 backdrop-blur-md will-change-[opacity]"
+        ></div>
+
         <div x-show="categoriesDrawerOpen"
              x-data="{
                 activeTab: 'all',
@@ -31,18 +53,51 @@
                 switchTab(key) {
                     this.activeTab = key;
                     this.openDept = null;
+                    this.$nextTick(() => {
+                        if (this.$refs.scrollContainer) {
+                            this.$refs.scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                    });
                 },
-                toggleDept(slug) {
-                    this.openDept = (this.openDept === slug) ? null : slug;
+                toggleDept(slug, cardEl) {
+                    const isOpening = this.openDept !== slug;
+                    this.openDept = isOpening ? slug : null;
+                    if (isOpening && cardEl) {
+                        this.$nextTick(() => this.focusCard(cardEl));
+                        setTimeout(() => {
+                            if (this.openDept === slug) {
+                                this.focusCard(cardEl);
+                            }
+                        }, 280);
+                    }
+                },
+                focusCard(cardEl) {
+                    const container = this.$refs.scrollContainer;
+                    if (!container || !cardEl) return;
+
+                    const cRect = container.getBoundingClientRect();
+                    const elRect = cardEl.getBoundingClientRect();
+                    const elTop = elRect.top - cRect.top + container.scrollTop;
+                    const elBottom = elTop + elRect.height;
+                    const visibleBottom = container.scrollTop + container.clientHeight;
+
+                    if (elBottom > visibleBottom - 16) {
+                        const targetTop = elRect.height >= container.clientHeight - 24
+                            ? elTop - 12
+                            : Math.min(elTop - 12, elBottom - container.clientHeight + 24);
+                        container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+                    } else if (elTop < container.scrollTop + 8) {
+                        container.scrollTo({ top: Math.max(0, elTop - 12), behavior: 'smooth' });
+                    }
                 }
              }"
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="translate-y-full sm:translate-y-0 sm:translate-x-full opacity-0"
-             x-transition:enter-end="translate-y-0 sm:translate-x-0 opacity-100"
-             x-transition:leave="transition ease-in duration-200"
-             x-transition:leave-start="translate-y-0 sm:translate-x-0 opacity-100"
-             x-transition:leave-end="translate-y-full sm:translate-y-0 sm:translate-x-full opacity-0"
-             class="w-full sm:max-w-md bg-white h-full flex flex-col shadow-2xl overflow-hidden"
+             x-transition:enter="transition-transform ease-out duration-300"
+             x-transition:enter-start="translate-y-full sm:translate-y-0 sm:translate-x-full"
+             x-transition:enter-end="translate-y-0 sm:translate-x-0"
+             x-transition:leave="transition-transform ease-in duration-200"
+             x-transition:leave-start="translate-y-0 sm:translate-x-0"
+             x-transition:leave-end="translate-y-full sm:translate-y-0 sm:translate-x-full"
+             class="relative z-10 w-full sm:max-w-md bg-white h-full flex flex-col shadow-2xl border-l border-black/[0.08] overflow-hidden will-change-transform"
         >
             <!-- Шапка шторки -->
             <div class="relative flex items-center justify-center px-5 py-4 border-b border-black/[0.06] shrink-0">
@@ -74,9 +129,9 @@
             </div>
 
             <!-- Прокручиваемое дерево категорий -->
-            <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
+            <div x-ref="scrollContainer" class="flex-1 overflow-y-auto p-4 sm:p-5 pb-10 space-y-3">
 
-                <!-- Премиальный блок скидок (без сходства с уведомлением об ошибке) -->
+                <!-- Премиальный блок скидок -->
                 <a href="{{ $salesUrl }}"
                    class="flex items-center justify-between gap-3.5 px-4 py-4 rounded-2xl bg-[#1d1d1f] hover:bg-[#2c2c2e] text-white transition-colors group">
                     <div class="flex items-center gap-3.5 min-w-0">
@@ -97,15 +152,15 @@
                     </svg>
                 </a>
 
-                <!-- 7 департаментов L1 с крупной графикой и типографикой -->
+                <!-- 7 департаментов L1 с автофокусом при раскрытии -->
                 <template x-for="dept in departments" :key="activeTab + ':' + dept.slug">
-                    <div class="rounded-2xl bg-[#f5f5f7] overflow-hidden border border-black/[0.04]"
+                    <div data-dept-card
+                         class="rounded-2xl bg-[#f5f5f7] overflow-hidden border border-black/[0.04]"
                          x-data="{ imgError: false }">
                         <button type="button"
-                                @click="dept.children.length ? toggleDept(dept.slug) : (window.location.href = dept.url)"
+                                @click="dept.children.length ? toggleDept(dept.slug, $el.closest('[data-dept-card]')) : (window.location.href = dept.url)"
                                 class="w-full flex items-center justify-between gap-3.5 pl-2.5 pr-4 py-2 text-left hover:bg-[#ececf0] transition-colors cursor-pointer">
                             <div class="flex items-center gap-4 min-w-0">
-                                <!-- Крупный слот под фото (локальная иконка или реальное фото товара) -->
                                 <div class="w-[72px] h-[72px] rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
                                     <img x-show="dept.image && !imgError"
                                          :src="dept.image"

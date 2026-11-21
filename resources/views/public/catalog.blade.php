@@ -28,7 +28,6 @@
      x-data="{
         loading: false,
         mobileFiltersOpen: false,
-        categoriesDrawerOpen: false,
         showAllBrands: false,
         loadingMore: false,
         initialQuery: @js($searchQuery ?? ''),
@@ -155,9 +154,6 @@
         </div>
     </template>
 
-    <!-- Выдвижная шторка категорий (по кнопке ☰ в строке поиска) -->
-    <x-public-ui.categories-drawer :categories="$allCategories" />
-
     <!-- Полноширинный контейнер Apple -->
     <div class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-5 sm:space-y-6">
 
@@ -185,7 +181,7 @@
                         class="apple-search-input flex-1"
                     >
                     <button type="button"
-                            @click="categoriesDrawerOpen = true"
+                            @click="$dispatch('open-categories')"
                             aria-label="{{ __('Категории') }}"
                             class="inline-flex items-center gap-2 p-2 sm:px-3 sm:py-1.5 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -221,27 +217,31 @@
             </div>
         </div>
 
-<!-- Хлебные крошки: Главная › L1 › L2 › L3 -->
-        <nav class="flex items-center gap-1.5 app-text-xs text-[#86868b] overflow-x-auto no-scrollbar whitespace-nowrap">
-            @if(!empty($breadcrumbs))
-                @foreach($breadcrumbs as $crumb)
-                    @if(!$loop->first)
-                        <span class="shrink-0">&rsaquo;</span>
-                    @endif
-                    @if(!empty($crumb['url']))
+<!-- Хлебные крошки: путь наверх без дублирования текущего заголовка H1 -->
+        @php
+            $parentCrumbs = !empty($breadcrumbs)
+                ? array_values(array_filter($breadcrumbs, fn ($c) => !empty($c['url'])))
+                : [['label' => __('Главная'), 'url' => route('home')]];
+        @endphp
+        @if(!empty($parentCrumbs))
+            <nav aria-label="Breadcrumb" class="flex items-center gap-1.5 app-text-xs text-[#86868b] overflow-x-auto no-scrollbar whitespace-nowrap">
+                @if(count($parentCrumbs) === 1)
+                    <a href="{{ $parentCrumbs[0]['url'] }}" class="inline-flex items-center gap-1 hover:text-[#0071e3] transition-colors shrink-0">
+                        <span>&lsaquo;</span>
+                        <span>{{ $parentCrumbs[0]['label'] }}</span>
+                    </a>
+                @else
+                    @foreach($parentCrumbs as $crumb)
+                        @if(!$loop->first)
+                            <span class="shrink-0">&rsaquo;</span>
+                        @endif
                         <a href="{{ $crumb['url'] }}" class="hover:text-[#0071e3] transition-colors shrink-0">
                             {{ $crumb['label'] }}
                         </a>
-                    @else
-                        <span class="text-[#1d1d1f] font-medium truncate">{{ $crumb['label'] }}</span>
-                    @endif
-                @endforeach
-            @else
-                <a href="{{ route('home') }}" class="hover:text-[#0071e3] transition-colors">{{ __('Главная') }}</a>
-                <span>&rsaquo;</span>
-                <span class="text-[#1d1d1f] font-medium truncate">{{ $pageTitle }}</span>
-            @endif
-        </nav>
+                    @endforeach
+                @endif
+            </nav>
+        @endif
 
         <!-- Двухколоночная сетка на всю ширину: Слева сайдбар (десктоп), Справа подкатегории + выдача -->
         <div class="grid grid-cols-1 lg:grid-cols-[270px_minmax(0,1fr)] gap-6 xl:gap-8 items-start">
@@ -603,7 +603,7 @@
                         <h3 class="app-text-title font-semibold">{{ __('Товары не найдены') }}</h3>
                         <p class="app-text-sub text-sm">{{ __('Попробуйте изменить запрос, ослабить фильтры или выбрать категорию из меню сверху.') }}</p>
                         <div class="pt-2">
-                            <button type="button" @click="categoriesDrawerOpen = true" class="apple-btn-primary">
+                            <button type="button" @click="$dispatch('open-categories')" class="apple-btn-primary">
                                 {{ __('Открыть категории') }}
                             </button>
                         </div>
