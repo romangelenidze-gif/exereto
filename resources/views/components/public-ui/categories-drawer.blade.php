@@ -63,12 +63,11 @@
                     const isOpening = this.openDept !== slug;
                     this.openDept = isOpening ? slug : null;
                     if (isOpening && cardEl) {
-                        this.$nextTick(() => this.focusCard(cardEl));
                         setTimeout(() => {
                             if (this.openDept === slug) {
                                 this.focusCard(cardEl);
                             }
-                        }, 280);
+                        }, 220);
                     }
                 },
                 focusCard(cardEl) {
@@ -188,25 +187,26 @@
                             </svg>
                         </button>
 
-                        <!-- Подкатегории L2 -->
-                        <div x-show="openDept === dept.slug"
-                             x-collapse
-                             x-cloak
-                             class="bg-white/90 border-t border-black/[0.05] divide-y divide-black/[0.04]">
-                            <a :href="dept.url"
-                               class="flex items-center justify-between px-4 py-3 text-[15px] font-semibold text-[#0071e3] hover:bg-[#0071e3]/[0.05] transition-colors">
-                                <span>{{ __('Смотреть все') }} &rarr;</span>
-                                <span class="text-[13px] text-[#6e6e73] font-normal" x-text="dept.count.toLocaleString()"></span>
-                            </a>
-                            <template x-for="child in dept.children" :key="child.slug">
-                                <a :href="child.url"
-                                   class="flex items-center justify-between gap-2 px-4 py-3 text-[15px] text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors">
-                                    <span class="truncate" x-text="child.label"></span>
-                                    <span class="text-[13px] text-[#6e6e73] shrink-0" x-text="child.count.toLocaleString()"></span>
-                                </a>
-                            </template>
+                        <!-- Подкатегории L2 (плавный CSS Grid-аккордеон без плагина x-collapse) -->
+                        <div class="grid transition-[grid-template-rows] duration-200 ease-out"
+                             :class="openDept === dept.slug ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'">
+                            <div class="overflow-hidden">
+                                <div class="bg-white/90 border-t border-black/[0.05] divide-y divide-black/[0.04]">
+                                    <a :href="dept.url"
+                                       class="flex items-center justify-between px-4 py-3 text-[15px] font-semibold text-[#0071e3] hover:bg-[#0071e3]/[0.05] transition-colors">
+                                        <span>{{ __('Смотреть все') }} &rarr;</span>
+                                        <span class="text-[13px] text-[#6e6e73] font-normal" x-text="dept.count.toLocaleString()"></span>
+                                    </a>
+                                    <template x-for="child in dept.children" :key="child.slug">
+                                        <a :href="child.url"
+                                           class="flex items-center justify-between gap-2 px-4 py-3 text-[15px] text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors">
+                                            <span class="truncate" x-text="child.label"></span>
+                                            <span class="text-[13px] text-[#6e6e73] shrink-0" x-text="child.count.toLocaleString()"></span>
+                                        </a>
+                                    </template>
+                                </div>
+                            </div>
                         </div>
-                    </div>
                 </template>
 
             </div>
