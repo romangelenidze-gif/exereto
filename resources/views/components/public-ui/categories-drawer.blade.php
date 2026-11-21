@@ -96,10 +96,10 @@
              x-transition:leave="transition-transform ease-in duration-200"
              x-transition:leave-start="translate-y-0 sm:translate-x-0"
              x-transition:leave-end="translate-y-full sm:translate-y-0 sm:translate-x-full"
-             class="relative z-10 w-full sm:max-w-md bg-white h-full flex flex-col shadow-2xl border-l border-black/[0.08] overflow-hidden will-change-transform"
+             class="relative z-10 w-full sm:max-w-md bg-[#f5f5f7] h-full flex flex-col shadow-2xl border-l border-black/[0.08] overflow-hidden will-change-transform"
         >
             <!-- Шапка шторки -->
-            <div class="relative flex items-center justify-center px-5 py-4 border-b border-black/[0.06] shrink-0">
+            <div class="relative flex items-center justify-center px-5 pt-5 pb-3 shrink-0">
                 <h2 class="text-[19px] font-semibold tracking-tight text-[#1d1d1f]">
                     {{ __('Категории') }}
                 </h2>
@@ -114,8 +114,8 @@
             </div>
 
             <!-- Вкладки пола (Все / Женщинам / Мужчинам / Детям) -->
-            <div class="px-4 py-3 border-b border-black/[0.06] shrink-0 bg-[#f5f5f7]/60">
-                <div class="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-black/[0.05]">
+            <div class="px-4 pb-3 border-b border-black/[0.06] shrink-0">
+                <div class="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-black/[0.06]">
                     @foreach($tabs as $t)
                         <button type="button"
                                 @click="switchTab('{{ $t['key'] }}')"
@@ -154,11 +154,11 @@
                 <!-- 7 департаментов L1 с автофокусом при раскрытии -->
                 <template x-for="dept in departments" :key="activeTab + ':' + dept.slug">
                     <div data-dept-card
-                         class="rounded-2xl bg-[#f5f5f7] overflow-hidden border border-black/[0.04]"
+                         class="rounded-2xl bg-white overflow-hidden border border-black/[0.05] shadow-[0_2px_10px_rgba(0,0,0,0.03)]"
                          x-data="{ imgError: false }">
                         <button type="button"
                                 @click="dept.children.length ? toggleDept(dept.slug, $el.closest('[data-dept-card]')) : (window.location.href = dept.url)"
-                                class="w-full flex items-center justify-between gap-3.5 pl-2.5 pr-4 py-2 text-left hover:bg-[#ececf0] transition-colors cursor-pointer">
+                                class="w-full flex items-center justify-between gap-3.5 pl-2.5 pr-4 py-2 text-left hover:bg-[#fafafa] active:bg-[#f5f5f7] transition-colors cursor-pointer">
                             <div class="flex items-center gap-4 min-w-0">
                                 <div class="w-[72px] h-[72px] rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
                                     <img x-show="dept.image && !imgError"
@@ -167,7 +167,7 @@
                                          loading="lazy"
                                          x-on:error="imgError = true"
                                          class="w-full h-full object-contain mix-blend-multiply">
-                                    <div x-show="!dept.image || imgError" x-cloak class="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center text-[#86868b]">
+                                    <div x-show="!dept.image || imgError" x-cloak class="w-12 h-12 rounded-xl bg-[#f5f5f7] flex items-center justify-center text-[#86868b]">
                                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                         </svg>
@@ -187,11 +187,11 @@
                             </svg>
                         </button>
 
-                        <!-- Подкатегории L2 (плавный CSS Grid-аккордеон без плагина x-collapse) -->
+                        <!-- Подкатегории L2 -->
                         <div class="grid transition-[grid-template-rows] duration-200 ease-out"
                              :class="openDept === dept.slug ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'">
                             <div class="overflow-hidden">
-                                <div class="bg-white/90 border-t border-black/[0.05] divide-y divide-black/[0.04]">
+                                <div class="bg-white border-t border-black/[0.05] divide-y divide-black/[0.04]">
                                     <a :href="dept.url"
                                        class="flex items-center justify-between px-4 py-3 text-[15px] font-semibold text-[#0071e3] hover:bg-[#0071e3]/[0.05] transition-colors">
                                         <span>{{ __('Смотреть все') }} &rarr;</span>

@@ -143,8 +143,8 @@
              :class="searchOpen ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'"
              class="fixed inset-0 z-[9995] flex flex-col bg-[#f5f5f7] transition-[opacity,visibility] duration-200 ease-out"
         >
-            <!-- Верхняя строка: точные отступы шапки (px-6 pt-6 pb-3), капсула плавно растягивается поверх логотипа -->
-            <div class="px-6 pt-6 pb-3 bg-white border-b border-black/[0.06] shrink-0">
+        <!-- Верхняя строка: единый фон #f5f5f7 без белой полосы и разделителя -->
+            <div class="px-6 pt-6 pb-2.5 bg-[#f5f5f7] shrink-0">
                 <div :class="searchOpen ? 'ml-0' : 'ml-[116px]'"
                      class="transition-[margin] duration-250 ease-out">
                     <form @submit.prevent="submitSearch()"
