@@ -3,7 +3,7 @@
     $headerCategories = app(\App\Services\FeedCategoryTiles::class)->get();
 @endphp
 
-<!-- На мобильном (< lg): умная липкая шапка (прячется при скролле вниз, появляется при скролле вверх). На десктопе (>= lg): статичная -->
+<!-- На мобильном (< lg): умная липкая шапка. На десктопе (>= lg): статичная -->
 <header class="sticky top-0 lg:static z-40 text-[#1d1d1f] w-full transition-transform duration-300 ease-out will-change-transform"
         x-data="{
             hidden: false,
@@ -45,7 +45,7 @@
 
     <div class="max-w-[96rem] mx-auto px-6 sm:px-6 lg:px-8 w-full">
 
-        <!-- МОБИЛЬНАЯ ШАПКА (< lg): твои отступы, логотип и обводка поиска -->
+        <!-- МОБИЛЬНАЯ ШАПКА (< lg): стилистика apple-search-bar (мягкая тень, синяя лупа, контрастный текст) -->
         <div class="relative flex lg:hidden items-center gap-6.5 pt-6 pb-2.5"
              x-data="{
                 query: @js((string) request('q', '')),
@@ -98,11 +98,11 @@
                 exereto
             </a>
 
-            <div class="flex-1 min-w-0 border rounded-full border-black/[0.20]">
+            <div class="flex-1 min-w-0 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-black/[0.05] focus-within:border-[#0071e3]/35 focus-within:ring-2 focus-within:ring-[#0071e3]/15 transition-all">
                 <form action="{{ route('product-search') }}" method="GET"
-                      class="flex items-center gap-2 bg-white rounded-full pl-3.5 pr-1.5 h-11">
-                    <button type="submit" aria-label="{{ __('Найти') }}" class="text-zinc-400 hover:text-[#0071e3] shrink-0 cursor-pointer">
-                        <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      class="flex items-center gap-2 pl-4 pr-2 h-12">
+                    <button type="submit" aria-label="{{ __('Найти') }}" class="text-[#0071e3] hover:opacity-85 transition-opacity shrink-0 cursor-pointer">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </button>
@@ -113,17 +113,17 @@
                            @focus="if (suggestions.length > 0) openSuggestions = true"
                            @input.debounce.180ms="fetchSuggestions()"
                            @keydown.escape="openSuggestions = false"
-                           placeholder="{{ __('Поиск') }}"
+                           placeholder="{{ __('Что вы ищете?') }}"
                            required
                            maxlength="200"
                            autocomplete="off"
                            spellcheck="false"
-                           class="w-full min-w-0 bg-transparent border-none text-[15px] text-[#1d1d1f] placeholder:text-zinc-400 focus:outline-none focus:ring-0">
+                           class="w-full min-w-0 bg-transparent border-none text-[15px] font-medium text-[#1d1d1f] placeholder:text-[#6e6e73] focus:outline-none focus:ring-0">
 
                     <button type="button"
                             @click="$dispatch('open-categories')"
                             aria-label="{{ __('Категории') }}"
-                            class="p-2 rounded-full text-[#1d1d1f] hover:bg-black/[0.05] transition-colors shrink-0 cursor-pointer">
+                            class="p-2 rounded-full text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors shrink-0 cursor-pointer">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
@@ -135,7 +135,7 @@
             <div x-show="openSuggestions"
                  x-cloak
                  role="listbox"
-                 class="absolute left-0 right-0 top-full mt-1 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-black/[0.06] overflow-y-auto max-h-80 z-50 text-left">
+                 class="absolute left-0 right-0 top-full mt-1.5 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-black/[0.06] overflow-y-auto max-h-80 z-50 text-left">
                 <template x-for="item in suggestions" :key="item.url || item.value">
                     <div role="option"
                          @click="selectSuggestion(item)"
@@ -144,13 +144,16 @@
                             <img x-show="item.image" :src="item.image" alt="" class="w-8 h-8 rounded-lg object-cover bg-[#f5f5f7] shrink-0">
                             <span class="text-sm font-medium text-[#1d1d1f] truncate" x-text="item.label"></span>
                         </div>
-                        <span class="text-[11px] px-2 py-0.5 bg-[#0071e3]/10 text-[#0071e3] rounded-full font-semibold shrink-0" x-text="item.badge"></span>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span x-show="item.price" class="text-xs font-semibold text-[#1d1d1f]" x-text="item.price"></span>
+                            <span class="text-[11px] px-2 py-0.5 bg-[#0071e3]/10 text-[#0071e3] rounded-full font-semibold" x-text="item.badge"></span>
+                        </div>
                     </div>
                 </template>
             </div>
         </div>
 
-        <!-- ДЕСКТОПНАЯ ШАПКА (>= lg) — без изменений -->
+        <!-- ДЕСКТОПНАЯ ШАПКА (>= lg) -->
         <div class="hidden lg:flex items-center justify-center gap-8 h-20">
             @unless($isHomePage)
                 <a href="{{ route('home') }}" class="apple-section-title !text-xl flex items-center shrink-0">

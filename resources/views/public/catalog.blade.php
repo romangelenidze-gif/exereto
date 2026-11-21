@@ -162,7 +162,7 @@
     <div class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-5 sm:space-y-6">
 
         <!-- Поисковая строка: на мобильном только иконка ☰ без слова «Категории» -->
-        <div class="max-w-4xl mx-auto relative" @click.outside="openSuggestions = false; activeIndex = -1">
+        <div class="hidden lg:block max-w-4xl mx-auto relative" @click.outside="openSuggestions = false; activeIndex = -1">
             <form @submit.prevent="submitSearchBar()">
                 <div class="apple-search-bar flex items-center justify-between gap-2">
                     <button type="submit" aria-label="{{ __('Найти') }}" class="p-1.5 text-[#0071e3] hover:opacity-85 transition-opacity cursor-pointer shrink-0">
