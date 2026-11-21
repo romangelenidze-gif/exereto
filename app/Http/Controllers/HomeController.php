@@ -69,32 +69,200 @@ class HomeController extends Controller
             }
         );
 
-        // 2. Популярные бренды
-        $curated = [
-            'adidas', 'New Balance', 'Puma', 'Tommy Hilfiger', 'Calvin Klein',
-            'Guess', 'Stradivarius', 'Polo Ralph Lauren', 'BOSS', 'Vans',
-            'Reebok', 'Geox', 'Sephora Collection', 'Cosselie', 'LEGO', 'Apple',
-        ];
+        // 2. Полный индекс всех активных брендов (для шторки A–Z и счётчиков, 1 запрос на 30 часов)
+        $allBrandsIndex = Cache::remember(
+            'home.all_brands_index.v1',
+            now()->addHours(30),
+            fn () => $this->fetchAllBrandsIndex()
+        );
 
-        $brands = [];
-        foreach ($curated as $b) {
-            $brands[] = [
-                'name' => $b,
-                'url' => route('product-search', ['q' => $b]),
-                'external' => false,
-            ];
-        }
+        // 3. 7 флагманских бренд-витрин с живыми коллажами из 3 фото (в кэше чистые массивы)
+        $rawShowcases = Cache::remember(
+            'home.brand_showcases.v1',
+            now()->addHours(30),
+            fn () => $this->fetchBrandShowcases($categoryTiles, $allBrandsIndex)
+        );
+
+        $brandShowcases = array_map(fn (array $b) => $b + [
+            'url' => route('product-search', ['q' => $b['name']]),
+        ], $rawShowcases);
+
+        $totalBrandsCount = count($allBrandsIndex);
 
         // Первый блок — над популярными брендами, остальные — под ними
         $heroBlock = $blocks['fashion'] ?? null;
         $bottomBlocks = array_values(array_diff_key($blocks, ['fashion' => true]));
 
-        return view('public.home', compact('heroBlock', 'bottomBlocks', 'brands', 'tiles'));
+        return view('public.home', compact(
+            'heroBlock',
+            'bottomBlocks',
+            'brandShowcases',
+            'allBrandsIndex',
+            'totalBrandsCount',
+            'tiles'
+        ));
+    }
+
+    /**
+     * Загружает все активные бренды с количеством товаров и максимальной скидкой за 1 индексный запрос.
+     *
+     * @return array<int, array{n: string, c: int, d: int}>
+     */
+    private function fetchAllBrandsIndex(): array
+    {
+        $rows = FeedProduct::query()
+            ->where('is_active', true)
+            ->where('in_stock', true)
+            ->whereNotNull('brand')
+            ->where('brand', '!=', '')
+            ->selectRaw('brand, COUNT(*) as cnt, MAX(discount_percent) as max_disc')
+            ->groupBy('brand')
+            ->orderByDesc('cnt')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $name = trim((string) $row->brand);
+            $cnt = (int) $row->cnt;
+            if ($name === '' || $cnt <= 0) {
+                continue;
+            }
+
+            $out[] = [
+                'n' => $name,
+                'c' => $cnt,
+                'd' => (int) ($row->max_disc ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Собирает 7 бренд-витрин (1 крупное фото слева + 2 миниатюры справа, реальный счётчик и max-скидка).
+     *
+     * @param  array<int, array{n: string, c: int, d: int}>  $allBrandsIndex
+     * @return array<int, array{name: string, count: int, max_discount: int, images: string[]}>
+     */
+    private function fetchBrandShowcases(FeedCategoryTiles $categoryTiles, array $allBrandsIndex): array
+    {
+        $curated = [
+            'adidas',
+            'New Balance',
+            'Guess',
+            'Tommy Hilfiger',
+            'Calvin Klein',
+            'BOSS',
+            'LEGO',
+        ];
+
+        $statsByLower = [];
+        foreach ($allBrandsIndex as $b) {
+            $statsByLower[mb_strtolower($b['n'])] = $b;
+        }
+
+        $showcases = [];
+        foreach ($curated as $brandName) {
+            $family = $categoryTiles->resolveMatchingBrands($brandName);
+            if ($family === []) {
+                $family = [$brandName];
+            }
+
+            $totalCount = 0;
+            $maxDiscount = 0;
+            foreach ($family as $member) {
+                $st = $statsByLower[mb_strtolower($member)] ?? null;
+                if ($st !== null) {
+                    $totalCount += $st['c'];
+                    if ($st['d'] > $maxDiscount) {
+                        $maxDiscount = $st['d'];
+                    }
+                }
+            }
+
+            if ($totalCount <= 0) {
+                continue;
+            }
+
+            // Берём до 40 топовых товаров бренда, чтобы отобрать 3 визуально разных фото (желательно из разных категорий)
+            $candidates = FeedProduct::query()
+                ->where('is_active', true)
+                ->where('in_stock', true)
+                ->whereIn('brand', $family)
+                ->whereNotNull('image_url')
+                ->where('image_url', '!=', '')
+                ->orderByDesc('priority_score')
+                ->orderByDesc('discount_percent')
+                ->limit(40)
+                ->get(['model_code', 'sku', 'category_id', 'image_url']);
+
+            $images = [];
+            $usedImages = [];
+            $usedModels = [];
+            $usedCats = [];
+
+            // Проход 1: приоритет разным категориям (напр. кроссовки + худи + сумка)
+            foreach ($candidates as $cand) {
+                $img = trim((string) $cand->image_url);
+                $model = mb_strtolower((string) ($cand->model_code ?: $cand->sku));
+                $catId = (int) ($cand->category_id ?? 0);
+
+                if ($img === '' || isset($usedImages[$img]) || isset($usedModels[$model])) {
+                    continue;
+                }
+                if ($catId > 0 && isset($usedCats[$catId])) {
+                    continue;
+                }
+
+                $images[] = $img;
+                $usedImages[$img] = true;
+                $usedModels[$model] = true;
+                if ($catId > 0) {
+                    $usedCats[$catId] = true;
+                }
+
+                if (count($images) >= 3) {
+                    break;
+                }
+            }
+
+            // Проход 2: добираем до 3 фото из разных моделей, если бренд монокатегорийный (напр. LEGO)
+            if (count($images) < 3) {
+                foreach ($candidates as $cand) {
+                    $img = trim((string) $cand->image_url);
+                    $model = mb_strtolower((string) ($cand->model_code ?: $cand->sku));
+
+                    if ($img === '' || isset($usedImages[$img]) || isset($usedModels[$model])) {
+                        continue;
+                    }
+
+                    $images[] = $img;
+                    $usedImages[$img] = true;
+                    $usedModels[$model] = true;
+
+                    if (count($images) >= 3) {
+                        break;
+                    }
+                }
+            }
+
+            if ($images === []) {
+                continue;
+            }
+
+            $showcases[] = [
+                'name' => $brandName,
+                'count' => $totalCount,
+                'max_discount' => $maxDiscount,
+                'images' => $images,
+            ];
+        }
+
+        return $showcases;
     }
 
     /**
      * Конфигурация тематических блоков главной.
-     * Баннеры кладутся в public/images/home-banners/{slug}.webp (пока файла нет — рендерится градиент).
      *
      * @param  iterable<int, mixed>  $tiles
      * @return array<int, array<string, mixed>>
