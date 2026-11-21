@@ -9,8 +9,13 @@
 
     $name = $card['title'] ?? $card['name'] ?? '';
     $imgUrl = $card['image_url'] ?? $card['image'] ?? '';
-    $price = $card['price'] ?? $card['price_amount'] ?? 0;
-    $oldPrice = $card['old_price'] ?? null;
+    $price = (float) ($card['price'] ?? $card['price_amount'] ?? 0);
+    $hasPriceRange = (bool) ($card['has_price_range'] ?? false);
+    $groupMinPrice = isset($card['group_min_price']) && (float) $card['group_min_price'] > 0
+        ? (float) $card['group_min_price']
+        : $price;
+    $displayPrice = $hasPriceRange ? $groupMinPrice : $price;
+    $oldPrice = (!$hasPriceRange || $groupMinPrice >= ($price - 0.01)) ? ($card['old_price'] ?? null) : null;
     $discount = (int) ($card['discount_percent'] ?? 0);
     $colour = $card['colour'] ?? $card['color'] ?? $card['attributes']['colour'] ?? $card['attributes']['color'] ?? null;
     $detailUrl = $card['detail_url'] ?? $card['product_url'] ?? '#';
@@ -29,7 +34,7 @@
                  decoding="async"
                  class="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500">
         @endif
-        @if($discount > 0)
+        @if($discount > 0 && (!$hasPriceRange || $groupMinPrice >= ($price - 0.01)))
             <span class="absolute top-3 left-3 z-20 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow">
                 -{{ $discount }}%
             </span>
@@ -54,7 +59,13 @@
 
         <div class="flex items-end justify-between pt-3 border-t border-zinc-100">
             <div>
-                <div class="text-lg font-bold text-zinc-900">€{{ number_format((float)$price, 2) }}</div>
+                <div class="text-lg font-bold text-zinc-900">
+                    @if($hasPriceRange)
+                        {{ __('от :price', ['price' => '€' . number_format($displayPrice, 2)]) }}
+                    @else
+                        €{{ number_format($displayPrice, 2) }}
+                    @endif
+                </div>
                 @if(!empty($oldPrice))
                     <div class="text-xs text-zinc-400 line-through">€{{ number_format((float)$oldPrice, 2) }}</div>
                 @endif

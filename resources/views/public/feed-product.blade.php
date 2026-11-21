@@ -170,7 +170,7 @@
                 </div>
             @endif
 
-            <!-- Другие расцветки -->
+            <!-- Другие расцветки (уникальные цвета, сохраняют текущую конфигурацию) -->
             @if($colorways->count() > 1)
                 <div class="apple-pdp-colors" role="list">
                     @foreach($colorways as $cw)
@@ -183,6 +183,29 @@
                             @endif
                         </a>
                     @endforeach
+                </div>
+            @endif
+
+            <!-- Выпадающий список конфигураций (память / связь / объём) -->
+            @if(!empty($variantOptions) && count($variantOptions) > 1)
+                <div class="space-y-1.5">
+                    <label for="pdp-variant-select" class="apple-pdp-label block">
+                        {{ $variantAxisLabel ?? __('Вариант') }}
+                    </label>
+                    <div class="relative">
+                        <select id="pdp-variant-select"
+                                onchange="if (this.value && this.value !== window.location.href) window.location.href = this.value;"
+                                class="w-full appearance-none rounded-2xl bg-white border border-black/12 hover:border-black/25 focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/15 pl-4 pr-11 py-3.5 text-[15px] font-semibold text-[#1d1d1f] shadow-[0_2px_8px_rgba(0,0,0,0.03)] transition-all cursor-pointer focus:outline-none">
+                            @foreach($variantOptions as $opt)
+                                <option value="{{ $opt['url'] }}" @selected($opt['is_active'])>
+                                    {{ $opt['label'] }} — {{ $opt['price_formatted'] }}@if(!$opt['same_color'] && $opt['colour'] !== '') ({{ $opt['colour'] }})@endif
+                                </option>
+                            @endforeach
+                        </select>
+                        <svg class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6e6e73]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
                 </div>
             @endif
 
@@ -231,16 +254,16 @@
 </div>
 
 <!-- Релевантные (похожие) товары -->
-    @if(isset($relatedProducts) && $relatedProducts->isNotEmpty())
-        <section class="max-w-[1680px] mx-auto px-6 md:px-10 xl:px-14 py-16 mt-0">
-            <h2 class="text-2xl font-bold tracking-tight text-zinc-900 mb-8">{{ __('Вам также может понравиться') }}</h2>
-            <div class="apple-product-grid apple-product-grid--6">
-                @foreach($relatedProducts as $related)
-                    <x-public-ui.product-card :product="$related" />
-                @endforeach
-            </div>
-        </section>
-    @endif
+@if(isset($relatedProducts) && $relatedProducts->isNotEmpty())
+    <section class="max-w-[1680px] mx-auto px-6 md:px-10 xl:px-14 py-16 mt-0">
+        <h2 class="text-2xl font-bold tracking-tight text-zinc-900 mb-8">{{ __('Вам также может понравиться') }}</h2>
+        <div class="apple-product-grid apple-product-grid--6">
+            @foreach($relatedProducts as $related)
+                <x-public-ui.product-card :product="$related" />
+            @endforeach
+        </div>
+    </section>
+@endif
 
 <script>
     if (window.ExeretoRecent) {
@@ -254,6 +277,6 @@
             'image' => (string) ($product->image_url ?? ''),
         ]));
     }
-</script>    
+</script>
 
 </x-layouts.public>

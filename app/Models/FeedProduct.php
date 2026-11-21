@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\Feeds\AwinLink;
 use App\Services\Feeds\FeedEntityLocalizer;
 use App\Services\Feeds\FeedText;
+use App\Services\Feeds\FeedVariantGrouper;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Searchable;
@@ -28,11 +29,14 @@ class FeedProduct extends Model
     {
         return [
             'price' => 'float',
+            'group_min_price' => 'float',
             'old_price' => 'float',
             'rating' => 'float',
             'delivery_cost' => 'float',
             'discount_percent' => 'integer',
             'priority_score' => 'integer',
+            'variants_count' => 'integer',
+            'has_price_range' => 'boolean',
             'in_stock' => 'boolean',
             'is_active' => 'boolean',
             'sizes' => 'array',
@@ -298,6 +302,17 @@ class FeedProduct extends Model
         $title = (string) $this->name;
         $colour = $this->colour;
 
+        $variantsCount = (int) ($this->variants_count ?? 1);
+        $hasPriceRange = (bool) ($this->has_price_range ?? false);
+        $groupMinPrice = $this->group_min_price !== null && $this->group_min_price > 0
+            ? (float) $this->group_min_price
+            : (float) $this->price;
+
+        // Если карточка объединяет несколько конфигураций (vg-), показываем чистое имя базовой модели без хвоста конкретной памяти/цвета
+        if ($variantsCount > 1 && str_starts_with((string) ($this->model_code ?? ''), FeedVariantGrouper::GENERATED_PREFIX)) {
+            $title = FeedVariantGrouper::cleanCardTitle($title, $this->variant_label, $colour);
+        }
+
         if ($locale !== 'el') {
             $dict = self::getTranslationDictionary();
             if ($title !== '' && FeedEntityLocalizer::containsGreek($title)) {
@@ -312,6 +327,10 @@ class FeedProduct extends Model
             'title' => $title,
             'brand' => $this->brand,
             'colour' => $colour,
+            'variant_label' => $this->variant_label,
+            'variants_count' => $variantsCount,
+            'has_price_range' => $hasPriceRange,
+            'group_min_price' => $groupMinPrice,
             'image_url' => $this->image_url,
             'price' => $this->price,
             'price_amount' => $this->price,

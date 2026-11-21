@@ -12,9 +12,9 @@ use Illuminate\Support\Facades\Schema;
 
 class SyncAllFeedsCommand extends Command
 {
-    protected $signature = 'feeds:sync-all {--skip-import : Пропустить загрузку фидов (только каскад, автокомплит и прогрев)}';
+    protected $signature = 'feeds:sync-all {--skip-import : Пропустить загрузку фидов (только группировка, каскад, автокомплит и прогрев)}';
 
-    protected $description = 'Единый ночной цикл: изолированный импорт фидов -> точечная синхронизация Meilisearch -> каскад -> автокомплит -> прогрев кэша';
+    protected $description = 'Единый ночной цикл: импорт фидов -> группировка вариантов -> Meilisearch -> каскад -> автокомплит -> прогрев кэша';
 
     public function handle(FeedCategoryTiles $categoryTiles): int
     {
@@ -40,6 +40,8 @@ class SyncAllFeedsCommand extends Command
 
                     $syncedFeeds[] = $key;
 
+                    $this->call('feeds:group-variants', ['--feed' => $key]);
+
                     if (config('scout.driver') === 'meilisearch') {
                         $this->info("Синхронизация Meilisearch для «{$key}»...");
                         FeedProduct::query()
@@ -57,6 +59,14 @@ class SyncAllFeedsCommand extends Command
                     Log::error("SyncAllFeeds: ошибка фида {$key}", ['error' => $e->getMessage()]);
                     $this->error("Ошибка {$key}: {$e->getMessage()}");
                 }
+            }
+        } else {
+            $this->info('=== Глобальная группировка вариантов ===');
+            try {
+                $this->call('feeds:group-variants', ['--sync-meili' => true]);
+            } catch (\Throwable $e) {
+                Log::error('SyncAllFeeds: ошибка группировки вариантов', ['error' => $e->getMessage()]);
+                $this->error('Ошибка группировки вариантов: ' . $e->getMessage());
             }
         }
 
