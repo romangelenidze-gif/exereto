@@ -111,7 +111,7 @@
                                          :src="dept.image"
                                          :alt="dept.label"
                                          loading="lazy"
-                                         @error="imgError = true"
+                                         x-on:error="imgError = true"
                                          class="w-full h-full object-contain mix-blend-multiply">
                                     <div x-show="!dept.image || imgError" x-cloak class="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center text-[#86868b]">
                                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
