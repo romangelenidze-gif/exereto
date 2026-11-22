@@ -34,23 +34,29 @@ class FeedProductController extends Controller
         [$colorways, $variantOptions, $variantAxisLabel] = $this->buildVariantSelectors($product, $rawSiblings);
 
         $rawRelated = Cache::remember(
-            "product:related_raw:v2:{$feed}:{$product->category_top}:{$product->gender}:{$product->id}",
+            "product:related_raw:v3:{$feed}:{$product->category_top}:{$product->gender}:{$product->id}",
             now()->addHours(4),
             fn () => FeedProduct::query()
                 ->where('feed', $feed)
                 ->where('id', '!=', $product->id)
+                ->when($product->model_code, fn ($q) => $q->where(function ($sub) use ($product) {
+                    $sub->whereNull('model_code')->orWhere('model_code', '!=', $product->model_code);
+                }))
                 ->where('is_active', true)
                 ->where('in_stock', true)
                 ->when($product->category_top, fn ($q) => $q->where('category_top', $product->category_top))
                 ->when($product->gender, fn ($q) => $q->where('gender', $product->gender))
-                ->limit(12)
+                ->limit(36)
                 ->get()
+                ->unique(fn (FeedProduct $p) => $p->model_code ?: $p->sku)
+                ->take(12)
                 ->map(fn (FeedProduct $p) => $p->toCard())
+                ->values()
                 ->all()
         );
 
         $relatedProducts = collect(Cache::remember(
-            "product:related_loc:v2:{$locale}:{$product->id}",
+            "product:related_loc:v3:{$locale}:{$product->id}",
             now()->addHours(4),
             fn () => $localizer->localizeCardTitles($rawRelated, $locale)
         ))->map(function (array $card) {
@@ -79,6 +85,7 @@ class FeedProductController extends Controller
             'colorways' => $colorways,
             'variantOptions' => $variantOptions,
             'variantAxisLabel' => $variantAxisLabel,
+            'relatedProducts' => $relatedProducts,
             'backUrl' => $backUrl,
             'outboundUrl' => $product->outboundUrl(),
             'storeName' => (string) config("feeds.feeds.{$feed}.store_name", $product->brand ?: $feed),
@@ -93,32 +100,26 @@ class FeedProductController extends Controller
      */
     protected function buildVariantSelectors(FeedProduct $current, array $rawSiblings): array
     {
-        $curColourKey = mb_strtolower(trim((string) ($current->colour ?? '')));
+        $curColourKey = $this->normalizeColourKey($current->colour);
         $curVariantKey = mb_strtolower(trim((string) ($current->variant_label ?? '')));
 
-        // 1. Уникальные цвета: для каждого цвета приоритет отдаём варианту с текущей конфигурацией
+        // 1. Уникальные цвета: нормализуем grey/gray, приоритет — текущей конфигурации
         $byColor = [];
         foreach ($rawSiblings as $row) {
-            $colKey = mb_strtolower(trim((string) ($row['colour'] ?? '')));
+            $colKey = $this->normalizeColourKey($row['colour'] ?? null);
             if ($colKey === '') {
                 continue;
             }
 
             $isExactCurrent = (string) $row['sku'] === (string) $current->sku;
             $matchesCurVar = $curVariantKey !== '' && mb_strtolower(trim((string) ($row['variant_label'] ?? ''))) === $curVariantKey;
-
-            if (!isset($byColor[$colKey])) {
-                $byColor[$colKey] = ['row' => $row, 'score' => ($isExactCurrent ? 10 : 0) + ($matchesCurVar ? 5 : 0) + (!empty($row['in_stock']) ? 1 : 0)];
-                continue;
-            }
-
             $score = ($isExactCurrent ? 10 : 0) + ($matchesCurVar ? 5 : 0) + (!empty($row['in_stock']) ? 1 : 0);
-            if ($score > $byColor[$colKey]['score']) {
+
+            if (!isset($byColor[$colKey]) || $score > $byColor[$colKey]['score']) {
                 $byColor[$colKey] = ['row' => $row, 'score' => $score];
             }
         }
 
-        // Если цвета вообще не заполнены (например, старый фид с разными SKU в одной группе), оставляем классическое поведение по всем siblings без variant_label
         $colorRows = $byColor !== []
             ? array_values(array_map(fn ($item) => $item['row'], $byColor))
             : array_values(array_filter($rawSiblings, fn ($r) => empty($r['variant_label'])));
@@ -135,7 +136,7 @@ class FeedProductController extends Controller
 
             $varKey = mb_strtolower($label);
             $isExactCurrent = (string) $row['sku'] === (string) $current->sku;
-            $matchesCurCol = $curColourKey !== '' && mb_strtolower(trim((string) ($row['colour'] ?? ''))) === $curColourKey;
+            $matchesCurCol = $curColourKey !== '' && $this->normalizeColourKey($row['colour'] ?? null) === $curColourKey;
             $score = ($isExactCurrent ? 10 : 0) + ($matchesCurCol ? 5 : 0) + (!empty($row['in_stock']) ? 1 : 0);
 
             if (!isset($byVariant[$varKey]) || $score > $byVariant[$varKey]['score']) {
@@ -170,6 +171,19 @@ class FeedProductController extends Controller
         $axisLabel = FeedVariantGrouper::detectAxisLabel($labels);
 
         return [$colorways, $variantOptions, $axisLabel];
+    }
+
+    protected function normalizeColourKey(?string $colour): string
+    {
+        $clean = mb_strtolower(trim((string) ($colour ?? '')));
+        if ($clean === '') {
+            return '';
+        }
+
+        $clean = preg_replace('/\bgrey\b/u', 'gray', $clean) ?? $clean;
+        $clean = preg_replace('/\s+/u', ' ', $clean) ?? $clean;
+
+        return trim($clean);
     }
 
     protected function findProduct(string $feed, string $sku): FeedProduct

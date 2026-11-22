@@ -46,22 +46,35 @@ document.addEventListener('click', (e) => {
             Math.min(parseInt(trigger.dataset.pswpIndex || '0', 10) || 0, urls.length - 1)
         );
 
-        const mainImg = trigger.closest('.apple-pdp-media')?.querySelector('img[data-pdp-main]');
-        const matchVisible = mainImg && mainImg.naturalWidth > 0 && mainImg.currentSrc === urls[startIndex];
+        // Собираем реальные naturalWidth/naturalHeight всех уже загруженных на странице фото (главное + миниатюры)
+        const knownDims = new Map();
+        const mediaWrap = trigger.closest('.apple-pdp-media');
+        if (mediaWrap) {
+            mediaWrap.querySelectorAll('img').forEach((imgEl) => {
+                if (imgEl.naturalWidth > 0 && imgEl.naturalHeight > 0) {
+                    const attrSrc = imgEl.getAttribute('src');
+                    if (attrSrc) knownDims.set(attrSrc, { w: imgEl.naturalWidth, h: imgEl.naturalHeight });
+                    if (imgEl.currentSrc) knownDims.set(imgEl.currentSrc, { w: imgEl.naturalWidth, h: imgEl.naturalHeight });
+                }
+            });
+        }
 
-        const dataSource = urls.map((src, idx) => ({
-            src,
-            msrc: src,
-            alt: urls.length > 1 ? `${alt} (${idx + 1}/${urls.length})` : alt,
-            width: idx === startIndex && matchVisible ? mainImg.naturalWidth : 1200,
-            height: idx === startIndex && matchVisible ? mainImg.naturalHeight : 1200,
-        }));
+        const dataSource = urls.map((src, idx) => {
+            const dim = knownDims.get(src);
+            return {
+                src,
+                alt: urls.length > 1 ? `${alt} (${idx + 1}/${urls.length})` : alt,
+                width: dim ? dim.w : 1200,
+                height: dim ? dim.h : 1200,
+                _resolved: Boolean(dim),
+            };
+        });
 
         const pswp = new PhotoSwipe({
             dataSource,
             index: startIndex,
             bgOpacity: 0.96,
-            preload: [1, 1],
+            preload: [1, 2],
             secondaryZoomLevel: 2,
             maxZoomLevel: 4,
             wheelToZoom: true,
@@ -73,21 +86,40 @@ document.addEventListener('click', (e) => {
             padding: { top: 24, bottom: 24, left: 16, right: 16 },
         });
 
-        // Подгоняем реальные пропорции каждого слайда сразу после его загрузки (без искажений)
-        pswp.on('loadComplete', ({ content }) => {
-            const img = content.element;
-            if (!img || !img.naturalWidth || !img.naturalHeight) return;
-            if (content.data.width !== img.naturalWidth || content.data.height !== img.naturalHeight) {
-                content.data.width = img.naturalWidth;
-                content.data.height = img.naturalHeight;
-                content.width = img.naturalWidth;
-                content.height = img.naturalHeight;
-                content.slide?.updateContentSize(true);
-            }
-        });
+        const syncRealDimensions = (content) => {
+            const img = content?.element;
+            if (!img || img.tagName !== 'IMG') return;
 
-        // Синхронизируем выбранный кадр обратно в карточку товара
+            img.style.objectFit = 'contain';
+
+            const apply = () => {
+                if (!img.naturalWidth || !img.naturalHeight) return;
+                const item = dataSource[content.index];
+                if (!item) return;
+
+                if (!item._resolved || item.width !== img.naturalWidth || item.height !== img.naturalHeight) {
+                    item.width = img.naturalWidth;
+                    item.height = img.naturalHeight;
+                    item._resolved = true;
+                    pswp.refreshSlideContent(content.index);
+                }
+            };
+
+            if (img.complete && img.naturalWidth > 0) {
+                apply();
+            } else {
+                img.addEventListener('load', apply, { once: true });
+            }
+        };
+
+        pswp.on('contentLoadImage', ({ content }) => syncRealDimensions(content));
+        pswp.on('loadComplete', ({ content }) => syncRealDimensions(content));
+
+        // Синхронизируем выбранный кадр обратно в карточку товара и страхуем пропорции активного слайда
         pswp.on('change', () => {
+            if (pswp.currSlide?.content) {
+                syncRealDimensions(pswp.currSlide.content);
+            }
             trigger.dispatchEvent(new CustomEvent('pswp-change', {
                 detail: pswp.currIndex,
                 bubbles: true,
