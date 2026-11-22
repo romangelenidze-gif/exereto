@@ -14,11 +14,12 @@ class GeminiVisionSearchService
     public function isAvailable(): bool
     {
         return (bool) config('services.gemini.vision_enabled', true)
-            && filled(config('services.gemini.vision_api_key'));
+            && (filled(config('services.gemini.vision_api_key')) || filled(config('services.groq.api_key')));
     }
 
     /**
-     * Анализирует изображение через Gemini Vision и возвращает структурированный запрос для каталога.
+     * Анализирует изображение (Gemini Vision -> автоматический фоллбек на Groq Vision)
+     * и возвращает структурированный запрос для каталога.
      *
      * @return array{
      *   status: 'ok'|'not_product'|'quota_exceeded'|'error',
@@ -28,13 +29,14 @@ class GeminiVisionSearchService
      *   color: ?string,
      *   model_query: string,
      *   item_label: string,
+     *   provider: ?string,
      *   cached: bool
      * }
      */
     public function analyze(string $imageBytes, string $mimeType, string $locale = 'en'): array
     {
         $hash = hash('sha256', $imageBytes);
-        $cacheKey = "vision:photo_search:v1:{$locale}:{$hash}";
+        $cacheKey = "vision:photo_search:v2:{$locale}:{$hash}";
 
         $cached = Cache::get($cacheKey);
         if (is_array($cached) && !empty($cached['status'])) {
@@ -47,82 +49,61 @@ class GeminiVisionSearchService
             return $this->emptyResult('quota_exceeded');
         }
 
-        $apiKey = (string) config('services.gemini.vision_api_key', '');
-        if ($apiKey === '') {
-            return $this->emptyResult('error');
-        }
-
         $allowedSlugs = $this->getAllowedCategorySlugs();
         $prompt = $this->buildPrompt($allowedSlugs, $locale);
-        $models = $this->candidateModels();
-
         $base64 = base64_encode($imageBytes);
         $safeMime = in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp'], true)
             ? $mimeType
             : 'image/jpeg';
 
-        $lastError = null;
+        $errors = [];
         $hitRateLimit = false;
 
-        foreach ($models as $model) {
-            try {
-                $url = sprintf(
-                    'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s',
-                    rawurlencode($model),
-                    rawurlencode($apiKey)
-                );
+        // 1. Попытка через Gemini Vision (только быстрые lite-модели с коротким таймаутом)
+        $geminiKey = (string) config('services.gemini.vision_api_key', '');
+        if ($geminiKey !== '') {
+            foreach ($this->candidateGeminiModels() as $model) {
+                $attempt = $this->callGemini($geminiKey, $model, $prompt, $safeMime, $base64, $allowedSlugs);
+                if ($attempt['parsed'] !== null) {
+                    $parsed = $attempt['parsed'];
+                    $parsed['provider'] = "gemini:{$model}";
+                    Cache::put($cacheKey, $parsed, now()->addDays(self::CACHE_TTL_DAYS));
 
-                $response = Http::connectTimeout(5)
-                    ->timeout(20)
-                    ->acceptJson()
-                    ->post($url, [
-                        'contents' => [
-                            [
-                                'parts' => [
-                                    ['text' => $prompt],
-                                    [
-                                        'inline_data' => [
-                                            'mime_type' => $safeMime,
-                                            'data' => $base64,
-                                        ],
-                                    ],
-                                ],
-                            ],
-                        ],
-                        'generationConfig' => [
-                            'temperature' => 0.1,
-                            'maxOutputTokens' => 512,
-                            'responseMimeType' => 'application/json',
-                        ],
-                    ]);
+                    return $parsed;
+                }
 
-                if ($response->status() === 429) {
+                if ($attempt['rate_limited']) {
                     $hitRateLimit = true;
-                    $lastError = "429 on {$model}";
-                    continue;
                 }
-
-                if (!$response->successful()) {
-                    $lastError = "{$response->status()} on {$model}: " . mb_substr((string) $response->body(), 0, 200);
-                    continue;
+                if ($attempt['error'] !== null) {
+                    $errors[] = $attempt['error'];
                 }
-
-                $parsed = $this->parseGeminiResponse($response->json(), $allowedSlugs);
-                if ($parsed === null) {
-                    $lastError = "Unparseable JSON from {$model}";
-                    continue;
-                }
-
-                Cache::put($cacheKey, $parsed, now()->addDays(self::CACHE_TTL_DAYS));
-
-                return $parsed;
-            } catch (\Throwable $e) {
-                $lastError = "{$model}: {$e->getMessage()}";
             }
         }
 
-        Log::warning('GeminiVisionSearchService failed', [
-            'error' => $lastError,
+        // 2. Автоматический фоллбек на Groq Vision (qwen/qwen3.8-27b)
+        $groqKey = (string) config('services.groq.api_key', '');
+        if ($groqKey !== '') {
+            $groqModel = (string) config('services.groq.vision_model', 'qwen/qwen3.8-27b');
+            $attempt = $this->callGroq($groqKey, $groqModel, $prompt, $safeMime, $base64, $allowedSlugs);
+            if ($attempt['parsed'] !== null) {
+                $parsed = $attempt['parsed'];
+                $parsed['provider'] = "groq:{$groqModel}";
+                Cache::put($cacheKey, $parsed, now()->addDays(self::CACHE_TTL_DAYS));
+
+                return $parsed;
+            }
+
+            if ($attempt['rate_limited']) {
+                $hitRateLimit = true;
+            }
+            if ($attempt['error'] !== null) {
+                $errors[] = $attempt['error'];
+            }
+        }
+
+        Log::warning('GeminiVisionSearchService failed across all providers', [
+            'errors' => $errors,
             'rate_limited' => $hitRateLimit,
         ]);
 
@@ -130,14 +111,163 @@ class GeminiVisionSearchService
     }
 
     /**
+     * @param  string[]  $allowedSlugs
+     * @return array{parsed: ?array<string, mixed>, rate_limited: bool, error: ?string}
+     */
+    private function callGemini(
+        string $apiKey,
+        string $model,
+        string $prompt,
+        string $safeMime,
+        string $base64,
+        array $allowedSlugs
+    ): array {
+        try {
+            $url = sprintf(
+                'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s',
+                rawurlencode($model),
+                rawurlencode($apiKey)
+            );
+
+            $response = Http::connectTimeout(4)
+                ->timeout(10)
+                ->acceptJson()
+                ->post($url, [
+                    'contents' => [
+                        [
+                            'parts' => [
+                                ['text' => $prompt],
+                                [
+                                    'inline_data' => [
+                                        'mime_type' => $safeMime,
+                                        'data' => $base64,
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'generationConfig' => [
+                        'temperature' => 0.1,
+                        'maxOutputTokens' => 512,
+                        'responseMimeType' => 'application/json',
+                    ],
+                ]);
+
+            if ($response->status() === 429) {
+                return ['parsed' => null, 'rate_limited' => true, 'error' => "gemini:{$model} HTTP 429"];
+            }
+
+            if (!$response->successful()) {
+                return [
+                    'parsed' => null,
+                    'rate_limited' => false,
+                    'error' => "gemini:{$model} HTTP {$response->status()}: " . mb_substr((string) $response->body(), 0, 160),
+                ];
+            }
+
+            $parts = $response->json('candidates.0.content.parts', []);
+            if (!is_array($parts) || $parts === []) {
+                return ['parsed' => null, 'rate_limited' => false, 'error' => "gemini:{$model} empty parts"];
+            }
+
+            $text = '';
+            foreach ($parts as $part) {
+                if (!is_array($part) || !empty($part['thought'])) {
+                    continue;
+                }
+                if (isset($part['text']) && is_string($part['text'])) {
+                    $text .= $part['text'];
+                }
+            }
+
+            $parsed = $this->parseJsonText($text, $allowedSlugs);
+            if ($parsed === null) {
+                return ['parsed' => null, 'rate_limited' => false, 'error' => "gemini:{$model} invalid JSON"];
+            }
+
+            return ['parsed' => $parsed, 'rate_limited' => false, 'error' => null];
+        } catch (\Throwable $e) {
+            return ['parsed' => null, 'rate_limited' => false, 'error' => "gemini:{$model}: {$e->getMessage()}"];
+        }
+    }
+
+    /**
+     * @param  string[]  $allowedSlugs
+     * @return array{parsed: ?array<string, mixed>, rate_limited: bool, error: ?string}
+     */
+    private function callGroq(
+        string $apiKey,
+        string $model,
+        string $prompt,
+        string $safeMime,
+        string $base64,
+        array $allowedSlugs
+    ): array {
+        try {
+            $response = Http::connectTimeout(5)
+                ->timeout(15)
+                ->acceptJson()
+                ->withToken($apiKey)
+                ->post('https://api.groq.com/openai/v1/chat/completions', [
+                    'model' => $model,
+                    'temperature' => 0.1,
+                    'max_completion_tokens' => 600,
+                    'messages' => [
+                        [
+                            'role' => 'user',
+                            'content' => [
+                                ['type' => 'text', 'text' => $prompt],
+                                [
+                                    'type' => 'image_url',
+                                    'image_url' => [
+                                        'url' => "data:{$safeMime};base64,{$base64}",
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]);
+
+            if ($response->status() === 429) {
+                return ['parsed' => null, 'rate_limited' => true, 'error' => "groq:{$model} HTTP 429"];
+            }
+
+            if (!$response->successful()) {
+                return [
+                    'parsed' => null,
+                    'rate_limited' => false,
+                    'error' => "groq:{$model} HTTP {$response->status()}: " . mb_substr((string) $response->body(), 0, 160),
+                ];
+            }
+
+            $text = (string) $response->json('choices.0.message.content', '');
+            $parsed = $this->parseJsonText($text, $allowedSlugs);
+            if ($parsed === null) {
+                return ['parsed' => null, 'rate_limited' => false, 'error' => "groq:{$model} invalid JSON"];
+            }
+
+            return ['parsed' => $parsed, 'rate_limited' => false, 'error' => null];
+        } catch (\Throwable $e) {
+            return ['parsed' => null, 'rate_limited' => false, 'error' => "groq:{$model}: {$e->getMessage()}"];
+        }
+    }
+
+    /**
      * @return string[]
      */
-    private function candidateModels(): array
+    private function candidateGeminiModels(): array
     {
+        $configured = trim((string) config('services.gemini.vision_model', ''));
+        $defaults = [
+            'gemini-3.1-flash-lite',
+            'gemini-2.5-flash-lite',
+            'gemini-flash-lite-latest',
+            'gemini-3.5-flash-lite',
+        ];
+
         $raw = array_merge(
-            [(string) config('services.gemini.vision_model', '')],
-            [(string) config('services.gemini.model', '')],
-            explode(',', (string) config('services.gemini.vision_fallback_models', ''))
+            $configured !== '' && $configured !== 'gemini-3.5-flash-lite' ? [$configured] : [],
+            $defaults
         );
 
         return array_values(array_unique(array_filter(array_map('trim', $raw))));
@@ -175,7 +305,7 @@ class GeminiVisionSearchService
 
         return <<<PROMPT
 You are an e-commerce visual product recognition engine for a fashion, footwear, accessories, beauty, toys, and consumer electronics store.
-Identify the main shoppable product in the image and return ONLY a valid JSON object with these exact keys:
+Identify the main shoppable product in the image and return ONLY a valid JSON object (no markdown, no explanation) with these exact keys:
 {
   "is_product": boolean,
   "brand": string or null,
@@ -198,44 +328,23 @@ PROMPT;
     }
 
     /**
-     * @param  mixed  $payload
      * @param  string[]  $allowedSlugs
      * @return array<string, mixed>|null
      */
-    private function parseGeminiResponse(mixed $payload, array $allowedSlugs): ?array
+    private function parseJsonText(string $text, array $allowedSlugs): ?array
     {
-        if (!is_array($payload)) {
-            return null;
-        }
-
-        $parts = $payload['candidates'][0]['content']['parts'] ?? [];
-        if (!is_array($parts) || $parts === []) {
-            return null;
-        }
-
-        $text = '';
-        foreach ($parts as $part) {
-            if (!is_array($part) || !empty($part['thought'])) {
-                continue;
-            }
-            if (isset($part['text']) && is_string($part['text'])) {
-                $text .= $part['text'];
-            }
-        }
-
+        // Убираем возможные блоки размышлений <think>...</think> у Qwen
+        $text = preg_replace('/<think>.*?<\/think>/siu', '', $text) ?? $text;
         $text = trim($text);
         if ($text === '') {
             return null;
         }
 
-        // Убираем возможные markdown-ограждения ```json ... ```
         $text = preg_replace('/^```(?:json)?\s*|\s*```$/iu', '', $text) ?? $text;
         $data = json_decode(trim($text), true);
 
-        if (!is_array($data)) {
-            if (preg_match('/\{.*\}/su', $text, $m)) {
-                $data = json_decode($m[0], true);
-            }
+        if (!is_array($data) && preg_match('/\{.*\}/su', $text, $m)) {
+            $data = json_decode($m[0], true);
         }
 
         if (!is_array($data)) {
@@ -289,6 +398,7 @@ PROMPT;
             'color' => $rawColor,
             'model_query' => $modelQuery,
             'item_label' => mb_substr($itemLabel, 0, 120),
+            'provider' => null,
             'cached' => false,
         ];
     }
@@ -329,6 +439,7 @@ PROMPT;
             'color' => null,
             'model_query' => '',
             'item_label' => '',
+            'provider' => null,
             'cached' => false,
         ];
     }
