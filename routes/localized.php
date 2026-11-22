@@ -10,6 +10,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderMediaController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PhotoSearchController;
 use App\Http\Controllers\ProductSearchController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShipmentController;
@@ -41,6 +42,10 @@ Route::get('/category/{slug}', [FeedCategoryController::class, 'show'])
 Route::get('/api/autocomplete', [ProductSearchController::class, 'autocomplete'])
     ->middleware('throttle:60,1')
     ->name('api.autocomplete');
+
+Route::post('/api/photo-search', [PhotoSearchController::class, 'search'])
+    ->middleware('throttle:10,1')
+    ->name('api.photo-search');
 
 // --- Гостевые маршруты авторизации ---
 Route::middleware('guest')->group(function () {

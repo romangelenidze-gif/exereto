@@ -16,6 +16,7 @@
       x-data="{ mobileNavOpen: false, searchOpen: false, categoriesDrawerOpen: false }"
       @open-categories.window="searchOpen = false; categoriesDrawerOpen = true"
       @open-search.window="categoriesDrawerOpen = false; searchOpen = true"
+      @open-photo-search.window="searchOpen = false; categoriesDrawerOpen = false"
 >
 
     <script>
@@ -72,7 +73,7 @@
         })();
     </script>
 
-    <!-- Header + Drawer -->
+    <!-- Header + Drawers -->
     <x-layouts.header />
 
     <!-- Main Content -->

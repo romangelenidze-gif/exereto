@@ -1,6 +1,8 @@
 @php
     $isHomePage = request()->routeIs(['home', '*.home']);
     $headerCategories = app(\App\Services\FeedCategoryTiles::class)->get();
+    $photoSearchEnabled = (bool) config('services.gemini.vision_enabled', true)
+        && filled(config('services.gemini.vision_api_key'));
 @endphp
 
 <!-- На мобильном (< lg): умная липкая шапка. На десктопе (>= lg): статичная -->
@@ -45,18 +47,18 @@
 
     <div class="max-w-[96rem] mx-auto px-6 sm:px-6 lg:px-8 w-full">
 
-        <!-- МОБИЛЬНАЯ ШАПКА (< lg): лёгкий триггер полноэкранного поиска -->
-        <div class="relative flex lg:hidden items-center gap-6.5 pt-6 pb-2.5">
+        <!-- МОБИЛЬНАЯ ШАПКА (< lg): лёгкий триггер полноэкранного поиска + поиск по фото + категории -->
+        <div class="relative flex lg:hidden items-center gap-5 pt-6 pb-2.5">
             <a href="{{ route('home') }}" class="text-[28px] leading-none font-semibold tracking-tight text-[#1d1d1f] shrink-0">
                 exereto
             </a>
 
             <div class="flex-1 min-w-0 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-black/[0.05]">
-                <div class="flex items-center gap-2 pl-4 pr-2 h-12">
+                <div class="flex items-center gap-1 pl-3.5 pr-1.5 h-12">
                     <button type="button"
                             @click="$dispatch('open-search')"
                             aria-label="{{ __('Поиск') }}"
-                            class="flex-1 min-w-0 flex items-center gap-2.5 h-full text-left cursor-pointer focus:outline-none">
+                            class="flex-1 min-w-0 flex items-center gap-2 h-full text-left cursor-pointer focus:outline-none">
                         <svg class="w-5 h-5 text-[#0071e3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
@@ -66,6 +68,19 @@
                             <span class="text-[15px] font-medium text-[#6e6e73] truncate">{{ __('Что вы ищете?') }}</span>
                         @endif
                     </button>
+
+                    @if($photoSearchEnabled)
+                        <button type="button"
+                                @click.stop="$dispatch('open-photo-search')"
+                                aria-label="{{ __('Поиск по фото') }}"
+                                title="{{ __('Поиск по фото') }}"
+                                class="p-2 rounded-full text-[#6e6e73] hover:text-[#0071e3] hover:bg-[#f5f5f7] transition-colors shrink-0 cursor-pointer">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
+                    @endif
 
                     <button type="button"
                             @click.stop="$dispatch('open-categories')"
@@ -123,3 +138,4 @@
 <!-- Вынесены из <header>, чтобы CSS transform при скрытии шапки не ломал position: fixed -->
 <x-public-ui.categories-drawer :categories="$headerCategories" />
 <x-layouts.search-sheet />
+<x-public-ui.photo-search-modal />

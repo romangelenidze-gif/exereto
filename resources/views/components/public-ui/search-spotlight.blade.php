@@ -1,5 +1,10 @@
 @props(['categories' => []])
 
+@php
+    $photoSearchEnabled = (bool) config('services.gemini.vision_enabled', true)
+        && filled(config('services.gemini.vision_api_key'));
+@endphp
+
 <section class="pt-1 lg:pt-3 pb-0 px-4 sm:px-6 lg:px-10 text-center w-full"
          x-data="{
             query: '',
@@ -72,7 +77,7 @@
         {{ __('Быстрый поиск по официальным каталогам брендов в Греции.') }}
     </p>
 
-    <!-- Десктопный Spotlight (>= lg) — без изменений -->
+    <!-- Десктопный Spotlight (>= lg) -->
     <div class="hidden lg:block space-y-10">
         <div class="space-y-3 max-w-4xl mx-auto">
             <h1 class="app-text-logo truncate px-2">
@@ -110,6 +115,18 @@
                         spellcheck="false"
                         class="apple-search-input flex-1 bg-transparent border-none focus:outline-none text-base sm:text-lg"
                     >
+                    @if($photoSearchEnabled)
+                        <button type="button"
+                                @click="$dispatch('open-photo-search')"
+                                aria-label="{{ __('Поиск по фото') }}"
+                                title="{{ __('Поиск по фото') }}"
+                                class="p-2 rounded-full text-[#6e6e73] hover:text-[#0071e3] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
+                    @endif
                     <button type="button"
                             @click="$dispatch('open-categories')"
                             aria-label="{{ __('Категории') }}"
