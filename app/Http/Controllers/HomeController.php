@@ -7,6 +7,7 @@ use App\Services\FeedCategoryTiles;
 use App\Services\Feeds\FeedEntityLocalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class HomeController extends Controller
@@ -76,7 +77,7 @@ class HomeController extends Controller
             fn () => $this->fetchAllBrandsIndex()
         );
 
-        // 3. 7 флагманских бренд-витрин с живыми коллажами из 3 фото (в кэше чистые массивы)
+        // 3. 7 флагманских editorial-витрин брендов с цветным прогрессивным блюром
         $rawShowcases = Cache::remember(
             'home.brand_showcases.v1',
             now()->addHours(30),
@@ -139,21 +140,28 @@ class HomeController extends Controller
     }
 
     /**
-     * Собирает 7 бренд-витрин (1 крупное фото слева + 2 миниатюры справа, реальный счётчик и max-скидка).
+     * Собирает ровно 7 флагманских editorial-карточек брендов (одно сильное фото + фирменный цветной блюр).
+     * Опционально поддерживает кастомные обложки в public/images/brand-covers/{slug}.webp (.jpg/.png).
      *
      * @param  array<int, array{n: string, c: int, d: int}>  $allBrandsIndex
-     * @return array<int, array{name: string, count: int, max_discount: int, images: string[]}>
+     * @return array<int, array{slug: string, name: string, count: int, max_discount: int, image: string, object_position: string, tint_rgb: string, glow_rgb: string}>
      */
     private function fetchBrandShowcases(FeedCategoryTiles $categoryTiles, array $allBrandsIndex): array
     {
+        // Приоритетный пул брендов с индивидуальной цветовой палитрой для нижнего прогрессивного блюра
         $curated = [
-            'adidas',
-            'New Balance',
-            'Guess',
-            'Tommy Hilfiger',
-            'Calvin Klein',
-            'BOSS',
-            'LEGO',
+            ['name' => 'adidas', 'tint' => '18, 30, 56', 'glow' => '52, 92, 160', 'pos' => '50% 16%'],
+            ['name' => 'Guess', 'tint' => '76, 26, 44', 'glow' => '156, 68, 96', 'pos' => '50% 16%'],
+            ['name' => 'Tommy Hilfiger', 'tint' => '20, 34, 64', 'glow' => '58, 86, 148', 'pos' => '50% 16%'],
+            ['name' => 'Calvin Klein', 'tint' => '48, 38, 34', 'glow' => '112, 92, 82', 'pos' => '50% 16%'],
+            ['name' => 'New Balance', 'tint' => '22, 50, 58', 'glow' => '58, 122, 134', 'pos' => '50% 42%'],
+            ['name' => 'Puma', 'tint' => '20, 48, 40', 'glow' => '54, 118, 96', 'pos' => '50% 20%'],
+            ['name' => 'Stradivarius', 'tint' => '82, 42, 28', 'glow' => '164, 92, 66', 'pos' => '50% 16%'],
+            ['name' => 'Polo Ralph Lauren', 'tint' => '18, 46, 36', 'glow' => '48, 106, 82', 'pos' => '50% 16%'],
+            ['name' => 'Vans', 'tint' => '70, 24, 32', 'glow' => '144, 56, 70', 'pos' => '50% 35%'],
+            ['name' => 'Geox', 'tint' => '26, 44, 68', 'glow' => '68, 108, 156', 'pos' => '50% 35%'],
+            ['name' => 'LEGO', 'tint' => '24, 42, 88', 'glow' => '66, 106, 196', 'pos' => '50% 42%'],
+            ['name' => 'BOSS', 'tint' => '42, 36, 30', 'glow' => '102, 86, 70', 'pos' => '50% 18%'],
         ];
 
         $statsByLower = [];
@@ -161,8 +169,16 @@ class HomeController extends Controller
             $statsByLower[mb_strtolower($b['n'])] = $b;
         }
 
-        $showcases = [];
-        foreach ($curated as $brandName) {
+        $primary = [];
+        $fallback = [];
+
+        foreach ($curated as $cfg) {
+            if (count($primary) >= 7) {
+                break;
+            }
+
+            $brandName = $cfg['name'];
+            $slug = Str::slug($brandName);
             $family = $categoryTiles->resolveMatchingBrands($brandName);
             if ($family === []) {
                 $family = [$brandName];
@@ -184,81 +200,109 @@ class HomeController extends Controller
                 continue;
             }
 
-            // Берём до 40 топовых товаров бренда, чтобы отобрать 3 визуально разных фото (желательно из разных категорий)
-            $candidates = FeedProduct::query()
-                ->where('is_active', true)
-                ->where('in_stock', true)
-                ->whereIn('brand', $family)
-                ->whereNotNull('image_url')
-                ->where('image_url', '!=', '')
-                ->orderByDesc('priority_score')
-                ->orderByDesc('discount_percent')
-                ->limit(40)
-                ->get(['model_code', 'sku', 'category_id', 'image_url']);
+            $heroImage = $this->resolveBrandCoverImage($slug, $family);
+            if ($heroImage === null) {
+                continue;
+            }
 
-            $images = [];
-            $usedImages = [];
-            $usedModels = [];
-            $usedCats = [];
+            $item = [
+                'slug' => $slug,
+                'name' => $brandName,
+                'count' => $totalCount,
+                'max_discount' => $maxDiscount,
+                'image' => $heroImage,
+                'object_position' => $cfg['pos'],
+                'tint_rgb' => $cfg['tint'],
+                'glow_rgb' => $cfg['glow'],
+            ];
 
-            // Проход 1: приоритет разным категориям (напр. кроссовки + худи + сумка)
-            foreach ($candidates as $cand) {
-                $img = trim((string) $cand->image_url);
-                $model = mb_strtolower((string) ($cand->model_code ?: $cand->sku));
-                $catId = (int) ($cand->category_id ?? 0);
+            if ($totalCount >= 50) {
+                $primary[] = $item;
+            } else {
+                $fallback[] = $item;
+            }
+        }
 
-                if ($img === '' || isset($usedImages[$img]) || isset($usedModels[$model])) {
-                    continue;
-                }
-                if ($catId > 0 && isset($usedCats[$catId])) {
-                    continue;
-                }
+        while (count($primary) < 7 && $fallback !== []) {
+            $primary[] = array_shift($fallback);
+        }
 
-                $images[] = $img;
-                $usedImages[$img] = true;
-                $usedModels[$model] = true;
-                if ($catId > 0) {
-                    $usedCats[$catId] = true;
-                }
+        return array_slice($primary, 0, 7);
+    }
 
-                if (count($images) >= 3) {
+    /**
+     * Подбирает самое эффектное фото для карточки бренда:
+     * 1) Сначала проверяет локальную кастомную обложку public/images/brand-covers/{slug}.{webp,jpg,png}.
+     * 2) Иначе выбирает лучшую студийную фотографию из товаров бренда (приоритет верхней одежде/платьям/хитам, отсекая носки/бельё/мелочь).
+     *
+     * @param  string[]  $brandFamily
+     */
+    private function resolveBrandCoverImage(string $slug, array $brandFamily): ?string
+    {
+        foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
+            $rel = "images/brand-covers/{$slug}.{$ext}";
+            if (is_file(public_path($rel))) {
+                return '/' . $rel;
+            }
+        }
+
+        $candidates = FeedProduct::query()
+            ->where('is_active', true)
+            ->where('in_stock', true)
+            ->whereIn('brand', $brandFamily)
+            ->whereNotNull('image_url')
+            ->where('image_url', '!=', '')
+            ->orderByDesc('priority_score')
+            ->orderByDesc('price')
+            ->limit(50)
+            ->get(['name', 'category_path', 'price', 'image_url']);
+
+        if ($candidates->isEmpty()) {
+            return null;
+        }
+
+        $avoidWords = ['sock', 'underw', 'brief', 'boxer', 'bra', 'panty', 'slip', 'thong', 'keychain', 'wallet', 'belt', 'cap', 'beanie', 'glove', 'scarf', 'towel', 'case', 'cover', 'κάλτσ', 'εσώρουχ'];
+        $preferWords = ['jacket', 'coat', 'blazer', 'dress', 'hoodie', 'sweatshirt', 'sweater', 'shirt', 't-shirt', 'jeans', 'sneaker', 'boot', 'bag', 'μπουφάν', 'φόρεμα', 'φούτερ'];
+
+        $bestUrl = null;
+        $bestScore = -999;
+
+        foreach ($candidates as $idx => $cand) {
+            $img = trim((string) $cand->image_url);
+            if ($img === '') {
+                continue;
+            }
+
+            $hay = mb_strtolower((string) $cand->name . ' ' . (string) $cand->category_path);
+            $score = 50 - $idx;
+
+            if ((float) $cand->price >= 70) {
+                $score += 25;
+            } elseif ((float) $cand->price >= 40) {
+                $score += 12;
+            }
+
+            foreach ($preferWords as $pw) {
+                if (str_contains($hay, $pw)) {
+                    $score += 18;
                     break;
                 }
             }
 
-            // Проход 2: добираем до 3 фото из разных моделей, если бренд монокатегорийный (напр. LEGO)
-            if (count($images) < 3) {
-                foreach ($candidates as $cand) {
-                    $img = trim((string) $cand->image_url);
-                    $model = mb_strtolower((string) ($cand->model_code ?: $cand->sku));
-
-                    if ($img === '' || isset($usedImages[$img]) || isset($usedModels[$model])) {
-                        continue;
-                    }
-
-                    $images[] = $img;
-                    $usedImages[$img] = true;
-                    $usedModels[$model] = true;
-
-                    if (count($images) >= 3) {
-                        break;
-                    }
+            foreach ($avoidWords as $aw) {
+                if (str_contains($hay, $aw)) {
+                    $score -= 45;
+                    break;
                 }
             }
 
-            if ($images === []) {
-                continue;
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestUrl = $img;
             }
-
-            $showcases[] = [
-                'name' => $brandName,
-                'count' => $totalCount,
-                'max_discount' => $maxDiscount,
-                'images' => $images,
-            ];
         }
 
-        return $showcases;
+        return $bestUrl ?: trim((string) $candidates->first()->image_url);
     }
 
     /**

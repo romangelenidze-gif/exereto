@@ -92,7 +92,7 @@
             </section>
         @endif
 
-        <!-- Популярные бренды: мозаика 3 full-bleed фото (1 слева + 2 справа) + шторка всех брендов A–Z -->
+        <!-- Популярные бренды: editorial full-bleed карточки с цветным прогрессивным блюром + карточка каталога A–Z -->
         @if(!empty($brandShowcases))
             <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-4 lg:space-y-6">
                 <div class="flex items-end justify-between gap-4">
@@ -112,74 +112,77 @@
                     </button>
                 </div>
 
-                <!-- Мобильный: горизонтальная свайп-лента; Десктоп: ровная сетка 4×2 (7 витрин + 1 карточка A–Z) -->
+                <!-- Мобильный: крупные editorial-карточки в свайп-ленте; Десктоп: ровная сетка 4×2 (7 брендов + 1 карточка A–Z) -->
                 <div class="flex items-stretch lg:grid lg:grid-cols-4 gap-3.5 lg:gap-5 overflow-x-auto lg:overflow-visible snap-x snap-mandatory scroll-px-4 sm:scroll-px-6 lg:scroll-px-0 pb-2 lg:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     @foreach($brandShowcases as $brand)
                         @php
-                            $imgs = $brand['images'] ?? [];
-                            $imgMain = $imgs[0] ?? null;
-                            $imgTop = $imgs[1] ?? $imgMain;
-                            $imgBottom = $imgs[2] ?? $imgTop;
+                            $heroImg = $brand['image'] ?? ($brand['images'][0] ?? null);
+                            $tintRgb = $brand['tint_rgb'] ?? '24, 24, 32';
+                            $glowRgb = $brand['glow_rgb'] ?? '72, 72, 92';
+                            $objPos = $brand['object_position'] ?? '50% 18%';
                         @endphp
                         <a href="{{ $brand['url'] }}"
                            @click="loading = true"
-                           class="w-[82%] sm:w-[46%] lg:w-auto shrink-0 snap-start bg-white rounded-3xl border border-black/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-black/10 p-3 flex flex-col justify-between gap-3.5 transition-all group">
-                            <!-- Коллаж из 3 фото в край без внутренних рамок и наездов (строгое min-h-0 + overflow-hidden) -->
-                            <div class="grid grid-cols-[1.3fr_1fr] gap-1.5 h-[200px] sm:h-[212px] rounded-2xl overflow-hidden shrink-0">
-                                <div class="relative min-h-0 min-w-0 h-full bg-[#f5f5f7] overflow-hidden">
-                                    @if($imgMain)
-                                        <img src="{{ $imgMain }}"
-                                             alt="{{ $brand['name'] }}"
-                                             loading="lazy"
-                                             decoding="async"
-                                             class="w-full h-full object-cover object-[50%_20%] group-hover:scale-105 transition-transform duration-500">
-                                    @endif
-                                </div>
-                                <div class="grid grid-rows-2 gap-1.5 min-h-0 min-w-0 h-full">
-                                    <div class="relative min-h-0 min-w-0 h-full bg-[#f5f5f7] overflow-hidden">
-                                        @if($imgTop)
-                                            <img src="{{ $imgTop }}"
-                                                 alt="{{ $brand['name'] }}"
-                                                 loading="lazy"
-                                                 decoding="async"
-                                                 class="w-full h-full object-cover object-[50%_20%] group-hover:scale-105 transition-transform duration-500">
-                                        @endif
-                                    </div>
-                                    <div class="relative min-h-0 min-w-0 h-full bg-[#f5f5f7] overflow-hidden">
-                                        @if($imgBottom)
-                                            <img src="{{ $imgBottom }}"
-                                                 alt="{{ $brand['name'] }}"
-                                                 loading="lazy"
-                                                 decoding="async"
-                                                 class="w-full h-full object-cover object-[50%_20%] group-hover:scale-105 transition-transform duration-500">
-                                        @endif
-                                    </div>
-                                </div>
+                           class="relative w-[68%] sm:w-[42%] lg:w-auto h-[300px] sm:h-[330px] lg:h-[350px] shrink-0 snap-start rounded-3xl overflow-hidden bg-[#e8e8ed] shadow-[0_6px_24px_rgba(0,0,0,0.06)] hover:shadow-[0_14px_34px_rgba(0,0,0,0.12)] transition-all duration-300 group flex flex-col justify-between">
+
+                            <!-- 1. Full-bleed фоновое фото товара -->
+                            @if($heroImg)
+                                <img src="{{ $heroImg }}"
+                                     alt="{{ $brand['name'] }}"
+                                     loading="lazy"
+                                     decoding="async"
+                                     style="object-position: {{ $objPos }};"
+                                     class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out">
+                            @endif
+
+                            <!-- 2. Мягкое верхнее затемнение для читаемости верхнего бейджа на светлых студийных фото -->
+                            <div class="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/25 via-black/10 to-transparent"></div>
+
+                            <!-- 3. Прогрессивный стеклянный блюр нижней зоны (плавное растворение фото в блюр) -->
+                            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] backdrop-blur-xl"
+                                 style="-webkit-mask-image: linear-gradient(to top, black 0%, black 46%, rgba(0,0,0,0.65) 68%, transparent 100%); mask-image: linear-gradient(to top, black 0%, black 46%, rgba(0,0,0,0.65) 68%, transparent 100%);"></div>
+
+                            <!-- 4. Атмосферный цветной градиент-свечение бренда поверх блюра -->
+                            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[72%]"
+                                 style="background: linear-gradient(to top, rgba({{ $tintRgb }}, 0.94) 0%, rgba({{ $tintRgb }}, 0.78) 36%, rgba({{ $glowRgb }}, 0.42) 64%, transparent 100%);"></div>
+
+                            <!-- 5. Внутренняя деликатная стеклянная кромка -->
+                            <div class="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/20"></div>
+
+                            <!-- Верхняя строка: стеклянный бейдж скидки -->
+                            <div class="relative z-10 flex items-center justify-between p-4 sm:p-5">
+                                @if(($brand['max_discount'] ?? 0) >= 10)
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full bg-black/35 backdrop-blur-md border border-white/20 text-[12px] font-bold text-white tracking-tight tabular-nums shadow-xs">
+                                        {{ __('до') }} -{{ (int) $brand['max_discount'] }}%
+                                    </span>
+                                @else
+                                    <span></span>
+                                @endif
                             </div>
 
-                            <!-- Свободный 2-строчный подвал: название на всю ширину, ниже счётчик и бейдж скидки -->
-                            <div class="px-1.5 pb-1 space-y-1.5">
-                                <div class="text-[18px] sm:text-[19px] font-bold tracking-tight leading-tight text-[#1d1d1f] truncate group-hover:text-[#0071e3] transition-colors">
-                                    {{ $brand['name'] }}
-                                </div>
-                                <div class="flex items-center justify-between gap-2 min-h-[24px]">
-                                    <span class="text-[13px] font-medium text-[#6e6e73] tabular-nums truncate">
+                            <!-- Нижняя зона на цветном блюре: название бренда, кол-во товаров и стеклянная кнопка-стрелка -->
+                            <div class="relative z-10 p-5 sm:p-6 pt-8 flex items-end justify-between gap-3">
+                                <div class="min-w-0">
+                                    <div class="text-[22px] sm:text-[25px] font-bold tracking-tight leading-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.2)] truncate">
+                                        {{ $brand['name'] }}
+                                    </div>
+                                    <div class="text-[13px] sm:text-[14px] font-medium text-white/80 mt-1 tabular-nums">
                                         {{ number_format((int) $brand['count']) }} {{ __('товаров') }}
-                                    </span>
-                                    @if(($brand['max_discount'] ?? 0) >= 10)
-                                        <span class="px-2.5 py-0.5 rounded-full bg-red-50 text-red-600 text-[12px] font-bold shrink-0 tabular-nums">
-                                            {{ __('до') }} -{{ (int) $brand['max_discount'] }}%
-                                        </span>
-                                    @endif
+                                    </div>
                                 </div>
+                                <span class="w-10 h-10 rounded-full bg-white text-[#1d1d1f] group-hover:scale-105 group-hover:translate-x-0.5 flex items-center justify-center shrink-0 shadow-md transition-all duration-300" aria-hidden="true">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                    </svg>
+                                </span>
                             </div>
                         </a>
                     @endforeach
 
-                    <!-- 8-я контрастная карточка: вход в каталог всех брендов A–Z -->
+                    <!-- 8-я контрастная карточка: вход в каталог всех брендов A–Z (оставляем без изменений, выровнена по высоте) -->
                     <button type="button"
                             @click="$dispatch('open-brands')"
-                            class="w-[68%] sm:w-[46%] lg:w-auto shrink-0 snap-start bg-[#1d1d1f] hover:bg-[#2c2c2e] text-white rounded-3xl p-6 flex flex-col items-start justify-between text-left transition-colors cursor-pointer group">
+                            class="w-[68%] sm:w-[42%] lg:w-auto h-[300px] sm:h-[330px] lg:h-[350px] shrink-0 snap-start bg-[#1d1d1f] hover:bg-[#2c2c2e] text-white rounded-3xl p-6 flex flex-col items-start justify-between text-left transition-colors cursor-pointer group shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
                         <span class="px-3 py-1 rounded-full bg-white/12 text-[12px] font-semibold tracking-wider text-white/90">
                             A–Z
                         </span>
