@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Category;
 use App\Models\FeedProduct;
 use App\Services\Feeds\FeedEntityLocalizer;
 use App\Services\Feeds\ScriptTransliterator;
@@ -36,6 +35,32 @@ class FeedCategoryTiles
     private const KIDS_SUB_SLUGS = [
         'sneakers', 'boots', 'sandals', 'jackets', 'hoodies', 't-shirts',
         'dresses', 'pants', 'tracksuits', 'toys', 'baby-mom', 'backpacks',
+    ];
+
+    /** Мусорные значения размеров, которые никогда не должны попадать в фильтр */
+    private const JUNK_SIZES = [
+        'no size' => true, 'nosize' => true, 'no_size' => true, 'no-size' => true,
+        'one size' => true, 'onesize' => true, 'one_size' => true, 'one-size' => true,
+        'os' => true, 'o/s' => true, 'osfa' => true, 'osfm' => true,
+        'u' => true, 'uni' => true, 'uniq' => true, 'unique' => true, 'unica' => true, 'tu' => true,
+        'ns' => true, 'n/a' => true, 'na' => true, 'none' => true, 'misc' => true,
+        'default' => true, 'std' => true, 'standard' => true, 'free' => true,
+        'free size' => true, 'freesize' => true, 'all' => true, 'size' => true,
+        '0' => true, '00' => true, '-' => true, '—' => true, '.' => true,
+    ];
+
+    /** Естественный порядок буквенных размеров одежды */
+    private const LETTER_SIZE_ORDER = [
+        'xxxs' => 10, '3xs' => 10,
+        'xxs' => 20, '2xs' => 20,
+        'xs' => 30, 'xs/s' => 35,
+        's' => 40, 's/m' => 45,
+        'm' => 50, 'm/l' => 55,
+        'l' => 60, 'l/xl' => 65,
+        'xl' => 70, 'xl/xxl' => 75,
+        'xxl' => 80, '2xl' => 80,
+        'xxxl' => 90, '3xl' => 90,
+        '4xl' => 100, '5xl' => 110, '6xl' => 120,
     ];
 
     /** @var WeakMap<Builder, array<string, mixed>> */
@@ -73,6 +98,7 @@ class FeedCategoryTiles
             'label' => $this->pickLocalizedLabel($tile, $locale),
             'subtitle' => $tile['subtitle'] ?? '',
             'img' => $tile['img'],
+            'image' => $tile['image'] ?? (!empty($tile['img']) && is_file(public_path('images/categories/' . $tile['img'])) ? '/images/categories/' . $tile['img'] : null),
             'count' => $tile['count'],
             'url' => route('feed-category.show', ['slug' => $tile['slug']]),
         ]);
@@ -128,7 +154,7 @@ class FeedCategoryTiles
     }
 
     /**
-     * Категории для бренда/запроса ОДНИМ запросом к Meilisearch через фасет category_slugs.
+     * Категории для бренда с живыми фото товаров этого бренда и точными активными суббрендами в каждой категории.
      */
     public function getForBrand(string $brand, array $genders = []): Collection
     {
@@ -140,76 +166,133 @@ class FeedCategoryTiles
         sort($genders);
         $v = $this->catalogVersion();
         $locale = app()->getLocale();
-        $cacheKey = "brand.category_tiles.v{$v}." . md5($normalized . ':' . implode(',', $genders));
+        $cacheKey = "brand.category_tiles.v2.{$v}." . md5($normalized . ':' . implode(',', $genders));
 
         $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($brand, $genders) {
             $matchedBrands = $this->resolveMatchingBrands($brand);
-            if ($matchedBrands === []) {
+            if ($matchedBrands === [] || !$this->isMeiliReady()) {
                 return [];
             }
 
-            if ($this->isMeiliReady()) {
-                try {
-                    $filters = [
-                        'is_active = true',
-                        'in_stock = true',
-                        $this->meiliIn('brand', $matchedBrands),
-                    ];
-                    if ($genders !== []) {
-                        $filters[] = $this->meiliIn('gender', $genders);
-                    }
+            try {
+                $baseFilters = [
+                    'is_active = true',
+                    'in_stock = true',
+                    $this->meiliIn('brand', $matchedBrands),
+                ];
+                if ($genders !== []) {
+                    $baseFilters[] = $this->meiliIn('gender', $genders);
+                }
 
-                    $res = $this->meiliIndex()->search('', [
-                        'filter' => implode(' AND ', $filters),
-                        'facets' => ['category_slugs'],
-                        'limit' => 0,
+                $res = $this->meiliIndex()->search('', [
+                    'filter' => implode(' AND ', $baseFilters),
+                    'facets' => ['category_slugs'],
+                    'limit' => 0,
+                ]);
+
+                $slugCounts = $this->extractFacetDistribution($res)['category_slugs'] ?? [];
+                if ($slugCounts === []) {
+                    return [];
+                }
+
+                $catMap = $this->loadCategoriesMap();
+
+                // Сначала берём все L2-разделы (дети корней)
+                $candidates = [];
+                foreach ($catMap['roots'] as $rid) {
+                    foreach ($catMap['children'][$rid] ?? [] as $cid) {
+                        $node = $catMap['by_id'][$cid] ?? null;
+                        if (!$node) {
+                            continue;
+                        }
+                        $cnt = (int) ($slugCounts[$node['slug']] ?? 0);
+                        if ($cnt > 0) {
+                            $candidates[] = ['node' => $node, 'count' => $cnt];
+                        }
+                    }
+                }
+
+                // Фоллбек на L1-корни, если товары бренда лежат только на верхнем уровне
+                if ($candidates === []) {
+                    foreach ($catMap['roots'] as $rid) {
+                        $node = $catMap['by_id'][$rid] ?? null;
+                        if (!$node) {
+                            continue;
+                        }
+                        $cnt = (int) ($slugCounts[$node['slug']] ?? 0);
+                        if ($cnt > 0) {
+                            $candidates[] = ['node' => $node, 'count' => $cnt];
+                        }
+                    }
+                }
+
+                usort($candidates, fn ($a, $b) => $b['count'] <=> $a['count']);
+                $candidates = array_slice($candidates, 0, 14);
+
+                $tiles = [];
+                foreach ($candidates as $entry) {
+                    $node = $entry['node'];
+                    $slug = (string) $node['slug'];
+                    $imgFile = self::CATEGORY_IMAGES[$slug] ?? ($slug . '.png');
+
+                    // Одним запросом забираем реальное фото товара этого бренда в категории + только активные суббренды этой категории
+                    $catFilters = array_merge($baseFilters, ['category_slugs = ' . $this->meiliQuote($slug)]);
+                    $sampleRes = $this->meiliIndex()->search('', [
+                        'filter' => implode(' AND ', $catFilters),
+                        'facets' => ['brand'],
+                        'sort' => ['priority_score:desc'],
+                        'limit' => 4,
+                        'attributesToRetrieve' => ['id', 'image_url'],
                     ]);
 
-                    $slugCounts = $this->extractFacetDistribution($res)['category_slugs'] ?? [];
-
-                    if ($slugCounts !== []) {
-                        $l2Cats = DB::table('categories as c')
-                            ->join('categories as p', 'p.id', '=', 'c.parent_id')
-                            ->whereNull('p.parent_id')
-                            ->where('c.is_active', 1)
-                            ->orderBy('p.sort_order')
-                            ->orderBy('c.sort_order')
-                            ->get(['c.slug', 'c.name_en', 'c.name_ru', 'c.name_ka', 'c.name_el']);
-
-                        $tiles = [];
-                        foreach ($l2Cats as $cat) {
-                            $cnt = (int) ($slugCounts[$cat->slug] ?? 0);
-                            if ($cnt === 0) {
-                                continue;
-                            }
-
-                            $tiles[] = [
-                                'slug' => (string) $cat->slug,
-                                'name_en' => (string) $cat->name_en,
-                                'name_ru' => (string) $cat->name_ru,
-                                'name_ka' => (string) $cat->name_ka,
-                                'name_el' => (string) $cat->name_el,
-                                'img' => self::CATEGORY_IMAGES[$cat->slug] ?? ($cat->slug . '.png'),
-                                'count' => $cnt,
-                                'brands' => $matchedBrands,
-                            ];
+                    $hits = is_object($sampleRes) ? $sampleRes->getHits() : ($sampleRes['hits'] ?? []);
+                    $sampleImage = null;
+                    foreach ($hits as $h) {
+                        if (!empty($h['image_url'])) {
+                            $sampleImage = (string) $h['image_url'];
+                            break;
                         }
-
-                        usort($tiles, fn ($a, $b) => $b['count'] <=> $a['count']);
-
-                        return array_slice($tiles, 0, 14);
                     }
-                } catch (\Throwable) {
-                }
-            }
+                    if ($sampleImage === null && is_file(public_path('images/categories/' . $imgFile))) {
+                        $sampleImage = '/images/categories/' . $imgFile;
+                    }
 
-            return [];
+                    $brandDist = $this->extractFacetDistribution($sampleRes)['brand'] ?? [];
+                    $activeBrandsInCat = [];
+                    foreach ($matchedBrands as $mb) {
+                        if (($brandDist[$mb] ?? 0) > 0) {
+                            $activeBrandsInCat[] = $mb;
+                        }
+                    }
+                    if ($activeBrandsInCat === []) {
+                        $activeBrandsInCat = $matchedBrands;
+                    }
+
+                    $tiles[] = [
+                        'slug' => $slug,
+                        'name_en' => (string) $node['name_en'],
+                        'name_ru' => (string) $node['name_ru'],
+                        'name_ka' => (string) $node['name_ka'],
+                        'name_el' => (string) $node['name_el'],
+                        'img' => $imgFile,
+                        'image' => $sampleImage,
+                        'count' => (int) $entry['count'],
+                        'brands' => $activeBrandsInCat,
+                    ];
+                }
+
+                return $tiles;
+            } catch (\Throwable) {
+                return [];
+            }
         });
 
         return collect($raw)->map(fn (array $tile) => [
             'slug' => $tile['slug'],
             'label' => $this->pickLocalizedLabel($tile, $locale),
             'img' => $tile['img'],
+            'image' => $tile['image'] ?? null,
+            'count' => (int) ($tile['count'] ?? 0),
             'url' => route('feed-category.show', array_filter([
                 'slug' => $tile['slug'],
                 'brands' => $tile['brands'] ?? [],
@@ -219,7 +302,7 @@ class FeedCategoryTiles
     }
 
     /**
-     * Находит точный бренд или семейство суббрендов.
+     * Находит точный бренд или семейство суббрендов по ВСЕМ активным брендам БД (без обрезки лимитом фасетов Meilisearch).
      *
      * @return array<int, string>
      */
@@ -231,22 +314,7 @@ class FeedCategoryTiles
         }
 
         $v = $this->catalogVersion();
-        $allBrands = Cache::remember("catalog.distinct_brands.v{$v}", now()->addHours(self::CACHE_HOURS), function () {
-            if ($this->isMeiliReady()) {
-                try {
-                    $res = $this->meiliIndex()->search('', [
-                        'filter' => 'is_active = true AND in_stock = true',
-                        'facets' => ['brand'],
-                        'limit' => 0,
-                    ]);
-                    $dist = $this->extractFacetDistribution($res);
-                    if (!empty($dist['brand'])) {
-                        return array_keys($dist['brand']);
-                    }
-                } catch (\Throwable) {
-                }
-            }
-
+        $allBrands = Cache::remember("catalog.distinct_brands.v2.{$v}", now()->addHours(self::CACHE_HOURS), function () {
             return FeedProduct::query()
                 ->where('is_active', true)
                 ->where('in_stock', true)
@@ -539,10 +607,7 @@ class FeedCategoryTiles
     }
 
     /**
-     * Автоматические уточняющие плитки подкатегорий для верхней карусели:
-     * - Для узлов дерева categories (L1 -> L2, L2 -> L3) строятся автоматически по реальным фасетам Meilisearch.
-     * - Для виртуальных хабов (sales-offers, kids) — активные разделы с сохранением фильтра.
-     * - Для legacy-плиток — старый механизм sub_keys.
+     * Автоматические уточняющие плитки подкатегорий для верхней карусели.
      */
     public function buildSubcategories(array $tile, ?int $targetVersion = null, array $activeFilters = []): array
     {
@@ -733,28 +798,30 @@ class FeedCategoryTiles
     }
 
     /**
-     * Считает фасеты категории через Meilisearch за миллисекунды.
+     * Считает адаптивные фасеты категории через Meilisearch с учётом специфики раздела.
      */
     public function buildFacets(array $tile, array $activeFilters = [], ?int $targetVersion = null): array
     {
         $v = $targetVersion ?? $this->catalogVersion();
         $slug = (string) ($tile['slug'] ?? '');
         $normalizedFilters = $this->normalizeFiltersForCache($activeFilters);
-        $cacheKey = "category.facets.v{$v}.{$slug}." . md5(json_encode($normalizedFilters));
+        $cacheKey = "category.facets.v2.{$v}.{$slug}." . md5(json_encode($normalizedFilters));
 
-        return Cache::remember($cacheKey, now()->addHours(6), function () use ($tile, $slug, $normalizedFilters) {
+        return Cache::remember($cacheKey, now()->addHours(6), function () use ($tile, $normalizedFilters) {
             $baseClauses = $this->buildTileBaseClauses($tile, $normalizedFilters);
+            $profile = $this->resolveCategoryFilterProfile($tile);
 
             return $this->computeMeiliFacets(
                 searchQuery: '',
                 baseClauses: $baseClauses,
-                filters: $normalizedFilters
+                filters: $normalizedFilters,
+                profile: $profile
             );
         });
     }
 
     /**
-     * Фасетные фильтры для страницы поиска / бренда через Meilisearch за миллисекунды.
+     * Фасетные фильтры для страницы поиска / бренда через Meilisearch.
      */
     public function buildFacetsForSearch(string $query, array $activeFilters = []): array
     {
@@ -765,10 +832,11 @@ class FeedCategoryTiles
 
         $v = $this->catalogVersion();
         $normalizedFilters = $this->normalizeFiltersForCache($activeFilters);
-        $cacheKey = "search.facets.v{$v}." . md5(mb_strtolower($q) . ':' . json_encode($normalizedFilters));
+        $cacheKey = "search.facets.v2.{$v}." . md5(mb_strtolower($q) . ':' . json_encode($normalizedFilters));
 
         return Cache::remember($cacheKey, now()->addHours(4), function () use ($q, $normalizedFilters) {
             $matchedBrands = $this->resolveMatchingBrands($q);
+            $profile = ['show_size' => true, 'show_gender' => true, 'size_mode' => 'all'];
 
             if ($matchedBrands !== []) {
                 return $this->computeMeiliFacets(
@@ -778,7 +846,8 @@ class FeedCategoryTiles
                         'in_stock = true',
                         $this->meiliIn('brand', $matchedBrands),
                     ],
-                    filters: $normalizedFilters
+                    filters: $normalizedFilters,
+                    profile: $profile
                 );
             }
 
@@ -789,9 +858,104 @@ class FeedCategoryTiles
             return $this->computeMeiliFacets(
                 searchQuery: $prepared,
                 baseClauses: ['is_active = true', 'in_stock = true'],
-                filters: $normalizedFilters
+                filters: $normalizedFilters,
+                profile: $profile
             );
         });
+    }
+
+    /**
+     * Определяет набор релевантных фильтров исходя из особенностей категории (L1 / L2 / L3).
+     *
+     * @return array{show_size: bool, show_gender: bool, size_mode: string}
+     */
+    private function resolveCategoryFilterProfile(?array $tile): array
+    {
+        $default = ['show_size' => true, 'show_gender' => true, 'size_mode' => 'all'];
+        if (!$tile) {
+            return $default;
+        }
+
+        $mode = (string) ($tile['mode'] ?? '');
+        $slug = (string) ($tile['slug'] ?? '');
+
+        if ($mode === 'virtual') {
+            if (($tile['virtual_type'] ?? '') === 'kids') {
+                return ['show_size' => true, 'show_gender' => false, 'size_mode' => 'all'];
+            }
+
+            return $default;
+        }
+
+        if ($mode !== 'category') {
+            return $default;
+        }
+
+        $catMap = $this->loadCategoriesMap();
+        $chainSlugs = [];
+        $currId = (int) ($tile['category_id'] ?? 0);
+        $guard = 0;
+
+        while ($currId > 0 && isset($catMap['by_id'][$currId]) && $guard < 6) {
+            $node = $catMap['by_id'][$currId];
+            array_unshift($chainSlugs, (string) $node['slug']);
+            $currId = (int) ($node['parent_id'] ?? 0);
+            $guard++;
+        }
+
+        $rootSlug = $chainSlugs[0] ?? $slug;
+
+        if (in_array($rootSlug, ['tech', 'toys'], true)) {
+            return ['show_size' => false, 'show_gender' => false, 'size_mode' => 'none'];
+        }
+
+        if ($rootSlug === 'beauty') {
+            $isPerfume = false;
+            foreach ($chainSlugs as $s) {
+                if (str_contains($s, 'perfume') || str_contains($s, 'fragrance')) {
+                    $isPerfume = true;
+                    break;
+                }
+            }
+
+            return ['show_size' => false, 'show_gender' => $isPerfume, 'size_mode' => 'none'];
+        }
+
+        if ($rootSlug === 'baby-mom') {
+            return ['show_size' => true, 'show_gender' => false, 'size_mode' => 'all'];
+        }
+
+        if ($rootSlug === 'shoes') {
+            return ['show_size' => true, 'show_gender' => true, 'size_mode' => 'shoes'];
+        }
+
+        if ($rootSlug === 'clothing') {
+            return ['show_size' => true, 'show_gender' => true, 'size_mode' => 'clothing'];
+        }
+
+        if ($rootSlug === 'accessories') {
+            foreach ($chainSlugs as $s) {
+                if (str_contains($s, 'belt') || str_contains($s, 'hat') || str_contains($s, 'cap') || str_contains($s, 'glove')) {
+                    return ['show_size' => true, 'show_gender' => true, 'size_mode' => 'all'];
+                }
+                if (
+                    str_contains($s, 'bag')
+                    || str_contains($s, 'backpack')
+                    || str_contains($s, 'luggage')
+                    || str_contains($s, 'sunglass')
+                    || str_contains($s, 'eyewear')
+                    || str_contains($s, 'watch')
+                    || str_contains($s, 'jewel')
+                    || str_contains($s, 'tote')
+                    || str_contains($s, 'clutch')
+                    || str_contains($s, 'wallet')
+                ) {
+                    return ['show_size' => false, 'show_gender' => true, 'size_mode' => 'none'];
+                }
+            }
+        }
+
+        return $default;
     }
 
     /**
@@ -825,7 +989,10 @@ class FeedCategoryTiles
         return $clauses;
     }
 
-    private function computeMeiliFacets(string $searchQuery, array $baseClauses, array $filters): array
+    /**
+     * @param  array{show_size: bool, show_gender: bool, size_mode: string}  $profile
+     */
+    private function computeMeiliFacets(string $searchQuery, array $baseClauses, array $filters, array $profile): array
     {
         if (!$this->isMeiliReady()) {
             return ['brands' => [], 'genders' => [], 'sizes' => [], 'colors' => []];
@@ -837,11 +1004,22 @@ class FeedCategoryTiles
                 || !empty($filters['color'])
                 || !empty($filters['size']);
 
+            $needGender = $profile['show_gender'] || !empty($filters['genders']);
+            $needSize = $profile['show_size'] || !empty($filters['size']);
+
             if (!$hasFacetFilters) {
+                $facetsToRequest = ['brand', 'colour_main'];
+                if ($needGender) {
+                    $facetsToRequest[] = 'gender';
+                }
+                if ($needSize) {
+                    $facetsToRequest[] = 'sizes_list';
+                }
+
                 $clauses = array_merge($baseClauses, $this->buildUserFilterClauses($filters, null));
                 $res = $this->meiliIndex()->search($searchQuery, [
                     'filter' => implode(' AND ', $clauses),
-                    'facets' => ['brand', 'gender', 'colour_main', 'sizes_list'],
+                    'facets' => $facetsToRequest,
                     'matchingStrategy' => 'all',
                     'limit' => 0,
                 ]);
@@ -850,18 +1028,20 @@ class FeedCategoryTiles
 
                 return $this->formatFacetDistribution(
                     $dist['brand'] ?? [],
-                    $dist['gender'] ?? [],
+                    $needGender ? ($dist['gender'] ?? []) : [],
                     $dist['colour_main'] ?? [],
-                    $dist['sizes_list'] ?? []
+                    $needSize ? ($dist['sizes_list'] ?? []) : [],
+                    $filters,
+                    $profile
                 );
             }
 
             $brandDist = $this->fetchSingleFacet($searchQuery, $baseClauses, $filters, 'brands', 'brand');
-            $genderDist = $this->fetchSingleFacet($searchQuery, $baseClauses, $filters, 'genders', 'gender');
+            $genderDist = $needGender ? $this->fetchSingleFacet($searchQuery, $baseClauses, $filters, 'genders', 'gender') : [];
             $colorDist = $this->fetchSingleFacet($searchQuery, $baseClauses, $filters, 'color', 'colour_main');
-            $sizeDist = $this->fetchSingleFacet($searchQuery, $baseClauses, $filters, 'size', 'sizes_list');
+            $sizeDist = $needSize ? $this->fetchSingleFacet($searchQuery, $baseClauses, $filters, 'size', 'sizes_list') : [];
 
-            return $this->formatFacetDistribution($brandDist, $genderDist, $colorDist, $sizeDist);
+            return $this->formatFacetDistribution($brandDist, $genderDist, $colorDist, $sizeDist, $filters, $profile);
         } catch (\Throwable) {
             return ['brands' => [], 'genders' => [], 'sizes' => [], 'colors' => []];
         }
@@ -882,13 +1062,38 @@ class FeedCategoryTiles
         return $dist[$meiliFacet] ?? [];
     }
 
-    private function formatFacetDistribution(array $brandDist, array $genderDist, array $colorDist, array $sizeDist): array
-    {
+    /**
+     * @param  array{show_size: bool, show_gender: bool, size_mode: string}  $profile
+     */
+    private function formatFacetDistribution(
+        array $brandDist,
+        array $genderDist,
+        array $colorDist,
+        array $sizeDist,
+        array $filters = [],
+        array $profile = ['show_size' => true, 'show_gender' => true, 'size_mode' => 'all']
+    ): array {
+        // Выбранные бренды всегда поднимаем наверх списка, чтобы чекбоксы сразу были видны и снимались
+        $selectedBrands = array_values(array_filter((array) ($filters['brands'] ?? [])));
+        $selectedSet = array_fill_keys($selectedBrands, true);
+
         arsort($brandDist);
         $brands = [];
-        foreach (array_slice($brandDist, 0, 30, true) as $name => $cnt) {
-            if (trim((string) $name) !== '' && $cnt > 0) {
-                $brands[] = ['name' => (string) $name, 'count' => (int) $cnt];
+        $addedBrands = [];
+
+        foreach ($selectedBrands as $sb) {
+            $brands[] = ['name' => (string) $sb, 'count' => (int) ($brandDist[$sb] ?? 0)];
+            $addedBrands[$sb] = true;
+        }
+        foreach ($brandDist as $name => $cnt) {
+            $nameStr = trim((string) $name);
+            if ($nameStr === '' || $cnt <= 0 || isset($addedBrands[$nameStr])) {
+                continue;
+            }
+            $brands[] = ['name' => $nameStr, 'count' => (int) $cnt];
+            $addedBrands[$nameStr] = true;
+            if (count($brands) >= 30) {
+                break;
             }
         }
 
@@ -908,17 +1113,9 @@ class FeedCategoryTiles
             }
         }
 
-        arsort($sizeDist);
-        $sizes = [];
-        foreach ($sizeDist as $sz => $cnt) {
-            $szStr = trim((string) $sz);
-            if ($szStr !== '' && mb_strlen($szStr) <= 12 && $cnt > 0) {
-                $sizes[] = $szStr;
-                if (count($sizes) >= 18) {
-                    break;
-                }
-            }
-        }
+        $sizes = $profile['show_size'] || !empty($filters['size'])
+            ? $this->filterAndSortSizes($sizeDist, (string) ($profile['size_mode'] ?? 'all'), $filters['size'] ?? null)
+            : [];
 
         return [
             'brands' => $brands,
@@ -926,6 +1123,148 @@ class FeedCategoryTiles
             'sizes' => $sizes,
             'colors' => $colors,
         ];
+    }
+
+    /**
+     * Убирает мусорные размеры (NO SIZE, ONE SIZE и т.п.), фильтрует под тип категории и сортирует по возрастанию.
+     *
+     * @param  array<string, int>  $sizeDist
+     * @return string[]
+     */
+    private function filterAndSortSizes(array $sizeDist, string $mode, ?string $activeSize = null): array
+    {
+        arsort($sizeDist);
+        $picked = [];
+        $activeTrim = $activeSize !== null ? trim($activeSize) : '';
+
+        foreach ($sizeDist as $raw => $cnt) {
+            $sz = trim((string) $raw);
+            if ($sz === '' || $cnt <= 0) {
+                continue;
+            }
+            if ($sz !== $activeTrim && ($this->isJunkSize($sz) || !$this->sizeMatchesMode($sz, $mode))) {
+                continue;
+            }
+
+            $picked[$sz] = true;
+            if (count($picked) >= 24) {
+                break;
+            }
+        }
+
+        if ($activeTrim !== '' && !isset($picked[$activeTrim])) {
+            $picked[$activeTrim] = true;
+        }
+
+        $list = array_keys($picked);
+
+        usort($list, function (string $a, string $b): int {
+            $ka = $this->sizeSortKey($a);
+            $kb = $this->sizeSortKey($b);
+
+            if ($ka[0] !== $kb[0]) {
+                return $ka[0] <=> $kb[0];
+            }
+            if ($ka[1] !== $kb[1]) {
+                return $ka[1] <=> $kb[1];
+            }
+
+            return strnatcasecmp($a, $b);
+        });
+
+        return $list;
+    }
+
+    private function isJunkSize(string $size): bool
+    {
+        if (mb_strlen($size) > 12) {
+            return true;
+        }
+
+        $low = mb_strtolower(trim($size));
+        if (isset(self::JUNK_SIZES[$low])) {
+            return true;
+        }
+
+        foreach (['no ', 'no_', 'no-', 'one ', 'one_', 'one-'] as $prefix) {
+            if (str_starts_with($low, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function sizeMatchesMode(string $size, string $mode): bool
+    {
+        if ($mode === 'none') {
+            return false;
+        }
+
+        $clean = trim($size);
+
+        if ($mode === 'shoes') {
+            if (preg_match('/^(\d{2})(?:[.,]5|\s+[123]\/[234])?(?:\s*(?:EU|UK|US))?$/i', $clean, $m)) {
+                $num = (int) $m[1];
+
+                return $num >= 15 && $num <= 52;
+            }
+            if (preg_match('/^(\d{2})\s*[-–\/]\s*(\d{2})$/', $clean, $m)) {
+                $a = (int) $m[1];
+                $b = (int) $m[2];
+
+                return $a >= 15 && $b <= 52 && $b > $a && ($b - $a) <= 4;
+            }
+
+            return false;
+        }
+
+        if ($mode === 'clothing') {
+            // Отсекаем обувные дробные размеры вроде "40 2/3", "42 1/3", "38.5"
+            if (preg_match('/^\d{2}\s+[123]\/[234]$/', $clean)) {
+                return false;
+            }
+            if (preg_match('/^(\d{2})[.,]5$/', $clean, $m) && (int) $m[1] >= 16 && (int) $m[1] <= 50) {
+                return false;
+            }
+
+            return true;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array{0: int, 1: float}
+     */
+    private function sizeSortKey(string $size): array
+    {
+        $low = mb_strtolower(trim($size));
+
+        // 1. Буквенные размеры (XXXS .. 5XL)
+        if (isset(self::LETTER_SIZE_ORDER[$low])) {
+            return [1, (float) self::LETTER_SIZE_ORDER[$low]];
+        }
+
+        // 2. Числовые размеры (36, 36.5, 40 2/3, 42)
+        if (preg_match('/^(\d{1,3})(?:[.,](\d+)|\s+([123])\/([234]))?$/', $low, $m)) {
+            $base = (float) $m[1];
+            if (!empty($m[2])) {
+                $base += (float) ('0.' . $m[2]);
+            } elseif (!empty($m[3]) && !empty($m[4])) {
+                $base += ((float) $m[3]) / ((float) $m[4]);
+            }
+
+            return [2, $base];
+        }
+
+        // 3. Джинсовые W_L / W/L (28_30, 30_32, 32/32)
+        if (preg_match('/^(\d{2})[\/_](\d{2})$/', $low, $m)) {
+            return [3, (float) $m[1] * 100.0 + (float) $m[2]];
+        }
+
+        // 4. Остальные (детские 2Y, 92-98, бра 75B и т.д.)
+        return [4, 0.0];
     }
 
     /**
@@ -1136,7 +1475,6 @@ class FeedCategoryTiles
                 $warmSlugs[] = (string) $catMap['by_id'][$rid]['slug'];
             }
         }
-        // Дополнительно прогреваем самые популярные L2-разделы
         foreach (['sneakers', 'sportswear', 'jackets', 'hoodies', 'bags', 'perfume', 'makeup', 'lego-building', 'gaming'] as $popularL2) {
             if (isset($catMap['by_slug'][$popularL2])) {
                 $warmSlugs[] = $popularL2;
@@ -1233,6 +1571,7 @@ class FeedCategoryTiles
             }
 
             $topBrands = $this->fetchTopBrandsForClause('category_slugs = ' . $this->meiliQuote($slug));
+            $imgFile = self::CATEGORY_IMAGES[$slug] ?? ($slug . '.png');
 
             $tiles[] = [
                 'slug' => $slug,
@@ -1241,12 +1580,14 @@ class FeedCategoryTiles
                 'name_ka' => $node['name_ka'],
                 'name_el' => $node['name_el'],
                 'subtitle' => implode(', ', $topBrands),
-                'img' => self::CATEGORY_IMAGES[$slug] ?? ($slug . '.png'),
+                'img' => $imgFile,
+                'image' => $this->resolveDepartmentImage($slug, $imgFile),
                 'count' => $count,
             ];
         }
 
         if ($kidsCount > 0) {
+            $imgFile = self::CATEGORY_IMAGES['kids'];
             $tiles[] = [
                 'slug' => 'kids',
                 'name_en' => 'Kids & Teens',
@@ -1254,12 +1595,14 @@ class FeedCategoryTiles
                 'name_ka' => 'საბავშვო',
                 'name_el' => 'Παιδικά',
                 'subtitle' => implode(', ', $this->fetchTopBrandsForClause('gender = "kids"')),
-                'img' => self::CATEGORY_IMAGES['kids'],
+                'img' => $imgFile,
+                'image' => $this->resolveDepartmentImage('clothing', $imgFile, 'gender = "kids"'),
                 'count' => $kidsCount,
             ];
         }
 
         if ($salesCount > 0) {
+            $imgFile = self::CATEGORY_IMAGES['sales-offers'];
             $tiles[] = [
                 'slug' => 'sales-offers',
                 'name_en' => 'Sales & Offers',
@@ -1267,7 +1610,8 @@ class FeedCategoryTiles
                 'name_ka' => 'ფასდაკლებები',
                 'name_el' => 'Προσφορές',
                 'subtitle' => '',
-                'img' => self::CATEGORY_IMAGES['sales-offers'],
+                'img' => $imgFile,
+                'image' => is_file(public_path('images/categories/' . $imgFile)) ? '/images/categories/' . $imgFile : null,
                 'count' => $salesCount,
             ];
         }
@@ -1365,7 +1709,6 @@ class FeedCategoryTiles
         return $result;
     }
 
-
     /**
      * Возвращает локальную иконку из public/images/categories/, а если файла нет —
      * подтягивает реальное фото топового товара из Meilisearch (с учётом пола).
@@ -1406,7 +1749,6 @@ class FeedCategoryTiles
 
         return null;
     }
-    
 
     /**
      * Загружает всю таблицу categories в компактную карту (строго чистые массивы).

@@ -16,12 +16,19 @@
         'kids' => __('Детское'),
         'unisex' => __('Унисекс'),
     ];
+    $hasPriceFilter = !empty($filters['min_price']) || !empty($filters['max_price']);
+    $priceChipLabel = match (true) {
+        !empty($filters['min_price']) && !empty($filters['max_price']) => '€' . (int) $filters['min_price'] . ' – €' . (int) $filters['max_price'],
+        !empty($filters['min_price']) => '≥ €' . (int) $filters['min_price'],
+        !empty($filters['max_price']) => '≤ €' . (int) $filters['max_price'],
+        default => '',
+    };
     $activeFiltersCount = count($filters['brands'] ?? [])
         + count($filters['genders'] ?? [])
         + (!empty($filters['size']) ? 1 : 0)
         + (!empty($filters['color']) ? 1 : 0)
         + (!empty($filters['discount']) ? 1 : 0)
-        + (!empty($filters['min_price']) || !empty($filters['max_price']) ? 1 : 0);
+        + ($hasPriceFilter ? 1 : 0);
 @endphp
 
 <div class="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] antialiased pb-20"
@@ -95,6 +102,50 @@
             this.loading = true;
             this.$refs.filterForm.submit();
         },
+        removeBrand(brand) {
+            let matched = false;
+            this.$refs.filterForm.querySelectorAll('input[name=&quot;brands[]&quot;]').forEach(el => {
+                if (el.value === brand) {
+                    el.checked = false;
+                    matched = true;
+                }
+            });
+            this.loading = true;
+            if (matched) {
+                this.$refs.filterForm.submit();
+                return;
+            }
+            const url = new URL(window.location.href);
+            for (const [k, v] of Array.from(url.searchParams.entries())) {
+                if ((k === 'brands[]' || /^brands\[\d+\]$/.test(k)) && v === brand) {
+                    url.searchParams.delete(k);
+                }
+            }
+            url.searchParams.delete('page');
+            window.location.href = url.toString();
+        },
+        removeGender(code) {
+            let matched = false;
+            this.$refs.filterForm.querySelectorAll('input[name=&quot;genders[]&quot;]').forEach(el => {
+                if (el.value === code) {
+                    el.checked = false;
+                    matched = true;
+                }
+            });
+            this.loading = true;
+            if (matched) {
+                this.$refs.filterForm.submit();
+                return;
+            }
+            const url = new URL(window.location.href);
+            for (const [k, v] of Array.from(url.searchParams.entries())) {
+                if ((k === 'genders[]' || /^genders\[\d+\]$/.test(k)) && v === code) {
+                    url.searchParams.delete(k);
+                }
+            }
+            url.searchParams.delete('page');
+            window.location.href = url.toString();
+        },
         toggleSize(sz) {
             this.$refs.sizeInput.value = (this.$refs.sizeInput.value === sz) ? '' : sz;
             this.loading = true;
@@ -157,7 +208,7 @@
     <!-- Полноширинный контейнер Apple -->
     <div class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-5 sm:space-y-6">
 
-        <!-- Поисковая строка: на мобильном только иконка ☰ без слова «Категории» -->
+        <!-- Поисковая строка: только на десктопе (>= lg), на мобильном поиск вынесен в шапку -->
         <div class="hidden lg:block max-w-4xl mx-auto relative" @click.outside="openSuggestions = false; activeIndex = -1">
             <form @submit.prevent="submitSearchBar()">
                 <div class="apple-search-bar flex items-center justify-between gap-2">
@@ -217,7 +268,7 @@
             </div>
         </div>
 
-<!-- Хлебные крошки: путь наверх без дублирования текущего заголовка H1 -->
+        <!-- Хлебные крошки: путь наверх без дублирования текущего заголовка H1 -->
         @php
             $parentCrumbs = !empty($breadcrumbs)
                 ? array_values(array_filter($breadcrumbs, fn ($c) => !empty($c['url'])))
@@ -247,7 +298,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-[270px_minmax(0,1fr)] gap-6 xl:gap-8 items-start">
 
             <!-- САЙДБАР ФИЛЬТРОВ (на десктопе — левая колонка, на мобильном — выдвижная шторка) -->
-            <div :class="mobileFiltersOpen ? 'fixed inset-0 z-[9990] flex bg-black/40 backdrop-blur-xs lg:static lg:block lg:bg-transparent lg:backdrop-blur-none' : 'hidden lg:block'"
+            <div :class="mobileFiltersOpen ? 'fixed inset-0 z-[9990] flex bg-white/60 backdrop-blur-md lg:static lg:block lg:bg-transparent lg:backdrop-blur-none' : 'hidden lg:block'"
                  @click.self="mobileFiltersOpen = false">
 
                 <aside class="w-full max-w-sm lg:max-w-none bg-white h-full lg:h-auto overflow-y-auto lg:overflow-visible rounded-none lg:rounded-3xl border-r lg:border border-black/[0.06] p-5 sm:p-6 space-y-6 lg:sticky lg:top-20 ml-auto lg:ml-0">
@@ -307,16 +358,17 @@
                             </label>
                         </div>
 
-                        <!-- Бренды -->
+                        <!-- Бренды (выбранные всегда закреплены наверху) -->
                         @if(!empty($facets['brands']))
                         <div class="space-y-2.5 border-t border-black/[0.05] pt-4">
                             <div class="app-text-xs font-semibold uppercase tracking-wider text-[#1d1d1f]">{{ __('Бренды') }}</div>
                             <div class="space-y-1.5 max-h-60 overflow-y-auto pr-1">
                                 @foreach($facets['brands'] as $idx => $b)
-                                    <label x-show="showAllBrands || {{ $idx }} < 7" class="flex items-center justify-between gap-2 app-text-sub text-sm hover:text-[#1d1d1f] cursor-pointer py-0.5">
+                                    @php $isBrandChecked = in_array($b['name'], $filters['brands'] ?? [], true); @endphp
+                                    <label x-show="showAllBrands || {{ $idx }} < 7 || {{ $isBrandChecked ? 'true' : 'false' }}" class="flex items-center justify-between gap-2 app-text-sub text-sm hover:text-[#1d1d1f] cursor-pointer py-0.5">
                                         <span class="flex items-center gap-2 truncate">
                                             <input type="checkbox" name="brands[]" value="{{ $b['name'] }}"
-                                                   @checked(in_array($b['name'], $filters['brands'] ?? [], true))
+                                                   @checked($isBrandChecked)
                                                    onchange="this.form.submit()"
                                                    class="rounded border-zinc-300 text-[#0071e3] focus:ring-[#0071e3]">
                                             <span class="truncate">{{ $b['name'] }}</span>
@@ -333,8 +385,8 @@
                         </div>
                         @endif
 
-                        <!-- Пол -->
-                        @if(count($facets['genders'] ?? []) > 1)
+                        <!-- Пол (скрыт автоматически для техники, игрушек и категорий с 1 вариантом) -->
+                        @if(count($facets['genders'] ?? []) > 1 || !empty($filters['genders']))
                         <div class="space-y-2 border-t border-black/[0.05] pt-4">
                             <div class="app-text-xs font-semibold uppercase tracking-wider text-[#1d1d1f]">{{ __('Пол') }}</div>
                             @foreach($facets['genders'] as $g)
@@ -352,23 +404,26 @@
                         </div>
                         @endif
 
-                        <!-- Размеры -->
+                        <!-- Размеры (адаптивные, без NO SIZE, без обрезки 32/32, в естественном порядке) -->
                         @if(!empty($facets['sizes']))
                         <div class="space-y-2.5 border-t border-black/[0.05] pt-4">
                             <div class="app-text-xs font-semibold uppercase tracking-wider text-[#1d1d1f]">{{ __('Размер') }}</div>
-                            <div class="grid grid-cols-4 gap-1.5">
+                            <div class="flex flex-wrap gap-1.5">
                                 @foreach($facets['sizes'] as $sz)
-                                    @php $isSzActive = ($filters['size'] ?? '') === $sz; @endphp
+                                    @php
+                                        $isSzActive = ($filters['size'] ?? '') === $sz;
+                                        $szLabel = str_replace('_', '/', (string) $sz);
+                                    @endphp
                                     <button type="button" @click="toggleSize(@js($sz))"
-                                            class="py-1.5 px-1 app-text-xs font-medium rounded-full border text-center transition-all cursor-pointer truncate {{ $isSzActive ? 'bg-[#1d1d1f] text-white border-[#1d1d1f]' : 'bg-white text-[#1d1d1f] border-black/15 hover:border-[#0071e3]' }}">
-                                        {{ $sz }}
+                                            class="min-w-[46px] py-1.5 px-2.5 app-text-xs font-medium rounded-full border text-center transition-all cursor-pointer whitespace-nowrap {{ $isSzActive ? 'bg-[#1d1d1f] text-white border-[#1d1d1f]' : 'bg-white text-[#1d1d1f] border-black/15 hover:border-[#0071e3]' }}">
+                                        {{ $szLabel }}
                                     </button>
                                 @endforeach
                             </div>
                         </div>
                         @endif
 
-<!-- Цвета с цветовыми квадратиками слева -->
+                        <!-- Цвета с цветовыми квадратиками слева -->
                         @if(!empty($facets['colors']))
                         @php
                             $resolveSwatchCss = static function (string $label): string {
@@ -447,7 +502,7 @@
                     @endif
                 </div>
 
-                <!-- Горизонтальная лента подкатегорий с поддержкой drag-скроллинга мышкой на десктопе -->
+                <!-- Горизонтальная лента подкатегорий с реальными фото и drag-скроллингом -->
                 @if(!empty($subcategories))
                     <div x-data="{
                             isDown: false,
@@ -487,9 +542,9 @@
                                 <a href="{{ $sub['url'] }}"
                                    draggable="false"
                                    class="flex flex-col items-center justify-between w-24 sm:w-28 shrink-0 p-2.5 rounded-2xl bg-white border border-black/[0.06] hover:border-[#0071e3]/40 transition-all text-center">
-                                    <div class="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center overflow-hidden rounded-xl bg-[#f5f5f7] mb-2 pointer-events-none">
+                                    <div class="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center overflow-hidden rounded-xl bg-[#f5f5f7] p-1 mb-2 pointer-events-none">
                                         @if(!empty($sub['image']))
-                                            <img src="{{ $sub['image'] }}" alt="{{ $sub['label'] }}" draggable="false" class="max-w-full max-h-full object-contain">
+                                            <img src="{{ $sub['image'] }}" alt="{{ $sub['label'] }}" loading="lazy" draggable="false" class="w-full h-full object-contain mix-blend-multiply">
                                         @else
                                             <span class="app-text-xs font-bold text-[#86868b]">{{ mb_substr($sub['label'], 0, 2) }}</span>
                                         @endif
@@ -502,9 +557,9 @@
                                 <button type="button"
                                         @click="selectSub({{ (int) $sub['index'] }})"
                                         class="flex flex-col items-center justify-between w-24 sm:w-28 shrink-0 p-2.5 rounded-2xl border transition-all cursor-pointer text-center {{ $isSubActive ? 'bg-white border-[#0071e3] ring-2 ring-[#0071e3]/20 shadow-sm' : 'bg-white border-black/[0.06] hover:border-black/20' }}">
-                                    <div class="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center overflow-hidden rounded-xl bg-[#f5f5f7] mb-2 pointer-events-none">
+                                    <div class="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center overflow-hidden rounded-xl bg-[#f5f5f7] p-1 mb-2 pointer-events-none">
                                         @if(!empty($sub['image']))
-                                            <img src="{{ $sub['image'] }}" alt="{{ $sub['label'] }}" draggable="false" class="max-w-full max-h-full object-contain">
+                                            <img src="{{ $sub['image'] }}" alt="{{ $sub['label'] }}" loading="lazy" draggable="false" class="w-full h-full object-contain mix-blend-multiply">
                                         @else
                                             <span class="app-text-xs font-bold text-[#86868b]">{{ mb_substr($sub['label'], 0, 2) }}</span>
                                         @endif
@@ -518,10 +573,10 @@
                     </div>
                 @endif
 
-<!-- Компактная панель фильтров -->
-                <div class="flex items-center justify-between gap-2 bg-white px-3 sm:px-4 py-1.45 sm:py-2.5 rounded-2xl border border-black/[0.06]">
-                    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1.5 pl-0.5 pr-1">
-                        <!-- Кнопка открытия шторки фильтров -->
+                <!-- Компактная панель быстрых фильтров и снимаемых активных чипсов -->
+                <div class="flex items-center justify-between gap-2 bg-white px-3 sm:px-4 py-1.5 sm:py-2.5 rounded-2xl border border-black/[0.06]">
+                    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 pl-0.5 pr-1">
+                        <!-- Кнопка открытия шторки фильтров (мобильный) -->
                         <button type="button" @click="mobileFiltersOpen = true"
                                 aria-label="{{ __('Фильтры') }}"
                                 class="lg:hidden relative inline-flex items-center justify-center gap-1.5 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full text-xs font-semibold bg-[#0071e3] text-white shrink-0 cursor-pointer">
@@ -534,28 +589,82 @@
                             @endif
                         </button>
 
-                        <!-- Кнопка скидок (на мобильном только иконка молнии/процента) -->
-                        <a href="{{ request()->fullUrlWithQuery(['discount' => empty($filters['discount']) ? 1 : null]) }}"
+                        <!-- Кнопка скидок -->
+                        <a href="{{ request()->fullUrlWithQuery(['discount' => empty($filters['discount']) ? 1 : null, 'page' => null]) }}"
                            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full app-text-xs font-medium border transition-colors shrink-0 {{ !empty($filters['discount']) ? 'bg-red-600 text-white border-red-600' : 'bg-white text-[#1d1d1f] border-black/15 hover:border-[#0071e3]' }}">
                             <span>&#9889; {{ __('Скидки') }}</span>
                         </a>
 
-                        @if(!empty($filters['brands']))
-                            @foreach($filters['brands'] as $activeBrand)
-                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-[#1d1d1f] text-white shrink-0">
-                                    {{ $activeBrand }}
-                                </span>
-                            @endforeach
-                        @endif
+                        <!-- Активные фильтры: кликабельные чипсы с кнопкой снятия × -->
+                        @foreach($filters['brands'] ?? [] as $activeBrand)
+                            <button type="button"
+                                    @click="removeBrand(@js($activeBrand))"
+                                    title="{{ __('Убрать фильтр') }}"
+                                    class="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium bg-[#1d1d1f] hover:bg-[#3a3a3c] text-white transition-colors shrink-0 cursor-pointer">
+                                <span>{{ $activeBrand }}</span>
+                                <svg class="w-3.5 h-3.5 text-white/75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        @endforeach
+
+                        @foreach($filters['genders'] ?? [] as $activeGender)
+                            <button type="button"
+                                    @click="removeGender(@js($activeGender))"
+                                    title="{{ __('Убрать фильтр') }}"
+                                    class="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium bg-[#1d1d1f] hover:bg-[#3a3a3c] text-white transition-colors shrink-0 cursor-pointer">
+                                <span>{{ $genderLabels[$activeGender] ?? $activeGender }}</span>
+                                <svg class="w-3.5 h-3.5 text-white/75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        @endforeach
 
                         @if(!empty($filters['size']))
-                            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xl font-medium bg-[#1d1d1f] text-white shrink-0">
-                                {{ $filters['size'] }}
-                            </span>
+                            <button type="button"
+                                    @click="toggleSize(@js($filters['size']))"
+                                    title="{{ __('Убрать фильтр') }}"
+                                    class="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium bg-[#1d1d1f] hover:bg-[#3a3a3c] text-white transition-colors shrink-0 cursor-pointer">
+                                <span>{{ str_replace('_', '/', (string) $filters['size']) }}</span>
+                                <svg class="w-3.5 h-3.5 text-white/75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        @endif
+
+                        @if(!empty($filters['color']))
+                            <button type="button"
+                                    @click="toggleColor(@js($filters['color']))"
+                                    title="{{ __('Убрать фильтр') }}"
+                                    class="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium bg-[#1d1d1f] hover:bg-[#3a3a3c] text-white transition-colors shrink-0 cursor-pointer">
+                                <span>{{ $filters['color'] }}</span>
+                                <svg class="w-3.5 h-3.5 text-white/75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        @endif
+
+                        @if($hasPriceFilter)
+                            <button type="button"
+                                    @click="setPresetPrice('', '')"
+                                    title="{{ __('Убрать фильтр') }}"
+                                    class="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium bg-[#1d1d1f] hover:bg-[#3a3a3c] text-white transition-colors shrink-0 cursor-pointer">
+                                <span>{{ $priceChipLabel }}</span>
+                                <svg class="w-3.5 h-3.5 text-white/75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        @endif
+
+                        @if($activeFiltersCount > 1)
+                            <a href="{{ $resetUrl }}"
+                               class="px-2.5 py-1.5 text-xs font-medium text-[#0071e3] hover:underline shrink-0">
+                                {{ __('Сбросить') }}
+                            </a>
                         @endif
                     </div>
 
-                    <!-- Сортировка справа: на мобильном только иконка ↑↓ без длинного слова «Рекомендуемые» -->
+                    <!-- Сортировка справа -->
                     <div class="relative shrink-0" x-data="{ openSort: false }" @click.outside="openSort = false">
                         <button type="button" @click="openSort = !openSort"
                                 aria-label="{{ __('Сортировка') }}"

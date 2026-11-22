@@ -97,7 +97,7 @@ class ProductSearchController extends Controller
 
         $allCategories = $tiles->get();
 
-        // Плитки категорий сверху также учитывают выбранный пол (если отмечен «Мужское», не покажет «Женские кроссовки»)
+        // Плитки категорий бренда с реальными фото товаров этого бренда и учётом выбранного пола
         $sourceTiles = $query !== ''
             ? $tiles->getForBrand($query, $filters['genders'])
             : $allCategories->take(12);
@@ -106,9 +106,11 @@ class ProductSearchController extends Controller
             'index' => $idx,
             'label' => $cat['label'],
             'count' => $cat['count'] ?? 0,
-            'image' => file_exists(public_path('images/categories/' . $cat['img']))
-                ? asset('images/categories/' . $cat['img'])
-                : null,
+            'image' => !empty($cat['image'])
+                ? $cat['image']
+                : (!empty($cat['img']) && file_exists(public_path('images/categories/' . $cat['img']))
+                    ? asset('images/categories/' . $cat['img'])
+                    : null),
             'url' => $cat['url'],
         ])->all();
 
