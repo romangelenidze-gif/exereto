@@ -12,6 +12,9 @@ use Illuminate\View\View;
 
 class HomeController extends Controller
 {
+    /** Количество брендов рядом с карточкой A–Z: 5 (1 ряд из 6) или 11 (2 ряда по 6) */
+    private const BRAND_SHOWCASE_LIMIT = 5;
+
     public function index(Request $request, FeedCategoryTiles $categoryTiles, FeedEntityLocalizer $localizer): View
     {
         $locale = app()->getLocale();
@@ -77,7 +80,7 @@ class HomeController extends Controller
             fn () => $this->fetchAllBrandsIndex()
         );
 
-        // 3. 7 флагманских editorial-витрин брендов с цветным прогрессивным блюром
+        // 3. Топ-витрины брендов (5 + карточка A–Z = 6 в ряд)
         $rawShowcases = Cache::remember(
             'home.brand_showcases.v1',
             now()->addHours(30),
@@ -90,7 +93,6 @@ class HomeController extends Controller
 
         $totalBrandsCount = count($allBrandsIndex);
 
-        // Первый блок — над популярными брендами, остальные — под ними
         $heroBlock = $blocks['fashion'] ?? null;
         $bottomBlocks = array_values(array_diff_key($blocks, ['fashion' => true]));
 
@@ -140,28 +142,27 @@ class HomeController extends Controller
     }
 
     /**
-     * Собирает ровно 7 флагманских editorial-карточек брендов (одно сильное фото + фирменный цветной блюр).
-     * Опционально поддерживает кастомные обложки в public/images/brand-covers/{slug}.webp (.jpg/.png).
+     * Собирает карточки популярных брендов.
+     * Если в public/images/brand-covers/{slug}.{webp,jpg,png} лежит ваше фото — включается full-bleed editorial режим.
      *
      * @param  array<int, array{n: string, c: int, d: int}>  $allBrandsIndex
-     * @return array<int, array{slug: string, name: string, count: int, max_discount: int, image: string, object_position: string, tint_rgb: string, glow_rgb: string}>
+     * @return array<int, array{slug: string, name: string, count: int, max_discount: int, image: string, has_custom_cover: bool}>
      */
     private function fetchBrandShowcases(FeedCategoryTiles $categoryTiles, array $allBrandsIndex): array
     {
-        // Приоритетный пул брендов с индивидуальной цветовой палитрой для нижнего прогрессивного блюра
         $curated = [
-            ['name' => 'adidas', 'tint' => '18, 30, 56', 'glow' => '52, 92, 160', 'pos' => '50% 16%'],
-            ['name' => 'Guess', 'tint' => '76, 26, 44', 'glow' => '156, 68, 96', 'pos' => '50% 16%'],
-            ['name' => 'Tommy Hilfiger', 'tint' => '20, 34, 64', 'glow' => '58, 86, 148', 'pos' => '50% 16%'],
-            ['name' => 'Calvin Klein', 'tint' => '48, 38, 34', 'glow' => '112, 92, 82', 'pos' => '50% 16%'],
-            ['name' => 'New Balance', 'tint' => '22, 50, 58', 'glow' => '58, 122, 134', 'pos' => '50% 42%'],
-            ['name' => 'Puma', 'tint' => '20, 48, 40', 'glow' => '54, 118, 96', 'pos' => '50% 20%'],
-            ['name' => 'Stradivarius', 'tint' => '82, 42, 28', 'glow' => '164, 92, 66', 'pos' => '50% 16%'],
-            ['name' => 'Polo Ralph Lauren', 'tint' => '18, 46, 36', 'glow' => '48, 106, 82', 'pos' => '50% 16%'],
-            ['name' => 'Vans', 'tint' => '70, 24, 32', 'glow' => '144, 56, 70', 'pos' => '50% 35%'],
-            ['name' => 'Geox', 'tint' => '26, 44, 68', 'glow' => '68, 108, 156', 'pos' => '50% 35%'],
-            ['name' => 'LEGO', 'tint' => '24, 42, 88', 'glow' => '66, 106, 196', 'pos' => '50% 42%'],
-            ['name' => 'BOSS', 'tint' => '42, 36, 30', 'glow' => '102, 86, 70', 'pos' => '50% 18%'],
+            'adidas',
+            'Guess',
+            'Tommy Hilfiger',
+            'Calvin Klein',
+            'New Balance',
+            'Puma',
+            'Stradivarius',
+            'Polo Ralph Lauren',
+            'Vans',
+            'Geox',
+            'LEGO',
+            'BOSS',
         ];
 
         $statsByLower = [];
@@ -169,15 +170,15 @@ class HomeController extends Controller
             $statsByLower[mb_strtolower($b['n'])] = $b;
         }
 
+        $limit = self::BRAND_SHOWCASE_LIMIT;
         $primary = [];
         $fallback = [];
 
-        foreach ($curated as $cfg) {
-            if (count($primary) >= 7) {
+        foreach ($curated as $brandName) {
+            if (count($primary) >= $limit) {
                 break;
             }
 
-            $brandName = $cfg['name'];
             $slug = Str::slug($brandName);
             $family = $categoryTiles->resolveMatchingBrands($brandName);
             if ($family === []) {
@@ -200,8 +201,8 @@ class HomeController extends Controller
                 continue;
             }
 
-            $heroImage = $this->resolveBrandCoverImage($slug, $family);
-            if ($heroImage === null) {
+            $cover = $this->resolveBrandCoverImage($slug, $family);
+            if ($cover === null) {
                 continue;
             }
 
@@ -210,10 +211,8 @@ class HomeController extends Controller
                 'name' => $brandName,
                 'count' => $totalCount,
                 'max_discount' => $maxDiscount,
-                'image' => $heroImage,
-                'object_position' => $cfg['pos'],
-                'tint_rgb' => $cfg['tint'],
-                'glow_rgb' => $cfg['glow'],
+                'image' => $cover['url'],
+                'has_custom_cover' => $cover['is_custom'],
             ];
 
             if ($totalCount >= 50) {
@@ -223,26 +222,26 @@ class HomeController extends Controller
             }
         }
 
-        while (count($primary) < 7 && $fallback !== []) {
+        while (count($primary) < $limit && $fallback !== []) {
             $primary[] = array_shift($fallback);
         }
 
-        return array_slice($primary, 0, 7);
+        return array_slice($primary, 0, $limit);
     }
 
     /**
-     * Подбирает самое эффектное фото для карточки бренда:
-     * 1) Сначала проверяет локальную кастомную обложку public/images/brand-covers/{slug}.{webp,jpg,png}.
-     * 2) Иначе выбирает лучшую студийную фотографию из товаров бренда (приоритет верхней одежде/платьям/хитам, отсекая носки/бельё/мелочь).
+     * 1) Сначала ищет ваше подготовленное фото в public/images/brand-covers/{slug}.{webp,jpg,jpeg,png}.
+     * 2) Если его ещё нет — берёт чистое фото товара для аккуратной светлой карточки-заглушки.
      *
      * @param  string[]  $brandFamily
+     * @return array{url: string, is_custom: bool}|null
      */
-    private function resolveBrandCoverImage(string $slug, array $brandFamily): ?string
+    private function resolveBrandCoverImage(string $slug, array $brandFamily): ?array
     {
         foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
             $rel = "images/brand-covers/{$slug}.{$ext}";
             if (is_file(public_path($rel))) {
-                return '/' . $rel;
+                return ['url' => '/' . $rel, 'is_custom' => true];
             }
         }
 
@@ -254,7 +253,7 @@ class HomeController extends Controller
             ->where('image_url', '!=', '')
             ->orderByDesc('priority_score')
             ->orderByDesc('price')
-            ->limit(50)
+            ->limit(40)
             ->get(['name', 'category_path', 'price', 'image_url']);
 
         if ($candidates->isEmpty()) {
@@ -262,7 +261,7 @@ class HomeController extends Controller
         }
 
         $avoidWords = ['sock', 'underw', 'brief', 'boxer', 'bra', 'panty', 'slip', 'thong', 'keychain', 'wallet', 'belt', 'cap', 'beanie', 'glove', 'scarf', 'towel', 'case', 'cover', 'κάλτσ', 'εσώρουχ'];
-        $preferWords = ['jacket', 'coat', 'blazer', 'dress', 'hoodie', 'sweatshirt', 'sweater', 'shirt', 't-shirt', 'jeans', 'sneaker', 'boot', 'bag', 'μπουφάν', 'φόρεμα', 'φούτερ'];
+        $preferWords = ['jacket', 'coat', 'blazer', 'dress', 'hoodie', 'sweatshirt', 'sweater', 'shirt', 't-shirt', 'sneaker', 'boot', 'bag', 'μπουφάν', 'φόρεμα', 'φούτερ'];
 
         $bestUrl = null;
         $bestScore = -999;
@@ -274,17 +273,17 @@ class HomeController extends Controller
             }
 
             $hay = mb_strtolower((string) $cand->name . ' ' . (string) $cand->category_path);
-            $score = 50 - $idx;
+            $score = 40 - $idx;
 
             if ((float) $cand->price >= 70) {
-                $score += 25;
+                $score += 20;
             } elseif ((float) $cand->price >= 40) {
-                $score += 12;
+                $score += 10;
             }
 
             foreach ($preferWords as $pw) {
                 if (str_contains($hay, $pw)) {
-                    $score += 18;
+                    $score += 16;
                     break;
                 }
             }
@@ -302,7 +301,9 @@ class HomeController extends Controller
             }
         }
 
-        return $bestUrl ?: trim((string) $candidates->first()->image_url);
+        $url = $bestUrl ?: trim((string) $candidates->first()->image_url);
+
+        return $url !== '' ? ['url' => $url, 'is_custom' => false] : null;
     }
 
     /**
