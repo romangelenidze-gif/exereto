@@ -1295,6 +1295,77 @@ html .pswp {
     }
 }
 
+/* Мобильная свайп-карусель поверх единой 6-колоночной сетки главной */
+@media (max-width: 1023px) {
+    .apple-product-grid.apple-product-grid--carousel {
+        display: flex;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        gap: 0.75rem;
+        scrollbar-width: none;
+    }
+
+    .apple-product-grid.apple-product-grid--carousel::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* Единый стиль карточек Популярных брендов (высота 460px и радиус как у .adidas-product-card) */
+.brand-showcase-card {
+    position: relative;
+    height: 360px;
+    border-radius: 1.5rem;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    background-color: #f4f5f6;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 640px) {
+    .brand-showcase-card {
+        height: 400px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .brand-showcase-card {
+        height: 460px;
+    }
+}
+
+.brand-showcase-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08);
+}
+
+.brand-showcase-blur {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 44%;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    -webkit-mask-image: linear-gradient(to top, #000 0%, #000 46%, rgba(0, 0, 0, 0.55) 70%, transparent 100%);
+    mask-image: linear-gradient(to top, #000 0%, #000 46%, rgba(0, 0, 0, 0.55) 70%, transparent 100%);
+    pointer-events: none;
+}
+
+.brand-showcase-scrim {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 50%;
+    background: linear-gradient(
+        to top,
+        rgba(40, 40, 44, 0.88) 0%,
+        rgba(56, 56, 62, 0.66) 44%,
+        rgba(82, 82, 88, 0.22) 74%,
+        transparent 100%
+    );
+    pointer-events: none;
+}
+
 
 
 /* ==========================================================================

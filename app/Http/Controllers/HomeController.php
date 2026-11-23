@@ -36,7 +36,7 @@ class HomeController extends Controller
                                 $def['feeds'],
                                 $def['gender'] ?? null,
                                 (bool) ($def['only_discounts'] ?? false),
-                                (int) ($def['limit'] ?? 8)
+                                (int) ($def['limit'] ?? 12)
                             );
                         }
 
@@ -142,27 +142,26 @@ class HomeController extends Controller
     }
 
     /**
-     * Собирает карточки популярных брендов.
-     * Если в public/images/brand-covers/{slug}.{webp,jpg,png} лежит ваше фото — включается full-bleed editorial режим.
+     * Собирает карточки популярных брендов (приоритет кастомным обложкам из public/images/brand-covers/{slug}.webp).
      *
      * @param  array<int, array{n: string, c: int, d: int}>  $allBrandsIndex
-     * @return array<int, array{slug: string, name: string, count: int, max_discount: int, image: string, has_custom_cover: bool}>
+     * @return array<int, array{slug: string, name: string, count: int, max_discount: int, image: string, object_position: string}>
      */
     private function fetchBrandShowcases(FeedCategoryTiles $categoryTiles, array $allBrandsIndex): array
     {
         $curated = [
-            'adidas',
-            'Guess',
-            'Tommy Hilfiger',
-            'Calvin Klein',
-            'New Balance',
-            'Puma',
-            'Stradivarius',
-            'Polo Ralph Lauren',
-            'Vans',
-            'Geox',
-            'LEGO',
-            'BOSS',
+            ['name' => 'adidas', 'pos' => '50% 10%'],
+            ['name' => 'New Balance', 'pos' => '50% 50%'],
+            ['name' => 'Guess', 'pos' => '50% 10%'],
+            ['name' => 'Tommy Hilfiger', 'pos' => '50% 10%'],
+            ['name' => 'Calvin Klein', 'pos' => '50% 10%'],
+            ['name' => 'Puma', 'pos' => '50% 20%'],
+            ['name' => 'Stradivarius', 'pos' => '50% 10%'],
+            ['name' => 'Polo Ralph Lauren', 'pos' => '50% 10%'],
+            ['name' => 'Vans', 'pos' => '50% 50%'],
+            ['name' => 'Geox', 'pos' => '50% 50%'],
+            ['name' => 'LEGO', 'pos' => '50% 50%'],
+            ['name' => 'BOSS', 'pos' => '50% 10%'],
         ];
 
         $statsByLower = [];
@@ -174,11 +173,12 @@ class HomeController extends Controller
         $primary = [];
         $fallback = [];
 
-        foreach ($curated as $brandName) {
+        foreach ($curated as $cfg) {
             if (count($primary) >= $limit) {
                 break;
             }
 
+            $brandName = $cfg['name'];
             $slug = Str::slug($brandName);
             $family = $categoryTiles->resolveMatchingBrands($brandName);
             if ($family === []) {
@@ -212,7 +212,7 @@ class HomeController extends Controller
                 'count' => $totalCount,
                 'max_discount' => $maxDiscount,
                 'image' => $cover['url'],
-                'has_custom_cover' => $cover['is_custom'],
+                'object_position' => $cover['is_custom'] ? '50% 50%' : $cfg['pos'],
             ];
 
             if ($totalCount >= 50) {
@@ -231,7 +231,7 @@ class HomeController extends Controller
 
     /**
      * 1) Сначала ищет ваше подготовленное фото в public/images/brand-covers/{slug}.{webp,jpg,jpeg,png}.
-     * 2) Если его ещё нет — берёт чистое фото товара для аккуратной светлой карточки-заглушки.
+     * 2) Если его ещё нет — подбирает лучшее фото из каталога бренда.
      *
      * @param  string[]  $brandFamily
      * @return array{url: string, is_custom: bool}|null
@@ -307,7 +307,7 @@ class HomeController extends Controller
     }
 
     /**
-     * Конфигурация тематических блоков главной.
+     * Конфигурация тематических блоков главной (лимиты кратны 6 под .apple-product-grid--6).
      *
      * @param  iterable<int, mixed>  $tiles
      * @return array<int, array<string, mixed>>
@@ -333,7 +333,7 @@ class HomeController extends Controller
                 'feeds' => ['modivo', 'notos', 'stradivarius', 'cosselie', 'sephora'],
                 'gender' => null,
                 'only_discounts' => false,
-                'limit' => 8,
+                'limit' => 12,
             ],
             [
                 'slug' => 'kids',
@@ -347,7 +347,7 @@ class HomeController extends Controller
                 'feeds' => ['energiers', 'adidas', 'modivo'],
                 'gender' => 'kids',
                 'only_discounts' => false,
-                'limit' => 8,
+                'limit' => 12,
             ],
             [
                 'slug' => 'sneakers',
@@ -361,7 +361,7 @@ class HomeController extends Controller
                 'feeds' => ['epapoutsia', 'adidas'],
                 'gender' => null,
                 'only_discounts' => false,
-                'limit' => 8,
+                'limit' => 12,
             ],
             [
                 'slug' => 'toys',
@@ -375,7 +375,7 @@ class HomeController extends Controller
                 'feeds' => ['toysgr', 'moustakas'],
                 'gender' => null,
                 'only_discounts' => false,
-                'limit' => 8,
+                'limit' => 12,
             ],
             [
                 'slug' => 'tech',
@@ -389,7 +389,7 @@ class HomeController extends Controller
                 'feeds' => ['public'],
                 'gender' => null,
                 'only_discounts' => false,
-                'limit' => 8,
+                'limit' => 12,
             ],
         ];
     }
@@ -468,7 +468,7 @@ class HomeController extends Controller
                     ->orderByDesc('id');
             }
 
-            $chunk = $q->limit(24)
+            $chunk = $q->limit(36)
                 ->get()
                 ->unique(fn (FeedProduct $p) => $p->model_code ?: $p->sku);
 
