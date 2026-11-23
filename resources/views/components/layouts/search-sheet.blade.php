@@ -1,7 +1,4 @@
 @php
-    $photoSearchEnabled = (bool) config('services.gemini.vision_enabled', true)
-        && filled(config('services.gemini.vision_api_key'));
-
     $quickQueries = \Illuminate\Support\Facades\Cache::remember(
         'search.quick_queries.v1',
         now()->addMinutes(30),
@@ -146,12 +143,12 @@
              :class="searchOpen ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'"
              class="fixed inset-0 z-[9995] flex flex-col bg-[#f5f5f7] transition-[opacity,visibility] duration-200 ease-out"
         >
-            <!-- Верхняя строка -->
+        <!-- Верхняя строка: единый фон #f5f5f7 без белой полосы и разделителя -->
             <div class="px-6 pt-6 pb-2.5 bg-[#f5f5f7] shrink-0">
                 <div :class="searchOpen ? 'ml-0' : 'ml-[116px]'"
                      class="transition-[margin] duration-250 ease-out">
                     <form @submit.prevent="submitSearch()"
-                          class="flex items-center gap-1.5 pl-4 pr-2 h-12 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-black/[0.07] focus-within:border-[#0071e3]/40 focus-within:ring-2 focus-within:ring-[#0071e3]/15 transition-all">
+                          class="flex items-center gap-2 pl-4 pr-2 h-12 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-black/[0.07] focus-within:border-[#0071e3]/40 focus-within:ring-2 focus-within:ring-[#0071e3]/15 transition-all">
                         <button type="submit" aria-label="{{ __('Найти') }}" class="text-[#0071e3] hover:opacity-85 transition-opacity shrink-0 cursor-pointer">
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -172,7 +169,7 @@
                                spellcheck="false"
                                class="w-full min-w-0 bg-transparent border-none text-[16px] font-medium text-[#1d1d1f] placeholder:text-[#6e6e73] focus:outline-none focus:ring-0 [&::-webkit-search-cancel-button]:hidden">
 
-                        <!-- Очистить текст -->
+                        <!-- Очистить текст (показывается, когда введён запрос) -->
                         <button type="button"
                                 x-show="query.length > 0"
                                 @click="clearQuery()"
@@ -182,19 +179,6 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
-
-                        <!-- Поиск по фото -->
-                        @if($photoSearchEnabled)
-                            <button type="button"
-                                    @click="closeSearch(); $dispatch('open-photo-search')"
-                                    aria-label="{{ __('Поиск по фото') }}"
-                                    class="p-2 rounded-full text-[#6e6e73] hover:text-[#0071e3] hover:bg-[#f5f5f7] transition-colors shrink-0 cursor-pointer">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                            </button>
-                        @endif
 
                         <!-- Закрыть поиск -->
                         <button type="button"
@@ -209,11 +193,11 @@
                 </div>
             </div>
 
-            <!-- Контентная область -->
+            <!-- Контентная область (автокомплит или недавно просмотренное) -->
             <div :class="searchOpen ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'"
                  class="flex-1 overflow-y-auto px-6 py-5 space-y-6 transition-all duration-200 ease-out">
 
-                <!-- РЕЖИМ 1: АВТОКОМПЛИТ -->
+                <!-- РЕЖИМ 1: АВТОКОМПЛИТ (когда введено >= 2 символов) -->
                 <div x-show="query.trim().length >= 2" class="space-y-3">
                     <div x-show="loadingSuggestions && suggestions.length === 0" class="flex items-center justify-center py-8">
                         <svg class="animate-spin h-6 w-6 text-[#0071e3]" fill="none" viewBox="0 0 24 24">
@@ -240,6 +224,7 @@
                         </template>
                     </div>
 
+                    <!-- Кнопка полного поиска по введённой фразе -->
                     <button type="button"
                             @click="submitSearch()"
                             class="w-full px-4 py-3.5 rounded-2xl bg-white border border-black/[0.06] flex items-center justify-between text-left hover:bg-[#ececf0] transition-colors cursor-pointer">
@@ -252,32 +237,10 @@
                     </button>
                 </div>
 
-                <!-- РЕЖИМ 2: ПОИСК ПО ФОТО + НЕДАВНО ПРОСМОТРЕННОЕ + ПОПУЛЯРНЫЕ ЗАПРОСЫ -->
+                <!-- РЕЖИМ 2: НЕДАВНО ПРОСМОТРЕННОЕ + ПОПУЛЯРНЫЕ ЗАПРОСЫ (пустой ввод) -->
                 <div x-show="query.trim().length < 2" class="space-y-7">
 
-                    @if($photoSearchEnabled)
-                        <button type="button"
-                                @click="closeSearch(); $dispatch('open-photo-search')"
-                                class="w-full px-4 py-3.5 rounded-2xl bg-white border border-black/[0.06] shadow-2xs flex items-center justify-between gap-3 text-left hover:border-[#0071e3]/40 active:bg-[#ececf0] transition-all cursor-pointer">
-                            <span class="flex items-center gap-3 min-w-0">
-                                <span class="w-9 h-9 rounded-xl bg-[#0071e3]/10 text-[#0071e3] flex items-center justify-center shrink-0">
-                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
-                                </span>
-                                <span class="min-w-0">
-                                    <span class="block text-[15px] font-semibold text-[#1d1d1f]">{{ __('Поиск по фото') }}</span>
-                                    <span class="block text-xs text-[#6e6e73] truncate">{{ __('Сфотографируйте вещь или загрузите скриншот') }}</span>
-                                </span>
-                            </span>
-                            <svg class="w-4 h-4 text-[#86868b] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    @endif
-
-                    <!-- Недавно просмотренное -->
+                    <!-- Недавно просмотренное (из sessionStorage, без кук и БД) -->
                     <div x-show="recentItems.length > 0" class="space-y-3">
                         <div class="flex items-center justify-between">
                             <h3 class="text-[15px] font-semibold tracking-tight text-[#1d1d1f]">
@@ -313,7 +276,7 @@
                         </div>
                     </div>
 
-                    <!-- Популярные запросы -->
+                    <!-- Популярные запросы (кэшированные) -->
                     @if(!empty($quickQueries))
                         <div class="space-y-3">
                             <h3 class="text-[15px] font-semibold tracking-tight text-[#1d1d1f]">

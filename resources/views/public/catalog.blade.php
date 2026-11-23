@@ -3,8 +3,6 @@
     description="{{ $pageTitle }} — {{ __('оригинальные бренды из магазинов Греции с доставкой в Грузию.') }}"
 >
 @php
-    $photoSearchEnabled = (bool) config('services.gemini.vision_enabled', true)
-        && filled(config('services.gemini.vision_api_key'));
     $activeSort = $filters['sort'] ?? 'relevance';
     $sortLabels = [
         'relevance' => __('Рекомендуемые'),
@@ -49,25 +47,6 @@
         lastPage: {{ (int) $pagination['last_page'] }},
         totalItems: {{ (int) $pagination['total'] }},
         shownCount: {{ count($products) }},
-        photoBanner: null,
-        init() {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('photo') === '1') {
-                try {
-                    const raw = window.sessionStorage.getItem('exereto_photo_search_v1');
-                    if (raw) {
-                        const parsed = JSON.parse(raw);
-                        if (parsed && parsed.ts && (Date.now() - parsed.ts) < 30 * 60 * 1000) {
-                            this.photoBanner = parsed;
-                        }
-                    }
-                } catch {}
-            }
-        },
-        dismissPhotoBanner() {
-            this.photoBanner = null;
-            try { window.sessionStorage.removeItem('exereto_photo_search_v1'); } catch {}
-        },
         submitSearchBar() {
             if (this.openSuggestions && this.activeIndex >= 0 && this.suggestions[this.activeIndex]) {
                 this.selectSuggestion(this.suggestions[this.activeIndex]);
@@ -252,18 +231,6 @@
                         autocomplete="off"
                         class="apple-search-input flex-1"
                     >
-                    @if($photoSearchEnabled)
-                        <button type="button"
-                                @click="$dispatch('open-photo-search')"
-                                aria-label="{{ __('Поиск по фото') }}"
-                                title="{{ __('Поиск по фото') }}"
-                                class="p-2 rounded-full text-[#6e6e73] hover:text-[#0071e3] hover:bg-[#f5f5f7] transition-colors cursor-pointer shrink-0">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                        </button>
-                    @endif
                     <button type="button"
                             @click="$dispatch('open-categories')"
                             aria-label="{{ __('Категории') }}"
@@ -520,44 +487,8 @@
                 </aside>
             </div>
 
-            <!-- ПРАВАЯ ЧАСТЬ: ЗАГОЛОВОК, ПЛАШКА ПОИСКА ПО ФОТО, ПОДКАТЕГОРИИ, ФИЛЬТРЫ И СЕТКА -->
+            <!-- ПРАВАЯ ЧАСТЬ: ЗАГОЛОВОК, ПОДКАТЕГОРИИ, ПАНЕЛЬ БЫСТРЫХ ФИЛЬТРОВ И СЕТКА ТОВАРОВ -->
             <div class="space-y-5 sm:space-y-6 min-w-0">
-
-                <!-- Плашка результатов поиска по фото (миниатюра из sessionStorage) -->
-                <div x-show="photoBanner"
-                     x-cloak
-                     class="bg-white rounded-2xl border border-[#0071e3]/20 shadow-[0_2px_12px_rgba(0,113,227,0.06)] p-3 sm:p-3.5 flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <img x-show="photoBanner?.thumb"
-                             :src="photoBanner?.thumb"
-                             alt=""
-                             class="w-12 h-12 rounded-xl object-cover bg-[#f5f5f7] border border-black/[0.06] shrink-0">
-                        <div class="min-w-0">
-                            <div class="text-xs font-semibold text-[#0071e3]">
-                                {{ __('Результаты по вашему фото') }}
-                            </div>
-                            <div class="text-sm font-semibold text-[#1d1d1f] truncate"
-                                 x-text="photoBanner?.detected?.label || photoBanner?.detected?.model_query || ''"></div>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-1.5 shrink-0">
-                        @if($photoSearchEnabled)
-                            <button type="button"
-                                    @click="$dispatch('open-photo-search')"
-                                    class="px-3 py-1.5 rounded-full bg-[#f5f5f7] hover:bg-[#e8e8ed] text-xs font-semibold text-[#1d1d1f] transition-colors cursor-pointer">
-                                {{ __('Другое фото') }}
-                            </button>
-                        @endif
-                        <button type="button"
-                                @click="dismissPhotoBanner()"
-                                aria-label="{{ __('Закрыть') }}"
-                                class="p-1.5 rounded-full text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors cursor-pointer">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
 
                 <!-- Заголовок + счётчик моделей в единой типографике -->
                 <div class="flex flex-wrap items-baseline gap-3">
