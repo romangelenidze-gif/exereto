@@ -1402,3 +1402,69 @@ html .pswp {
     font-weight: 400;
     color: var(--apple-text-muted);
 }
+
+/* ==========================================================================
+   Graphite Aura Card & Purple Accent Utilities
+   ========================================================================== */
+.aura-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.25rem;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    background: radial-gradient(ellipse at 100% 100%, #7950b0 0%, #39254f 34%, transparent 72%), #16171d;
+    --aura-accent: #d2b5ff;
+    --aura-muted: #c0bdcc;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.aura-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(40, 23, 71, 0.22);
+}
+
+.aura-card-circle {
+    display: grid;
+    place-items: center;
+    background: var(--aura-accent);
+    color: #21182e;
+    border-radius: 9999px;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+
+.aura-card:hover .aura-card-circle {
+    transform: scale(1.06);
+}
+
+.aura-count {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.065em;
+    line-height: 0.94;
+}
+
+.aura-plus {
+    color: var(--aura-accent);
+    font-size: 0.58em;
+    vertical-align: top;
+    line-height: 1.1;
+    margin-left: 2px;
+}
+
+.aura-accent-text {
+    color: var(--aura-accent);
+}
+
+.aura-muted-text {
+    color: var(--aura-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .aura-card,
+    .aura-card:hover,
+    .aura-card-circle,
+    .aura-card:hover .aura-card-circle {
+        transition: none;
+        transform: none;
+    }
+}

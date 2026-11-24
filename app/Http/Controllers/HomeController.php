@@ -7,107 +7,89 @@ use App\Services\FeedCategoryTiles;
 use App\Services\Feeds\FeedEntityLocalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class HomeController extends Controller
 {
-    /** Количество брендов рядом с карточкой A–Z: 5 (1 ряд из 6) или 11 (2 ряда по 6) */
-    private const BRAND_SHOWCASE_LIMIT = 5;
+    private const RECOMMENDED_LIMIT = 12;
 
     public function index(Request $request, FeedCategoryTiles $categoryTiles, FeedEntityLocalizer $localizer): View
     {
         $locale = app()->getLocale();
         $tiles = $categoryTiles->get();
 
-        // 1. Тематические блоки главной страницы (в кэше строго чистые массивы — без объектов Collection)
-        $blocks = Cache::remember(
-            "home.thematic_blocks.v2.{$locale}",
+        // 1. Единственный товарный блок главной — Рекомендуемые предложения (12 товаров = 2 ряда по 6)
+        $recommendedBlock = Cache::remember(
+            "home.recommended_block.v3.{$locale}",
             now()->addHours(30),
             function () use ($localizer, $locale, $tiles) {
-                $definitions = $this->blockDefinitions($tiles);
-                $rawBySlug = Cache::remember(
-                    'home.thematic_blocks.raw.v2',
-                    now()->addHours(30),
-                    function () use ($definitions) {
-                        $out = [];
-                        foreach ($definitions as $def) {
-                            $out[$def['slug']] = $this->fetchBlockCards(
-                                $def['feeds'],
-                                $def['gender'] ?? null,
-                                (bool) ($def['only_discounts'] ?? false),
-                                (int) ($def['limit'] ?? 12)
-                            );
-                        }
+                $target = $this->resolveBlockTarget($tiles, ['clothing', 'sales-offers'], 'Guess');
 
-                        return $out;
-                    }
+                $rawCards = Cache::remember(
+                    'home.recommended_block.raw.v3',
+                    now()->addHours(30),
+                    fn () => $this->fetchBlockCards(
+                        ['modivo', 'notos', 'stradivarius', 'cosselie', 'sephora', 'epapoutsia', 'adidas'],
+                        self::RECOMMENDED_LIMIT
+                    )
                 );
 
-                $result = [];
-                foreach ($definitions as $def) {
-                    $rawCards = $rawBySlug[$def['slug']] ?? [];
-                    if ($rawCards === []) {
-                        continue;
-                    }
-
-                    $localized = array_values(array_map(
-                        fn (array $c) => $this->localizeCardUrl($c),
-                        $localizer->localizeCardTitles($rawCards, $locale)
-                    ));
-
-                    $result[$def['slug']] = [
-                        'slug' => $def['slug'],
-                        'title' => $def['title'],
-                        'subtitle' => $def['subtitle'],
-                        'cta' => $def['cta'],
-                        'url' => $def['url'],
-                        'count' => (int) ($def['count'] ?? 0),
-                        'banner' => $def['banner'],
-                        'gradient' => $def['gradient'],
-                        'products' => $localized,
-                    ];
+                if ($rawCards === []) {
+                    return null;
                 }
 
-                return $result;
+                $localized = array_values(array_map(
+                    fn (array $c) => $this->localizeCardUrl($c),
+                    $localizer->localizeCardTitles($rawCards, $locale)
+                ));
+
+                return [
+                    'title' => __('Рекомендуемые предложения'),
+                    'subtitle' => __('Подборка оригинальной одежды, сумок и аксессуаров от мировых брендов'),
+                    'cta' => __('Смотреть все предложения'),
+                    'url' => $target['url'],
+                    'count' => (int) $target['count'],
+                    'products' => $localized,
+                ];
             }
         );
 
-        // 2. Полный индекс всех активных брендов (для шторки A–Z и счётчиков, 1 запрос на 30 часов)
+        // 2. Полный индекс активных брендов (для шторки A–Z и счётчика в Graphite Aura)
         $allBrandsIndex = Cache::remember(
             'home.all_brands_index.v1',
             now()->addHours(30),
             fn () => $this->fetchAllBrandsIndex()
         );
 
-        // 3. Топ-витрины брендов (5 + карточка A–Z = 6 в ряд)
-        $rawShowcases = Cache::remember(
-            'home.brand_showcases.v1',
-            now()->addHours(30),
-            fn () => $this->fetchBrandShowcases($categoryTiles, $allBrandsIndex)
-        );
-
-        $brandShowcases = array_map(fn (array $b) => $b + [
-            'url' => route('product-search', ['q' => $b['name']]),
-        ], $rawShowcases);
-
         $totalBrandsCount = count($allBrandsIndex);
 
-        $heroBlock = $blocks['fashion'] ?? null;
-        $bottomBlocks = array_values(array_diff_key($blocks, ['fashion' => true]));
+        $maxCatalogDiscount = 70;
+        if ($allBrandsIndex !== []) {
+            $maxDisc = max(array_column($allBrandsIndex, 'd'));
+            if ($maxDisc >= 20) {
+                $maxCatalogDiscount = min(80, (int) (floor($maxDisc / 5) * 5));
+            }
+        }
+
+        // 3. Пилюли популярных брендов (ровно 8 брендов + кнопка "...")
+        $popularBrands = $this->buildPopularBrandPills($categoryTiles, $allBrandsIndex);
+
+        // 4. Первые 8 категорий для горизонтальной плитки на главной
+        $homeCategories = array_slice(is_array($tiles) ? $tiles : iterator_to_array($tiles), 0, 8);
 
         return view('public.home', compact(
-            'heroBlock',
-            'bottomBlocks',
-            'brandShowcases',
+            'recommendedBlock',
+            'popularBrands',
             'allBrandsIndex',
             'totalBrandsCount',
+            'maxCatalogDiscount',
+            'homeCategories',
             'tiles'
         ));
     }
 
     /**
-     * Загружает все активные бренды с количеством товаров и максимальной скидкой за 1 индексный запрос.
+     * Все активные бренды с количеством товаров и максимальной скидкой за 1 индексный запрос.
      *
      * @return array<int, array{n: string, c: int, d: int}>
      */
@@ -142,256 +124,61 @@ class HomeController extends Controller
     }
 
     /**
-     * Собирает карточки популярных брендов (приоритет кастомным обложкам из public/images/brand-covers/{slug}.webp).
+     * Формирует список из 8 топовых брендов для пилюль, проверяя их наличие в каталоге.
      *
      * @param  array<int, array{n: string, c: int, d: int}>  $allBrandsIndex
-     * @return array<int, array{slug: string, name: string, count: int, max_discount: int, image: string, object_position: string}>
+     * @return array<int, array{name: string, url: string}>
      */
-    private function fetchBrandShowcases(FeedCategoryTiles $categoryTiles, array $allBrandsIndex): array
+    private function buildPopularBrandPills(FeedCategoryTiles $categoryTiles, array $allBrandsIndex): array
     {
         $curated = [
-            ['name' => 'adidas', 'pos' => '50% 10%'],
-            ['name' => 'New Balance', 'pos' => '50% 50%'],
-            ['name' => 'Guess', 'pos' => '50% 10%'],
-            ['name' => 'Tommy Hilfiger', 'pos' => '50% 10%'],
-            ['name' => 'Calvin Klein', 'pos' => '50% 10%'],
-            ['name' => 'Puma', 'pos' => '50% 20%'],
-            ['name' => 'Stradivarius', 'pos' => '50% 10%'],
-            ['name' => 'Polo Ralph Lauren', 'pos' => '50% 10%'],
-            ['name' => 'Vans', 'pos' => '50% 50%'],
-            ['name' => 'Geox', 'pos' => '50% 50%'],
-            ['name' => 'LEGO', 'pos' => '50% 50%'],
-            ['name' => 'BOSS', 'pos' => '50% 10%'],
+            'adidas',
+            'New Balance',
+            'Guess',
+            'Tommy Hilfiger',
+            'Calvin Klein',
+            'Stradivarius',
+            'BOSS',
+            'Lacoste',
+            'Puma',
+            'Polo Ralph Lauren',
+            'Vans',
+            'Geox',
         ];
 
-        $statsByLower = [];
+        $availableLower = [];
         foreach ($allBrandsIndex as $b) {
-            $statsByLower[mb_strtolower($b['n'])] = $b;
+            $availableLower[mb_strtolower($b['n'])] = true;
         }
 
-        $limit = self::BRAND_SHOWCASE_LIMIT;
-        $primary = [];
-        $fallback = [];
-
-        foreach ($curated as $cfg) {
-            if (count($primary) >= $limit) {
+        $pills = [];
+        foreach ($curated as $brandName) {
+            if (count($pills) >= 8) {
                 break;
             }
 
-            $brandName = $cfg['name'];
-            $slug = Str::slug($brandName);
             $family = $categoryTiles->resolveMatchingBrands($brandName);
             if ($family === []) {
                 $family = [$brandName];
             }
 
-            $totalCount = 0;
-            $maxDiscount = 0;
+            $exists = false;
             foreach ($family as $member) {
-                $st = $statsByLower[mb_strtolower($member)] ?? null;
-                if ($st !== null) {
-                    $totalCount += $st['c'];
-                    if ($st['d'] > $maxDiscount) {
-                        $maxDiscount = $st['d'];
-                    }
-                }
-            }
-
-            if ($totalCount <= 0) {
-                continue;
-            }
-
-            $cover = $this->resolveBrandCoverImage($slug, $family);
-            if ($cover === null) {
-                continue;
-            }
-
-            $item = [
-                'slug' => $slug,
-                'name' => $brandName,
-                'count' => $totalCount,
-                'max_discount' => $maxDiscount,
-                'image' => $cover['url'],
-                'object_position' => $cover['is_custom'] ? '50% 50%' : $cfg['pos'],
-            ];
-
-            if ($totalCount >= 50) {
-                $primary[] = $item;
-            } else {
-                $fallback[] = $item;
-            }
-        }
-
-        while (count($primary) < $limit && $fallback !== []) {
-            $primary[] = array_shift($fallback);
-        }
-
-        return array_slice($primary, 0, $limit);
-    }
-
-    /**
-     * 1) Сначала ищет ваше подготовленное фото в public/images/brand-covers/{slug}.{webp,jpg,jpeg,png}.
-     * 2) Если его ещё нет — подбирает лучшее фото из каталога бренда.
-     *
-     * @param  string[]  $brandFamily
-     * @return array{url: string, is_custom: bool}|null
-     */
-    private function resolveBrandCoverImage(string $slug, array $brandFamily): ?array
-    {
-        foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
-            $rel = "images/brand-covers/{$slug}.{$ext}";
-            if (is_file(public_path($rel))) {
-                return ['url' => '/' . $rel, 'is_custom' => true];
-            }
-        }
-
-        $candidates = FeedProduct::query()
-            ->where('is_active', true)
-            ->where('in_stock', true)
-            ->whereIn('brand', $brandFamily)
-            ->whereNotNull('image_url')
-            ->where('image_url', '!=', '')
-            ->orderByDesc('priority_score')
-            ->orderByDesc('price')
-            ->limit(40)
-            ->get(['name', 'category_path', 'price', 'image_url']);
-
-        if ($candidates->isEmpty()) {
-            return null;
-        }
-
-        $avoidWords = ['sock', 'underw', 'brief', 'boxer', 'bra', 'panty', 'slip', 'thong', 'keychain', 'wallet', 'belt', 'cap', 'beanie', 'glove', 'scarf', 'towel', 'case', 'cover', 'κάλτσ', 'εσώρουχ'];
-        $preferWords = ['jacket', 'coat', 'blazer', 'dress', 'hoodie', 'sweatshirt', 'sweater', 'shirt', 't-shirt', 'sneaker', 'boot', 'bag', 'μπουφάν', 'φόρεμα', 'φούτερ'];
-
-        $bestUrl = null;
-        $bestScore = -999;
-
-        foreach ($candidates as $idx => $cand) {
-            $img = trim((string) $cand->image_url);
-            if ($img === '') {
-                continue;
-            }
-
-            $hay = mb_strtolower((string) $cand->name . ' ' . (string) $cand->category_path);
-            $score = 40 - $idx;
-
-            if ((float) $cand->price >= 70) {
-                $score += 20;
-            } elseif ((float) $cand->price >= 40) {
-                $score += 10;
-            }
-
-            foreach ($preferWords as $pw) {
-                if (str_contains($hay, $pw)) {
-                    $score += 16;
+                if (isset($availableLower[mb_strtolower($member)])) {
+                    $exists = true;
                     break;
                 }
             }
 
-            foreach ($avoidWords as $aw) {
-                if (str_contains($hay, $aw)) {
-                    $score -= 45;
-                    break;
-                }
-            }
-
-            if ($score > $bestScore) {
-                $bestScore = $score;
-                $bestUrl = $img;
+            if ($exists) {
+                $pills[] = [
+                    'name' => $brandName,
+                    'url' => route('product-search', ['q' => $brandName]),
+                ];
             }
         }
 
-        $url = $bestUrl ?: trim((string) $candidates->first()->image_url);
-
-        return $url !== '' ? ['url' => $url, 'is_custom' => false] : null;
-    }
-
-    /**
-     * Конфигурация тематических блоков главной (лимиты кратны 6 под .apple-product-grid--6).
-     *
-     * @param  iterable<int, mixed>  $tiles
-     * @return array<int, array<string, mixed>>
-     */
-    private function blockDefinitions(iterable $tiles): array
-    {
-        $fashion = $this->resolveBlockTarget($tiles, ['clothing', 'sales-offers'], 'Guess');
-        $kids = $this->resolveBlockTarget($tiles, ['kids', 'kids-clothing', 'children'], 'Energiers');
-        $shoes = $this->resolveBlockTarget($tiles, ['shoes', 'sneakers'], 'Sneakers');
-        $toys = $this->resolveBlockTarget($tiles, ['toys', 'lego', 'kids-toys'], 'LEGO');
-        $tech = $this->resolveBlockTarget($tiles, ['tech', 'electronics', 'gaming', 'gadgets'], 'Apple');
-
-        return [
-            [
-                'slug' => 'fashion',
-                'title' => __('Рекомендуемые предложения'),
-                'subtitle' => __('Подборка оригинальной одежды, сумок и аксессуаров от мировых брендов'),
-                'cta' => __('Смотреть все предложения'),
-                'url' => $fashion['url'],
-                'count' => $fashion['count'],
-                'banner' => 'images/home-banners/fashion.webp',
-                'gradient' => 'from-stone-900 via-zinc-800 to-stone-700',
-                'feeds' => ['modivo', 'notos', 'stradivarius', 'cosselie', 'sephora'],
-                'gender' => null,
-                'only_discounts' => false,
-                'limit' => 12,
-            ],
-            [
-                'slug' => 'kids',
-                'title' => __('Детская одежда и стиль'),
-                'subtitle' => __('Качественные коллекции для детей и подростков из греческих магазинов'),
-                'cta' => __('Все детские товары'),
-                'url' => $kids['url'],
-                'count' => $kids['count'],
-                'banner' => 'images/home-banners/kids.webp',
-                'gradient' => 'from-amber-800 via-orange-700 to-amber-600',
-                'feeds' => ['energiers', 'adidas', 'modivo'],
-                'gender' => 'kids',
-                'only_discounts' => false,
-                'limit' => 12,
-            ],
-            [
-                'slug' => 'sneakers',
-                'title' => __('Кроссовки и обувь'),
-                'subtitle' => __('Новые релизы и хиты adidas, New Balance, Puma, Vans, Geox и других брендов'),
-                'cta' => __('Вся обувь'),
-                'url' => $shoes['url'],
-                'count' => $shoes['count'],
-                'banner' => 'images/home-banners/sneakers.webp',
-                'gradient' => 'from-neutral-800 via-stone-700 to-neutral-600',
-                'feeds' => ['epapoutsia', 'adidas'],
-                'gender' => null,
-                'only_discounts' => false,
-                'limit' => 12,
-            ],
-            [
-                'slug' => 'toys',
-                'title' => __('Игрушки и конструкторы'),
-                'subtitle' => __('LEGO, Playmobil, развивающие и STEM-наборы из официальных магазинов Греции'),
-                'cta' => __('Все игрушки'),
-                'url' => $toys['url'],
-                'count' => $toys['count'],
-                'banner' => 'images/home-banners/toys.webp',
-                'gradient' => 'from-indigo-900 via-slate-800 to-blue-900',
-                'feeds' => ['toysgr', 'moustakas'],
-                'gender' => null,
-                'only_discounts' => false,
-                'limit' => 12,
-            ],
-            [
-                'slug' => 'tech',
-                'title' => __('Техника и гаджеты'),
-                'subtitle' => __('Смартфоны, ноутбуки, планшеты, гейминг, аудио и дроны со склада Public'),
-                'cta' => __('Вся техника'),
-                'url' => $tech['url'],
-                'count' => $tech['count'],
-                'banner' => 'images/home-banners/tech.webp',
-                'gradient' => 'from-slate-950 via-zinc-900 to-slate-800',
-                'feeds' => ['public'],
-                'gender' => null,
-                'only_discounts' => false,
-                'limit' => 12,
-            ],
-        ];
+        return $pills;
     }
 
     /**
@@ -445,30 +232,19 @@ class HomeController extends Controller
      * @param  string[]  $feeds
      * @return array<int, array<string, mixed>>
      */
-    private function fetchBlockCards(array $feeds, ?string $gender, bool $onlyDiscounts, int $limit): array
+    private function fetchBlockCards(array $feeds, int $limit): array
     {
         $pool = collect();
         foreach ($feeds as $feed) {
-            $q = FeedProduct::query()
+            $chunk = FeedProduct::query()
                 ->where('feed', $feed)
                 ->where('is_active', true)
                 ->where('in_stock', true)
                 ->whereNotNull('image_url')
-                ->where('image_url', '!=', '');
-
-            if ($gender !== null) {
-                $q->where('gender', $gender);
-            }
-
-            if ($onlyDiscounts) {
-                $q->where('discount_percent', '>=', 20)
-                    ->orderByDesc('discount_percent');
-            } else {
-                $q->orderByDesc('priority_score')
-                    ->orderByDesc('id');
-            }
-
-            $chunk = $q->limit(36)
+                ->where('image_url', '!=', '')
+                ->orderByDesc('priority_score')
+                ->orderByDesc('id')
+                ->limit(24)
                 ->get()
                 ->unique(fn (FeedProduct $p) => $p->model_code ?: $p->sku);
 

@@ -1,9 +1,8 @@
 @php
-    $isHomePage = request()->routeIs(['home', '*.home']);
     $headerCategories = app(\App\Services\FeedCategoryTiles::class)->get();
 @endphp
 
-<!-- На мобильном (< lg): умная липкая шапка. На десктопе (>= lg): статичная -->
+<!-- На мобильном (< lg): умная липкая шапка. На десктопе (>= lg): единая шапка с поиском -->
 <header class="sticky top-0 lg:static z-40 text-[#1d1d1f] w-full transition-transform duration-300 ease-out will-change-transform"
         x-data="{
             hidden: false,
@@ -43,27 +42,27 @@
             scrolled ? 'bg-[#f5f5f7]/90 backdrop-blur-md lg:bg-transparent lg:backdrop-blur-none' : 'bg-transparent'
         ]">
 
-    <div class="max-w-[96rem] mx-auto px-6 sm:px-6 lg:px-8 w-full">
+    <div class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
 
-        <!-- МОБИЛЬНАЯ ШАПКА (< lg): лёгкий триггер полноэкранного поиска -->
-        <div class="relative flex lg:hidden items-center gap-6.5 pt-6 pb-2.5">
-            <a href="{{ route('home') }}" class="text-[28px] leading-none font-semibold tracking-tight text-[#1d1d1f] shrink-0">
+        <!-- МОБИЛЬНАЯ ШАПКА (< lg) -->
+        <div class="relative flex lg:hidden items-center gap-4 pt-5 pb-2.5">
+            <a href="{{ route('home') }}" class="text-[28px] leading-none font-bold tracking-tight text-[#1d1d1f] shrink-0">
                 exereto
             </a>
 
-            <div class="flex-1 min-w-0 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-black/[0.05]">
-                <div class="flex items-center gap-2 pl-4 pr-2 h-12">
+            <div class="flex-1 min-w-0 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-black/[0.06]">
+                <div class="flex items-center gap-2 pl-4 pr-1.5 h-12">
                     <button type="button"
                             @click="$dispatch('open-search')"
                             aria-label="{{ __('Поиск') }}"
                             class="flex-1 min-w-0 flex items-center gap-2.5 h-full text-left cursor-pointer focus:outline-none">
-                        <svg class="w-5 h-5 text-[#0071e3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <svg class="w-5 h-5 text-[#6a47bd] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         @if(filled(request('q')))
                             <span class="text-[15px] font-medium text-[#1d1d1f] truncate">{{ request('q') }}</span>
                         @else
-                            <span class="text-[15px] font-medium text-[#6e6e73] truncate">{{ __('Что вы ищете?') }}</span>
+                            <span class="text-[15px] font-medium text-[#6e6e73] truncate">{{ __('Найти товар или бренд') }}</span>
                         @endif
                     </button>
 
@@ -79,41 +78,74 @@
             </div>
         </div>
 
-        <!-- ДЕСКТОПНАЯ ШАПКА (>= lg) -->
-        <div class="hidden lg:flex items-center justify-center gap-8 h-20">
-            @unless($isHomePage)
-                <a href="{{ route('home') }}" class="apple-section-title !text-xl flex items-center shrink-0">
+        <!-- ДЕСКТОПНАЯ ШАПКА (>= lg): логотип + поисковая строка-триггер + навигация -->
+        <div class="hidden lg:flex items-center justify-between gap-6 h-20">
+            <div class="flex items-center gap-6 flex-1 min-w-0 max-w-3xl">
+                <a href="{{ route('home') }}" class="text-[26px] leading-none font-bold tracking-tight text-[#1d1d1f] shrink-0 hover:opacity-85 transition-opacity">
                     exereto
                 </a>
-            @endunless
 
-            <nav class="flex items-center space-x-1 shrink-0">
-                <a href="{{ route('how-it-works') }}" class="apple-nav-link {{ request()->routeIs(['how-it-works', '*.how-it-works']) ? 'active' : '' }}">
-                    {{ __('Как это работает') }}
-                </a>
-                <a href="{{ route('buy-for-me') }}" class="apple-nav-link {{ request()->routeIs(['buy-for-me', '*.buy-for-me']) ? 'active' : '' }}">
-                    {{ __('Выкупите за меня') }}
-                </a>
-                <a href="{{ route('forwarding') }}" class="apple-nav-link {{ request()->routeIs(['forwarding', '*.forwarding']) ? 'active' : '' }}">
-                    {{ __('Форвардинг') }}
-                </a>
-                <a href="{{ route('help') }}" class="apple-nav-link {{ request()->routeIs(['help', '*.help']) ? 'active' : '' }}">
-                    {{ __('Помощь / FAQ') }}
-                </a>
-            </nav>
+                <!-- Триггер полноэкранного поиска + кнопка категорий -->
+                <div class="flex-1 min-w-0 max-w-xl rounded-full bg-white shadow-[0_2px_14px_rgba(0,0,0,0.05)] border border-black/[0.06] hover:border-[#6a47bd]/40 transition-colors">
+                    <div class="flex items-center gap-2 pl-4 pr-2 h-11">
+                        <button type="button"
+                                @click="$dispatch('open-search')"
+                                aria-label="{{ __('Поиск') }}"
+                                class="flex-1 min-w-0 flex items-center gap-2.5 h-full text-left cursor-pointer focus:outline-none">
+                            <svg class="w-[18px] h-[18px] text-[#6a47bd] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            @if(filled(request('q')))
+                                <span class="text-[14px] font-medium text-[#1d1d1f] truncate">{{ request('q') }}</span>
+                            @else
+                                <span class="text-[14px] text-[#6e6e73] truncate">{{ __('Что вы ищете?') }}</span>
+                            @endif
+                        </button>
 
-            <div class="flex items-center gap-4 shrink-0">
-                @auth
-                    <a href="{{ route('dashboard') }}" class="apple-nav-link">
-                        {{ __('Личный кабинет') }}
+                        <span class="h-5 w-px bg-black/[0.08] shrink-0"></span>
+
+                        <button type="button"
+                                @click.stop="$dispatch('open-categories')"
+                                aria-label="{{ __('Категории') }}"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7] hover:text-[#6a47bd] transition-colors shrink-0 cursor-pointer">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                            <span>{{ __('Категории') }}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-5 shrink-0">
+                <nav class="flex items-center space-x-1 shrink-0">
+                    <a href="{{ route('how-it-works') }}" class="apple-nav-link {{ request()->routeIs(['how-it-works', '*.how-it-works']) ? 'active !text-[#6a47bd]' : '' }}">
+                        {{ __('Как это работает') }}
                     </a>
-                @else
-                    <a href="{{ route('login') }}" class="apple-nav-link">
-                        {{ __('Войти') }}
+                    <a href="{{ route('buy-for-me') }}" class="apple-nav-link {{ request()->routeIs(['buy-for-me', '*.buy-for-me']) ? 'active !text-[#6a47bd]' : '' }}">
+                        {{ __('Выкупите за меня') }}
                     </a>
-                @endauth
+                    <a href="{{ route('forwarding') }}" class="apple-nav-link {{ request()->routeIs(['forwarding', '*.forwarding']) ? 'active !text-[#6a47bd]' : '' }}">
+                        {{ __('Форвардинг') }}
+                    </a>
+                    <a href="{{ route('help') }}" class="apple-nav-link {{ request()->routeIs(['help', '*.help']) ? 'active !text-[#6a47bd]' : '' }}">
+                        {{ __('Помощь / FAQ') }}
+                    </a>
+                </nav>
 
-                <x-language-switcher theme="light" />
+                <div class="flex items-center gap-3 shrink-0">
+                    @auth
+                        <a href="{{ route('dashboard') }}" class="apple-nav-link hover:!text-[#6a47bd]">
+                            {{ __('Личный кабинет') }}
+                        </a>
+                    @else
+                        <a href="{{ route('login') }}" class="apple-nav-link hover:!text-[#6a47bd]">
+                            {{ __('Войти') }}
+                        </a>
+                    @endauth
+
+                    <x-language-switcher theme="light" />
+                </div>
             </div>
         </div>
 
