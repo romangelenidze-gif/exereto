@@ -42,9 +42,13 @@
         @endif
 
         @if(!empty($colour))
-            <div class="pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-1.5rem)] px-2 py-1 rounded-full bg-white/85 backdrop-blur-sm border border-black/[0.06] shadow-sm flex items-center justify-center">
-                <x-public-ui.color-dots :colour="$colour" :only-dots="true" />
-            </div>
+            <x-public-ui.color-dots
+                :colour="$colour"
+                :only-dots="true"
+                :min-colors="2"
+                :pill="true"
+                class="pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20"
+            />
         @endif
     </div>
 
