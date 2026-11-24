@@ -61,9 +61,9 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         @if(filled(request('q')))
-                            <span class="text-[15px] font-medium text-[#1d1d1f] truncate">{{ request('q') }}</span>
+                            <span class="home-header-search-text home-header-search-text--filled truncate">{{ request('q') }}</span>
                         @else
-                            <span class="text-[15px] font-medium text-[#6e6e73] truncate">{{ __('Найти товар или бренд') }}</span>
+                            <span class="home-header-search-text truncate">{{ __('Найти товар или бренд') }}</span>
                         @endif
                     </button>
 
@@ -82,25 +82,25 @@
         <!-- ДЕСКТОПНАЯ ШАПКА (>= lg): логотип + поисковая строка-триггер + навигация -->
         <div class="hidden lg:flex items-center justify-between gap-6 h-20">
             <div class="flex items-center gap-6 flex-1 min-w-0 max-w-3xl">
-                <a href="{{ route('home') }}" class="text-[26px] leading-none font-bold tracking-tight text-[#1d1d1f] shrink-0 hover:opacity-85 transition-opacity">
+                <a href="{{ route('home') }}" class="text-[28px] leading-none font-bold tracking-tight text-[#1d1d1f] shrink-0 hover:opacity-85 transition-opacity">
                     exereto
                 </a>
 
                 <!-- Триггер полноэкранного поиска + кнопка категорий -->
                 <div data-search-trigger="desktop"
                      class="flex-1 min-w-0 max-w-xl rounded-full bg-white shadow-[0_2px_14px_rgba(0,0,0,0.05)] border border-black/[0.06] hover:border-[#6a47bd]/40 transition-colors">
-                    <div class="flex items-center gap-2 pl-4 pr-2 h-11">
+                    <div class="flex items-center gap-2 pl-5 pr-2 h-12">
                         <button type="button"
                                 @click="$dispatch('open-search', { rect: $el.closest('[data-search-trigger]').getBoundingClientRect() })"
                                 aria-label="{{ __('Поиск') }}"
                                 class="flex-1 min-w-0 flex items-center gap-2.5 h-full text-left cursor-pointer focus:outline-none">
-                            <svg class="w-[18px] h-[18px] text-[#6a47bd] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <svg class="w-5 h-5 text-[#6a47bd] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                             @if(filled(request('q')))
-                                <span class="text-[14px] font-medium text-[#1d1d1f] truncate">{{ request('q') }}</span>
+                                <span class="home-header-search-text home-header-search-text--filled truncate">{{ request('q') }}</span>
                             @else
-                                <span class="text-[14px] text-[#6e6e73] truncate">{{ __('Что вы ищете?') }}</span>
+                                <span class="home-header-search-text truncate">{{ __('Что вы ищете?') }}</span>
                             @endif
                         </button>
 
@@ -109,7 +109,7 @@
                         <button type="button"
                                 @click.stop="$dispatch('open-categories')"
                                 aria-label="{{ __('Категории') }}"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7] hover:text-[#6a47bd] transition-colors shrink-0 cursor-pointer">
+                                class="home-header-cat-btn shrink-0">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                             </svg>
