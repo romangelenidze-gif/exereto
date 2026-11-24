@@ -242,7 +242,7 @@
                 </div>
 
                 <div class="flex lg:grid lg:grid-cols-9 gap-3 lg:gap-4 overflow-x-auto lg:overflow-visible snap-x snap-mandatory scroll-px-4 pb-1 lg:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    @foreach($homeCategories as$tile)
+                    @foreach($homeCategories as $tile)
                         @php
                             $tSlug = is_array($tile) ? ($tile['slug'] ?? '') : ($tile->slug ?? '');
                             $tLabel = is_array($tile) ? ($tile['label'] ?? $tile['title'] ?? $tile['name'] ?? '') : ($tile->label ?? $tile->title ?? $tile->name ?? '');
@@ -313,7 +313,7 @@
                 </div>
 
                 <div class="flex lg:grid lg:grid-cols-9 gap-2.5 lg:gap-3.5 overflow-x-auto lg:overflow-visible snap-x snap-mandatory scroll-px-4 pb-1 lg:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    @foreach($popularBrands as$brand)
+                    @foreach($popularBrands as $brand)
                         <a href="{{ $brand['url'] }}"
                            @click="loading = true"
                            class="home-brand-pill shrink-0 snap-start min-w-[132px] lg:min-w-0">
@@ -351,7 +351,7 @@
                 </div>
 
                 <div class="apple-product-grid apple-product-grid--6 apple-product-grid--carousel scroll-px-4 sm:scroll-px-6 lg:scroll-px-0 pb-2 lg:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
-                    @foreach($recommendedBlock['products'] as $index =>$product)
+                    @foreach($recommendedBlock['products'] as $index => $product)
                         <div class="w-[46%] sm:w-[31%] lg:w-auto shrink-0 snap-start">
                             <x-public-ui.product-card :product="$product" :is-first="$index === 0" />
                         </div>
