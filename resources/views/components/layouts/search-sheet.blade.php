@@ -33,6 +33,7 @@
             loading: false,
             abortCtrl: null,
             animTimer: null,
+            focusTimer: null,
             init() {
                 this.loadRecent();
             },
@@ -64,10 +65,24 @@
                 box.style.width = '';
                 box.style.height = '';
             },
+            focusInputNow() {
+                const input = this.$refs.searchInput;
+                if (!input || !this.searchOpen) return;
+                input.tabIndex = 0;
+                if (document.activeElement !== input) {
+                    input.focus({ preventScroll: true });
+                    const len = input.value.length;
+                    try { input.setSelectionRange(len, len); } catch {}
+                }
+            },
             openSearch(detail) {
                 if (this.animTimer) {
                     clearTimeout(this.animTimer);
                     this.animTimer = null;
+                }
+                if (this.focusTimer) {
+                    clearTimeout(this.focusTimer);
+                    this.focusTimer = null;
                 }
 
                 this.loadRecent();
@@ -76,13 +91,11 @@
 
                 const root = this.$refs.sheetRoot;
                 const box = this.$refs.formBox;
-                const input = this.$refs.searchInput;
 
-                // 1. Синхронно делаем оверлей и инпут видимыми ДО вызова focus(),
-                // чтобы iOS Safari и Android гарантированно поднимали клавиатуру с первого клика.
+                // 1. Синхронно включаем класс .is-open (visibility: visible с 0s delay)
                 if (root) {
-                    root.style.visibility = 'visible';
-                    root.style.pointerEvents = 'auto';
+                    root.classList.add('is-open');
+                    void root.offsetWidth;
                 }
 
                 this.resetFormInlineStyles();
@@ -91,7 +104,7 @@
                 const srcRect = !reducedMotion ? this.findTriggerRect(detail?.rect) : null;
                 const dstRect = box ? box.getBoundingClientRect() : null;
 
-                // 2. FLIP-старт: совмещаем форму поиска пиксель-в-пиксель со строкой в шапке
+                // 2. FLIP-старт из геометрии шапки
                 if (box && srcRect && dstRect && dstRect.width > 0) {
                     const dx = srcRect.left - dstRect.left;
                     const dy = srcRect.top - dstRect.top;
@@ -101,22 +114,17 @@
                     box.style.height = `${srcRect.height}px`;
                     box.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
 
-                    // Фиксируем стартовую геометрию
                     void box.offsetWidth;
                 }
 
-                // 3. Синхронный фокус строго в рамках пользовательского клика
-                if (input) {
-                    input.tabIndex = 0;
-                    input.focus({ preventScroll: true });
-                    const len = input.value.length;
-                    try { input.setSelectionRange(len, len); } catch {}
-                }
+                // 3. Синхронный фокус (срабатывает мгновенно и на ПК, и на iOS/Android)
+                this.focusInputNow();
 
-                // 4. Плавный полёт и расширение к финальной позиции
-                if (box && srcRect && dstRect && dstRect.width > 0) {
-                    requestAnimationFrame(() => {
-                        if (!this.searchOpen) return;
+                // 4. Плавный полёт строки поиска в центр + страховочный фокус
+                requestAnimationFrame(() => {
+                    if (!this.searchOpen) return;
+
+                    if (box && srcRect && dstRect && dstRect.width > 0) {
                         box.style.transition = 'transform 300ms cubic-bezier(0.22, 1, 0.36, 1), width 300ms cubic-bezier(0.22, 1, 0.36, 1), height 300ms cubic-bezier(0.22, 1, 0.36, 1)';
                         box.style.width = `${dstRect.width}px`;
                         box.style.height = `${dstRect.height}px`;
@@ -124,20 +132,14 @@
 
                         this.animTimer = setTimeout(() => {
                             this.resetFormInlineStyles();
+                            this.focusInputNow();
                         }, 320);
-                    });
-                }
+                    }
 
-                // Страховочный фокус для десктопа (если клик успел перехватиться) + очистка временного inline visibility
-                this.$nextTick(() => {
-                    if (root && this.searchOpen) {
-                        root.style.visibility = '';
-                        root.style.pointerEvents = '';
-                    }
-                    if (input && this.searchOpen && document.activeElement !== input) {
-                        input.focus({ preventScroll: true });
-                    }
+                    this.focusInputNow();
                 });
+
+                this.focusTimer = setTimeout(() => this.focusInputNow(), 60);
 
                 if (this.query.trim().length >= 2 && this.suggestions.length === 0) {
                     this.fetchSuggestions();
@@ -147,6 +149,10 @@
                 if (this.animTimer) {
                     clearTimeout(this.animTimer);
                     this.animTimer = null;
+                }
+                if (this.focusTimer) {
+                    clearTimeout(this.focusTimer);
+                    this.focusTimer = null;
                 }
 
                 const root = this.$refs.sheetRoot;
@@ -162,7 +168,6 @@
                 const srcRect = !reducedMotion ? this.findTriggerRect(null) : null;
                 const dstRect = box ? box.getBoundingClientRect() : null;
 
-                // Обратный FLIP: плавно возвращаем строку в шапку во время затухания фона
                 if (box && srcRect && dstRect && dstRect.width > 0) {
                     const dx = srcRect.left - dstRect.left;
                     const dy = srcRect.top - dstRect.top;
@@ -184,8 +189,7 @@
                 }
 
                 if (root) {
-                    root.style.visibility = '';
-                    root.style.pointerEvents = '';
+                    root.classList.remove('is-open');
                 }
 
                 this.activeIndex = -1;
@@ -196,7 +200,7 @@
                 this.suggestions = [];
                 this.activeIndex = -1;
                 if (this.abortCtrl) this.abortCtrl.abort();
-                if (this.$refs.searchInput) this.$refs.searchInput.focus({ preventScroll: true });
+                this.focusInputNow();
             },
             moveSelection(step) {
                 if (!this.suggestions.length) return;
@@ -273,16 +277,16 @@
             }
          "
     >
-        <!-- Оверлей загрузки при переходе -->
+        <!-- Оверлей загрузки -->
         <div x-show="loading" x-cloak class="fixed inset-0 z-[9999] bg-white/80 backdrop-blur-md flex flex-col items-center justify-center space-y-4">
-            <svg class="animate-spin h-10 w-10 text-[#6a47bd]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg class="animate-spin h-10 w-10 text-[#0071e3]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             <span class="text-base font-semibold text-[#1d1d1f] animate-pulse">{{ __('Ищем предложения в магазинах Греции...') }}</span>
         </div>
 
-        <!-- Полноэкранная панель поиска (мобильный + десктоп) -->
+        <!-- Полноэкранная панель поиска -->
         <div x-ref="sheetRoot"
              x-cloak
              role="dialog"
@@ -290,16 +294,16 @@
              :aria-hidden="(!searchOpen).toString()"
              aria-label="{{ __('Поиск') }}"
              @click.self="closeSearch()"
-             :class="searchOpen ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'"
-             class="fixed inset-0 z-[9995] flex flex-col bg-[#f5f5f7]/95 lg:backdrop-blur-xl transition-[opacity,visibility] duration-220 ease-out"
+             :class="{ 'is-open': searchOpen }"
+             class="search-sheet-backdrop fixed inset-0 z-[9995] flex flex-col bg-[#f5f5f7]/95 lg:backdrop-blur-xl"
         >
-            <!-- Верхняя строка ввода (FLIP-морфинг из шапки) -->
+            <!-- Верхняя строка ввода -->
             <div @click.self="closeSearch()" class="px-4 sm:px-6 pt-5 lg:pt-10 pb-3 shrink-0">
                 <div class="max-w-3xl mx-auto">
                     <div x-ref="formBox" class="w-full h-12 lg:h-14 will-change-transform">
                         <form @submit.prevent="submitSearch()"
-                              class="w-full h-full flex items-center gap-2 pl-4 pr-2 rounded-full bg-white shadow-[0_8px_30px_rgba(0,0,0,0.09)] border border-black/[0.08] focus-within:border-[#6a47bd]/55 focus-within:ring-2 focus-within:ring-[#6a47bd]/15 transition-colors overflow-hidden">
-                            <button type="submit" aria-label="{{ __('Найти') }}" class="text-[#6a47bd] hover:opacity-85 transition-opacity shrink-0 cursor-pointer">
+                              class="w-full h-full flex items-center gap-2 pl-4 pr-2 rounded-full bg-white shadow-[0_8px_30px_rgba(0,0,0,0.09)] border border-black/[0.08] focus-within:border-[#0071e3]/55 focus-within:ring-2 focus-within:ring-[#0071e3]/15 transition-colors overflow-hidden">
+                            <button type="submit" aria-label="{{ __('Найти') }}" class="text-[#0071e3] hover:opacity-85 transition-opacity shrink-0 cursor-pointer">
                                 <svg class="w-5 h-5 lg:w-6 lg:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
@@ -309,7 +313,7 @@
                                    name="q"
                                    x-ref="searchInput"
                                    x-model="query"
-                                   tabindex="-1"
+                                   :tabindex="searchOpen ? 0 : -1"
                                    @input.debounce.180ms="fetchSuggestions()"
                                    @keydown.arrow-down.prevent="moveSelection(1)"
                                    @keydown.arrow-up.prevent="moveSelection(-1)"
@@ -321,7 +325,6 @@
                                    spellcheck="false"
                                    class="w-full min-w-0 bg-transparent border-none text-[16px] lg:text-[17px] font-medium text-[#1d1d1f] placeholder:text-[#6e6e73] focus:outline-none focus:ring-0 [&::-webkit-search-cancel-button]:hidden">
 
-                            <!-- Очистить текст -->
                             <button type="button"
                                     x-show="query.length > 0"
                                     @click="clearQuery()"
@@ -332,7 +335,6 @@
                                 </svg>
                             </button>
 
-                            <!-- Закрыть поиск -->
                             <button type="button"
                                     @click="closeSearch()"
                                     aria-label="{{ __('Закрыть поиск') }}"
@@ -346,16 +348,16 @@
                 </div>
             </div>
 
-            <!-- Контентная область (автокомплит или недавно просмотренное + популярные запросы) -->
+            <!-- Контентная область -->
             <div @click.self="closeSearch()"
                  :class="searchOpen ? 'translate-y-0 opacity-100 delay-75' : 'translate-y-4 opacity-0 delay-0'"
                  class="flex-1 overflow-y-auto px-4 sm:px-6 py-5 transition-all duration-250 ease-out">
                 <div class="max-w-3xl mx-auto space-y-6">
 
-                    <!-- РЕЖИМ 1: АВТОКОМПЛИТ (когда введено >= 2 символов) -->
+                    <!-- РЕЖИМ 1: АВТОКОМПЛИТ -->
                     <div x-show="query.trim().length >= 2" class="space-y-3">
                         <div x-show="loadingSuggestions && suggestions.length === 0" class="flex items-center justify-center py-8">
-                            <svg class="animate-spin h-6 w-6 text-[#6a47bd]" fill="none" viewBox="0 0 24 24">
+                            <svg class="animate-spin h-6 w-6 text-[#0071e3]" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -367,7 +369,7 @@
                                 <button type="button"
                                         @mouseenter="activeIndex = idx"
                                         @click="selectSuggestion(item)"
-                                        :class="activeIndex === idx ? 'bg-[#6a47bd]/[0.07]' : 'hover:bg-[#f5f5f7] active:bg-[#ececf0]'"
+                                        :class="activeIndex === idx ? 'bg-[#0071e3]/[0.07]' : 'hover:bg-[#f5f5f7] active:bg-[#ececf0]'"
                                         class="w-full px-4 py-3 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer">
                                     <div class="flex items-center gap-3 min-w-0">
                                         <img x-show="item.image" :src="item.image" alt="" class="w-10 h-10 rounded-xl object-contain bg-[#f5f5f7] p-0.5 shrink-0 mix-blend-multiply">
@@ -375,20 +377,19 @@
                                     </div>
                                     <div class="flex items-center gap-2 shrink-0">
                                         <span x-show="item.price" class="text-[13px] font-semibold text-[#1d1d1f]" x-text="item.price"></span>
-                                        <span class="text-[11px] px-2.5 py-0.5 bg-[#6a47bd]/10 text-[#6a47bd] rounded-full font-semibold" x-text="item.badge"></span>
+                                        <span class="text-[11px] px-2.5 py-0.5 bg-[#0071e3]/10 text-[#0071e3] rounded-full font-semibold" x-text="item.badge"></span>
                                     </div>
                                 </button>
                             </template>
                         </div>
 
-                        <!-- Кнопка полного поиска по введённой фразе -->
                         <button type="button"
                                 @click="submitSearch()"
-                                class="w-full px-4 py-3.5 rounded-2xl bg-white border border-black/[0.06] flex items-center justify-between text-left hover:border-[#6a47bd]/40 transition-colors cursor-pointer">
-                            <span class="text-[15px] font-semibold text-[#6a47bd] truncate">
+                                class="w-full px-4 py-3.5 rounded-2xl bg-white border border-black/[0.06] flex items-center justify-between text-left hover:border-[#0071e3]/40 transition-colors cursor-pointer">
+                            <span class="text-[15px] font-semibold text-[#0071e3] truncate">
                                 {{ __('Показать все результаты') }}: «<span x-text="query.trim()"></span>»
                             </span>
-                            <svg class="w-4 h-4 text-[#6a47bd] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <svg class="w-4 h-4 text-[#0071e3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                             </svg>
                         </button>
@@ -397,7 +398,6 @@
                     <!-- РЕЖИМ 2: НЕДАВНО ПРОСМОТРЕННОЕ + ПОПУЛЯРНЫЕ ЗАПРОСЫ -->
                     <div x-show="query.trim().length < 2" class="space-y-7">
 
-                        <!-- Недавно просмотренное -->
                         <div x-show="recentItems.length > 0" class="space-y-3">
                             <div class="flex items-center justify-between">
                                 <h3 class="text-[15px] font-semibold tracking-tight text-[#1d1d1f]">
@@ -405,7 +405,7 @@
                                 </h3>
                                 <button type="button"
                                         @click="clearRecent()"
-                                        class="text-xs font-medium text-[#6e6e73] hover:text-[#6a47bd] transition-colors cursor-pointer">
+                                        class="text-xs font-medium text-[#6e6e73] hover:text-[#0071e3] transition-colors cursor-pointer">
                                     {{ __('Очистить') }}
                                 </button>
                             </div>
@@ -414,7 +414,7 @@
                                 <template x-for="item in recentItems" :key="item.feed + ':' + item.sku">
                                     <a :href="item.url"
                                        @click="loading = true"
-                                       class="w-[144px] shrink-0 bg-white rounded-2xl border border-black/[0.06] p-2.5 flex flex-col gap-2 hover:border-[#6a47bd]/35 transition-colors">
+                                       class="w-[144px] shrink-0 bg-white rounded-2xl border border-black/[0.06] p-2.5 flex flex-col gap-2 hover:border-[#0071e3]/35 transition-colors">
                                         <div class="relative w-full aspect-square rounded-xl bg-[#f5f5f7] p-2 flex items-center justify-center overflow-hidden">
                                             <img x-show="item.image" :src="item.image" :alt="item.title" loading="lazy" class="max-w-full max-h-full object-contain mix-blend-multiply">
                                             <span x-show="item.discount > 0"
@@ -433,7 +433,6 @@
                             </div>
                         </div>
 
-                        <!-- Популярные запросы -->
                         @if(!empty($quickQueries))
                             <div class="space-y-3">
                                 <h3 class="text-[15px] font-semibold tracking-tight text-[#1d1d1f]">
@@ -443,7 +442,7 @@
                                     @foreach($quickQueries as $qText)
                                         <a href="{{ route('product-search', ['q' => $qText]) }}"
                                            @click="loading = true"
-                                           class="px-4 py-2 rounded-full bg-white border border-black/[0.06] hover:border-[#6a47bd]/45 hover:text-[#6a47bd] text-[14px] font-medium text-[#1d1d1f] transition-colors">
+                                           class="px-4 py-2 rounded-full bg-white border border-black/[0.06] hover:border-[#0071e3]/45 hover:text-[#0071e3] text-[14px] font-medium text-[#1d1d1f] transition-colors">
                                             {{ $qText }}
                                         </a>
                                     @endforeach

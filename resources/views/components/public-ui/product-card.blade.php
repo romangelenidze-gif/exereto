@@ -34,32 +34,33 @@
                  decoding="async"
                  class="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500">
         @endif
+
         @if($discount > 0 && (!$hasPriceRange || $groupMinPrice >= ($price - 0.01)))
             <span class="absolute top-3 left-3 z-20 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow">
                 -{{ $discount }}%
             </span>
         @endif
+
+        @if(!empty($colour))
+            <div class="pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-1.5rem)] px-2 py-1 rounded-full bg-white/85 backdrop-blur-sm border border-black/[0.06] shadow-sm flex items-center justify-center">
+                <x-public-ui.color-dots :colour="$colour" :only-dots="true" />
+            </div>
+        @endif
     </div>
 
     <div class="adidas-product-bottom">
-        <div class="space-y-1 mb-3">
+        <div class="space-y-1 mb-2 min-w-0">
             @if($brand)
-                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider">{{ $brand }}</div>
+                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider truncate">{{ $brand }}</div>
             @endif
-            <h3 class="font-semibold text-zinc-900 text-sm line-clamp-2">
+            <h3 class="font-semibold text-zinc-900 text-sm line-clamp-2 leading-snug">
                 {{ $name }}
             </h3>
-
-            @if(!empty($colour))
-                <div class="pt-1">
-                    <x-public-ui.color-dots :colour="$colour" :only-dots="true" />
-                </div>
-            @endif
         </div>
 
-        <div class="flex items-end justify-between pt-3 border-t border-zinc-100">
-            <div>
-                <div class="text-lg font-bold text-zinc-900">
+        <div class="flex items-end justify-between gap-2 pt-3 border-t border-zinc-100">
+            <div class="min-w-0">
+                <div class="text-base xl:text-lg font-bold text-zinc-900 whitespace-nowrap leading-tight">
                     @if($hasPriceRange)
                         {{ __('от :price', ['price' => '€' . number_format($displayPrice, 2)]) }}
                     @else
@@ -67,11 +68,11 @@
                     @endif
                 </div>
                 @if(!empty($oldPrice))
-                    <div class="text-xs text-zinc-400 line-through">€{{ number_format((float)$oldPrice, 2) }}</div>
+                    <div class="text-xs text-zinc-400 line-through whitespace-nowrap mt-0.5">€{{ number_format((float) $oldPrice, 2) }}</div>
                 @endif
             </div>
 
-            <div class="relative z-20">
+            <div class="relative z-20 shrink-0">
                 <a href="{{ $detailUrl }}" class="adidas-card-action-btn" title="{{ __('Открыть') }}">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />

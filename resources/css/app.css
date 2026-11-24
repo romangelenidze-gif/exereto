@@ -1405,14 +1405,12 @@ html .pswp {
 
 /* ==========================================================================
    16. ГЛАВНАЯ: HERO, GRAPHITE AURA, ПРЕИМУЩЕСТВА, ПИЛЮЛИ БРЕНДОВ
-   (единая шкала типографики на базе токенов раздела 0 и 3)
+   (единая шкала типографики и синий акцент на базе токенов раздела 0 и 3)
    ========================================================================== */
 
 :root {
-    --aura-purple: #6a47bd;
-    --aura-purple-hover: #5837a5;
-    --aura-accent: #d2b5ff;
-    --aura-muted: #c8c4d4;
+    --aura-accent: #7cc4ff;
+    --aura-muted: #c2c8d4;
 }
 
 .home-section-link {
@@ -1421,7 +1419,7 @@ html .pswp {
     gap: 0.375rem;
     font-size: 0.9375rem;
     font-weight: 600;
-    color: var(--aura-purple);
+    color: var(--apple-blue);
     text-decoration: none;
     white-space: nowrap;
     transition: color 0.2s var(--apple-ease);
@@ -1435,7 +1433,7 @@ html .pswp {
 }
 
 .home-section-link:hover {
-    color: var(--aura-purple-hover);
+    color: var(--apple-blue-hover);
     text-decoration: underline;
 }
 
@@ -1482,27 +1480,27 @@ html .pswp {
     }
 }
 
-/* --- Правая карточка Graphite Aura --- */
+/* --- Правая карточка Graphite Aura (синее свечение) --- */
 .aura-card {
     position: relative;
     overflow: hidden;
     border-radius: 1.25rem;
     color: #ffffff;
     border: 1px solid rgba(255, 255, 255, 0.11);
-    background: radial-gradient(ellipse at 100% 100%, #7950b0 0%, #39254f 34%, transparent 72%), #16171d;
+    background: radial-gradient(ellipse at 100% 100%, #0071e3 0%, #103263 36%, transparent 72%), #16171d;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .aura-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 28px rgba(40, 23, 71, 0.22);
+    box-shadow: 0 12px 28px rgba(0, 113, 227, 0.22);
 }
 
 .aura-card-circle {
     display: grid;
     place-items: center;
     background: var(--aura-accent);
-    color: #21182e;
+    color: #0c1f3a;
     border-radius: 9999px;
     flex-shrink: 0;
     transition: transform 0.2s ease;
@@ -1641,9 +1639,9 @@ html .pswp {
 }
 
 .home-brand-pill:hover {
-    border-color: rgba(106, 71, 189, 0.45);
-    color: var(--aura-purple);
-    box-shadow: 0 6px 18px rgba(106, 71, 189, 0.08);
+    border-color: rgba(0, 113, 227, 0.45);
+    color: var(--apple-blue);
+    box-shadow: 0 6px 18px rgba(0, 113, 227, 0.08);
 }
 
 /* --- Триггер поиска в шапке --- */
@@ -1672,7 +1670,7 @@ html .pswp {
 
 .home-header-cat-btn:hover {
     background-color: var(--apple-bg-soft);
-    color: var(--aura-purple);
+    color: var(--apple-blue);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1683,4 +1681,18 @@ html .pswp {
         transition: none;
         transform: none;
     }
+}
+/* Мгновенное включение visibility для безотказного фокуса input.focus() */
+.search-sheet-backdrop {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 220ms ease-out, visibility 0s linear 220ms;
+}
+
+.search-sheet-backdrop.is-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity 220ms ease-out, visibility 0s linear 0s;
 }

@@ -2,7 +2,6 @@
     $headerCategories = app(\App\Services\FeedCategoryTiles::class)->get();
 @endphp
 
-<!-- На мобильном (< lg): умная липкая шапка. На десктопе (>= lg): единая шапка с поиском -->
 <header class="sticky top-0 lg:static z-40 text-[#1d1d1f] w-full transition-transform duration-300 ease-out will-change-transform"
         x-data="{
             hidden: false,
@@ -57,7 +56,7 @@
                             @click="$dispatch('open-search', { rect: $el.closest('[data-search-trigger]').getBoundingClientRect() })"
                             aria-label="{{ __('Поиск') }}"
                             class="flex-1 min-w-0 flex items-center gap-2.5 h-full text-left cursor-pointer focus:outline-none">
-                        <svg class="w-5 h-5 text-[#6a47bd] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <svg class="w-5 h-5 text-[#0071e3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         @if(filled(request('q')))
@@ -79,22 +78,21 @@
             </div>
         </div>
 
-        <!-- ДЕСКТОПНАЯ ШАПКА (>= lg): логотип + поисковая строка-триггер + навигация -->
+        <!-- ДЕСКТОПНАЯ ШАПКА (>= lg) -->
         <div class="hidden lg:flex items-center justify-between gap-6 h-20">
             <div class="flex items-center gap-6 flex-1 min-w-0 max-w-3xl">
                 <a href="{{ route('home') }}" class="text-[28px] leading-none font-bold tracking-tight text-[#1d1d1f] shrink-0 hover:opacity-85 transition-opacity">
                     exereto
                 </a>
 
-                <!-- Триггер полноэкранного поиска + кнопка категорий -->
                 <div data-search-trigger="desktop"
-                     class="flex-1 min-w-0 max-w-xl rounded-full bg-white shadow-[0_2px_14px_rgba(0,0,0,0.05)] border border-black/[0.06] hover:border-[#6a47bd]/40 transition-colors">
+                     class="flex-1 min-w-0 max-w-xl rounded-full bg-white shadow-[0_2px_14px_rgba(0,0,0,0.05)] border border-black/[0.06] hover:border-[#0071e3]/40 transition-colors">
                     <div class="flex items-center gap-2 pl-5 pr-2 h-12">
                         <button type="button"
                                 @click="$dispatch('open-search', { rect: $el.closest('[data-search-trigger]').getBoundingClientRect() })"
                                 aria-label="{{ __('Поиск') }}"
                                 class="flex-1 min-w-0 flex items-center gap-2.5 h-full text-left cursor-pointer focus:outline-none">
-                            <svg class="w-5 h-5 text-[#6a47bd] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <svg class="w-5 h-5 text-[#0071e3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                             @if(filled(request('q')))
@@ -121,27 +119,27 @@
 
             <div class="flex items-center gap-5 shrink-0">
                 <nav class="flex items-center space-x-1 shrink-0">
-                    <a href="{{ route('how-it-works') }}" class="apple-nav-link {{ request()->routeIs(['how-it-works', '*.how-it-works']) ? 'active !text-[#6a47bd]' : '' }}">
+                    <a href="{{ route('how-it-works') }}" class="apple-nav-link {{ request()->routeIs(['how-it-works', '*.how-it-works']) ? 'active' : '' }}">
                         {{ __('Как это работает') }}
                     </a>
-                    <a href="{{ route('buy-for-me') }}" class="apple-nav-link {{ request()->routeIs(['buy-for-me', '*.buy-for-me']) ? 'active !text-[#6a47bd]' : '' }}">
+                    <a href="{{ route('buy-for-me') }}" class="apple-nav-link {{ request()->routeIs(['buy-for-me', '*.buy-for-me']) ? 'active' : '' }}">
                         {{ __('Выкупите за меня') }}
                     </a>
-                    <a href="{{ route('forwarding') }}" class="apple-nav-link {{ request()->routeIs(['forwarding', '*.forwarding']) ? 'active !text-[#6a47bd]' : '' }}">
+                    <a href="{{ route('forwarding') }}" class="apple-nav-link {{ request()->routeIs(['forwarding', '*.forwarding']) ? 'active' : '' }}">
                         {{ __('Форвардинг') }}
                     </a>
-                    <a href="{{ route('help') }}" class="apple-nav-link {{ request()->routeIs(['help', '*.help']) ? 'active !text-[#6a47bd]' : '' }}">
+                    <a href="{{ route('help') }}" class="apple-nav-link {{ request()->routeIs(['help', '*.help']) ? 'active' : '' }}">
                         {{ __('Помощь / FAQ') }}
                     </a>
                 </nav>
 
                 <div class="flex items-center gap-3 shrink-0">
                     @auth
-                        <a href="{{ route('dashboard') }}" class="apple-nav-link hover:!text-[#6a47bd]">
+                        <a href="{{ route('dashboard') }}" class="apple-nav-link">
                             {{ __('Личный кабинет') }}
                         </a>
                     @else
-                        <a href="{{ route('login') }}" class="apple-nav-link hover:!text-[#6a47bd]">
+                        <a href="{{ route('login') }}" class="apple-nav-link">
                             {{ __('Войти') }}
                         </a>
                     @endauth
@@ -154,6 +152,5 @@
     </div>
 </header>
 
-<!-- Вынесены из <header>, чтобы CSS transform при скрытии шапки не ломал position: fixed -->
 <x-public-ui.categories-drawer :categories="$headerCategories" />
 <x-layouts.search-sheet />
