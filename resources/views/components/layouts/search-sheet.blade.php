@@ -32,6 +32,7 @@
             loadingSuggestions: false,
             loading: false,
             abortCtrl: null,
+            animTimer: null,
             init() {
                 this.loadRecent();
             },
@@ -42,26 +43,151 @@
                 if (window.ExeretoRecent) window.ExeretoRecent.clear();
                 this.recentItems = [];
             },
-            openSearch() {
+            findTriggerRect(explicitRect) {
+                if (explicitRect && explicitRect.width > 0 && explicitRect.height > 0) {
+                    return explicitRect;
+                }
+                const triggers = document.querySelectorAll('[data-search-trigger]');
+                for (const el of triggers) {
+                    const r = el.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight) {
+                        return r;
+                    }
+                }
+                return null;
+            },
+            resetFormInlineStyles() {
+                const box = this.$refs.formBox;
+                if (!box) return;
+                box.style.transition = '';
+                box.style.transform = '';
+                box.style.width = '';
+                box.style.height = '';
+            },
+            openSearch(detail) {
+                if (this.animTimer) {
+                    clearTimeout(this.animTimer);
+                    this.animTimer = null;
+                }
+
                 this.loadRecent();
                 this.activeIndex = -1;
+                this.searchOpen = true;
+
                 const root = this.$refs.sheetRoot;
-                if (root) root.style.visibility = 'visible';
+                const box = this.$refs.formBox;
+                const input = this.$refs.searchInput;
+
+                // 1. Синхронно делаем оверлей и инпут видимыми ДО вызова focus(),
+                // чтобы iOS Safari и Android гарантированно поднимали клавиатуру с первого клика.
+                if (root) {
+                    root.style.visibility = 'visible';
+                    root.style.pointerEvents = 'auto';
+                }
+
+                this.resetFormInlineStyles();
+
+                const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                const srcRect = !reducedMotion ? this.findTriggerRect(detail?.rect) : null;
+                const dstRect = box ? box.getBoundingClientRect() : null;
+
+                // 2. FLIP-старт: совмещаем форму поиска пиксель-в-пиксель со строкой в шапке
+                if (box && srcRect && dstRect && dstRect.width > 0) {
+                    const dx = srcRect.left - dstRect.left;
+                    const dy = srcRect.top - dstRect.top;
+
+                    box.style.transition = 'none';
+                    box.style.width = `${srcRect.width}px`;
+                    box.style.height = `${srcRect.height}px`;
+                    box.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+
+                    // Фиксируем стартовую геометрию
+                    void box.offsetWidth;
+                }
+
+                // 3. Синхронный фокус строго в рамках пользовательского клика
+                if (input) {
+                    input.tabIndex = 0;
+                    input.focus({ preventScroll: true });
+                    const len = input.value.length;
+                    try { input.setSelectionRange(len, len); } catch {}
+                }
+
+                // 4. Плавный полёт и расширение к финальной позиции
+                if (box && srcRect && dstRect && dstRect.width > 0) {
+                    requestAnimationFrame(() => {
+                        if (!this.searchOpen) return;
+                        box.style.transition = 'transform 300ms cubic-bezier(0.22, 1, 0.36, 1), width 300ms cubic-bezier(0.22, 1, 0.36, 1), height 300ms cubic-bezier(0.22, 1, 0.36, 1)';
+                        box.style.width = `${dstRect.width}px`;
+                        box.style.height = `${dstRect.height}px`;
+                        box.style.transform = 'translate3d(0, 0, 0)';
+
+                        this.animTimer = setTimeout(() => {
+                            this.resetFormInlineStyles();
+                        }, 320);
+                    });
+                }
+
+                // Страховочный фокус для десктопа (если клик успел перехватиться) + очистка временного inline visibility
                 this.$nextTick(() => {
-                    const input = this.$refs.searchInput;
-                    if (input) {
+                    if (root && this.searchOpen) {
+                        root.style.visibility = '';
+                        root.style.pointerEvents = '';
+                    }
+                    if (input && this.searchOpen && document.activeElement !== input) {
                         input.focus({ preventScroll: true });
-                        const len = input.value.length;
-                        try { input.setSelectionRange(len, len); } catch {}
                     }
                 });
+
                 if (this.query.trim().length >= 2 && this.suggestions.length === 0) {
                     this.fetchSuggestions();
                 }
             },
             closeSearch() {
-                if (this.$refs.searchInput) this.$refs.searchInput.blur();
-                if (this.$refs.sheetRoot) this.$refs.sheetRoot.style.visibility = '';
+                if (this.animTimer) {
+                    clearTimeout(this.animTimer);
+                    this.animTimer = null;
+                }
+
+                const root = this.$refs.sheetRoot;
+                const box = this.$refs.formBox;
+                const input = this.$refs.searchInput;
+
+                if (input) {
+                    input.blur();
+                    input.tabIndex = -1;
+                }
+
+                const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                const srcRect = !reducedMotion ? this.findTriggerRect(null) : null;
+                const dstRect = box ? box.getBoundingClientRect() : null;
+
+                // Обратный FLIP: плавно возвращаем строку в шапку во время затухания фона
+                if (box && srcRect && dstRect && dstRect.width > 0) {
+                    const dx = srcRect.left - dstRect.left;
+                    const dy = srcRect.top - dstRect.top;
+
+                    box.style.width = `${dstRect.width}px`;
+                    box.style.height = `${dstRect.height}px`;
+                    void box.offsetWidth;
+
+                    box.style.transition = 'transform 220ms cubic-bezier(0.4, 0, 0.2, 1), width 220ms cubic-bezier(0.4, 0, 0.2, 1), height 220ms cubic-bezier(0.4, 0, 0.2, 1)';
+                    box.style.width = `${srcRect.width}px`;
+                    box.style.height = `${srcRect.height}px`;
+                    box.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+
+                    this.animTimer = setTimeout(() => {
+                        this.resetFormInlineStyles();
+                    }, 240);
+                } else {
+                    this.resetFormInlineStyles();
+                }
+
+                if (root) {
+                    root.style.visibility = '';
+                    root.style.pointerEvents = '';
+                }
+
                 this.activeIndex = -1;
                 this.searchOpen = false;
             },
@@ -130,7 +256,7 @@
                 window.location.href = item.url || `{{ route('product-search') }}?q=${encodeURIComponent(item.value || this.query)}`;
             }
          }"
-         @open-search.window="openSearch()"
+         @open-search.window="openSearch($event.detail)"
          @keydown.escape.window="if (searchOpen) closeSearch()"
          @pageshow.window="loading = false; loadRecent()"
          x-effect="
@@ -138,9 +264,12 @@
                 const sbw = window.innerWidth - document.documentElement.clientWidth;
                 if (sbw > 0) document.body.style.paddingRight = sbw + 'px';
                 document.body.classList.add('overflow-hidden');
-            } else if (!categoriesDrawerOpen) {
-                document.body.classList.remove('overflow-hidden');
-                document.body.style.paddingRight = '';
+            } else {
+                if ($refs.searchInput) $refs.searchInput.tabIndex = -1;
+                if (!categoriesDrawerOpen) {
+                    document.body.classList.remove('overflow-hidden');
+                    document.body.style.paddingRight = '';
+                }
             }
          "
     >
@@ -160,16 +289,16 @@
              aria-modal="true"
              :aria-hidden="(!searchOpen).toString()"
              aria-label="{{ __('Поиск') }}"
+             @click.self="closeSearch()"
              :class="searchOpen ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'"
-             class="fixed inset-0 z-[9995] flex flex-col bg-[#f5f5f7]/98 lg:backdrop-blur-xl transition-[opacity,visibility] duration-200 ease-out"
+             class="fixed inset-0 z-[9995] flex flex-col bg-[#f5f5f7]/95 lg:backdrop-blur-xl transition-[opacity,visibility] duration-220 ease-out"
         >
-            <!-- Верхняя строка ввода -->
-            <div class="px-4 sm:px-6 pt-5 lg:pt-10 pb-3 bg-[#f5f5f7] shrink-0">
+            <!-- Верхняя строка ввода (FLIP-морфинг из шапки) -->
+            <div @click.self="closeSearch()" class="px-4 sm:px-6 pt-5 lg:pt-10 pb-3 shrink-0">
                 <div class="max-w-3xl mx-auto">
-                    <div :class="searchOpen ? 'ml-0' : 'ml-[116px] lg:ml-0'"
-                         class="transition-[margin] duration-250 ease-out">
+                    <div x-ref="formBox" class="w-full h-12 lg:h-14 will-change-transform">
                         <form @submit.prevent="submitSearch()"
-                              class="flex items-center gap-2 pl-4 pr-2 h-12 lg:h-14 rounded-full bg-white shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-black/[0.07] focus-within:border-[#6a47bd]/50 focus-within:ring-2 focus-within:ring-[#6a47bd]/15 transition-all">
+                              class="w-full h-full flex items-center gap-2 pl-4 pr-2 rounded-full bg-white shadow-[0_8px_30px_rgba(0,0,0,0.09)] border border-black/[0.08] focus-within:border-[#6a47bd]/55 focus-within:ring-2 focus-within:ring-[#6a47bd]/15 transition-colors overflow-hidden">
                             <button type="submit" aria-label="{{ __('Найти') }}" class="text-[#6a47bd] hover:opacity-85 transition-opacity shrink-0 cursor-pointer">
                                 <svg class="w-5 h-5 lg:w-6 lg:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -180,7 +309,7 @@
                                    name="q"
                                    x-ref="searchInput"
                                    x-model="query"
-                                   :tabindex="searchOpen ? 0 : -1"
+                                   tabindex="-1"
                                    @input.debounce.180ms="fetchSuggestions()"
                                    @keydown.arrow-down.prevent="moveSelection(1)"
                                    @keydown.arrow-up.prevent="moveSelection(-1)"
@@ -218,8 +347,9 @@
             </div>
 
             <!-- Контентная область (автокомплит или недавно просмотренное + популярные запросы) -->
-            <div :class="searchOpen ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'"
-                 class="flex-1 overflow-y-auto px-4 sm:px-6 py-5 transition-all duration-200 ease-out">
+            <div @click.self="closeSearch()"
+                 :class="searchOpen ? 'translate-y-0 opacity-100 delay-75' : 'translate-y-4 opacity-0 delay-0'"
+                 class="flex-1 overflow-y-auto px-4 sm:px-6 py-5 transition-all duration-250 ease-out">
                 <div class="max-w-3xl mx-auto space-y-6">
 
                     <!-- РЕЖИМ 1: АВТОКОМПЛИТ (когда введено >= 2 символов) -->

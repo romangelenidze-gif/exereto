@@ -50,10 +50,11 @@
                 exereto
             </a>
 
-            <div class="flex-1 min-w-0 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-black/[0.06]">
+            <div data-search-trigger="mobile"
+                 class="flex-1 min-w-0 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-black/[0.06]">
                 <div class="flex items-center gap-2 pl-4 pr-1.5 h-12">
                     <button type="button"
-                            @click="$dispatch('open-search')"
+                            @click="$dispatch('open-search', { rect: $el.closest('[data-search-trigger]').getBoundingClientRect() })"
                             aria-label="{{ __('Поиск') }}"
                             class="flex-1 min-w-0 flex items-center gap-2.5 h-full text-left cursor-pointer focus:outline-none">
                         <svg class="w-5 h-5 text-[#6a47bd] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -86,10 +87,11 @@
                 </a>
 
                 <!-- Триггер полноэкранного поиска + кнопка категорий -->
-                <div class="flex-1 min-w-0 max-w-xl rounded-full bg-white shadow-[0_2px_14px_rgba(0,0,0,0.05)] border border-black/[0.06] hover:border-[#6a47bd]/40 transition-colors">
+                <div data-search-trigger="desktop"
+                     class="flex-1 min-w-0 max-w-xl rounded-full bg-white shadow-[0_2px_14px_rgba(0,0,0,0.05)] border border-black/[0.06] hover:border-[#6a47bd]/40 transition-colors">
                     <div class="flex items-center gap-2 pl-4 pr-2 h-11">
                         <button type="button"
-                                @click="$dispatch('open-search')"
+                                @click="$dispatch('open-search', { rect: $el.closest('[data-search-trigger]').getBoundingClientRect() })"
                                 aria-label="{{ __('Поиск') }}"
                                 class="flex-1 min-w-0 flex items-center gap-2.5 h-full text-left cursor-pointer focus:outline-none">
                             <svg class="w-[18px] h-[18px] text-[#6a47bd] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

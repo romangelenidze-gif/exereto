@@ -37,7 +37,7 @@
             </div>
         </template>
 
-        <!-- 1. ПЕРВЫЙ ЭКРАН: HERO-БАННЕР (клик -> полноэкранный поиск) + GRAPHITE AURA (клик -> A–Z бренды) -->
+        <!-- 1. ПЕРВЫЙ ЭКРАН: HERO-БАННЕР (506px на десктопе) + GRAPHITE AURA (506px на десктопе) -->
         <section class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 space-y-5 lg:space-y-6">
             <div class="grid grid-cols-1 lg:grid-cols-[2.45fr_1fr] gap-3 lg:gap-4 items-stretch">
 
@@ -47,7 +47,7 @@
                      @click="$dispatch('open-search')"
                      @keydown.enter.prevent="$dispatch('open-search')"
                      @keydown.space.prevent="$dispatch('open-search')"
-                     class="relative min-h-[240px] sm:min-h-[300px] lg:min-h-[350px] rounded-[20px] overflow-hidden bg-[#1f3a5c] cursor-pointer group select-none flex items-end lg:items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6a47bd] focus-visible:ring-offset-2">
+                     class="relative h-[260px] sm:h-[360px] lg:h-[506px] rounded-[20px] overflow-hidden bg-[#1f3a5c] cursor-pointer group select-none flex items-end lg:items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6a47bd] focus-visible:ring-offset-2">
 
                     @if($heroDesktop || $heroMobile)
                         <picture class="absolute inset-0 w-full h-full">
@@ -68,15 +68,15 @@
                     <div class="pointer-events-none absolute inset-0"
                          style="background: linear-gradient(90deg, rgba(26, 52, 86, 0.86) 0%, rgba(36, 65, 100, 0.62) 42%, rgba(36, 64, 91, 0.06) 76%);"></div>
 
-                    <div class="relative z-10 p-5 sm:p-8 lg:p-11 max-w-xl space-y-3 lg:space-y-4 text-white">
-                        <h1 class="text-[26px] sm:text-4xl lg:text-[42px] font-bold tracking-tight leading-[1.06]">
+                    <div class="relative z-10 p-5 sm:p-8 lg:p-14 max-w-2xl space-y-3 lg:space-y-5 text-white">
+                        <h1 class="text-[26px] sm:text-4xl lg:text-[48px] font-bold tracking-tight leading-[1.05]">
                             {{ __('Мы не продаём — мы помогаем покупать!') }}
                         </h1>
-                        <p class="hidden sm:block text-sm lg:text-[15px] text-white/90 leading-relaxed max-w-md">
+                        <p class="hidden sm:block text-sm lg:text-[17px] text-white/90 leading-relaxed max-w-lg">
                             {{ __('Exereto — это единая точка доступа к мировым брендам, ценам и скидкам, созданная в интересах покупателя.') }}
                         </p>
                         <div class="pt-1 lg:pt-2">
-                            <span class="inline-flex items-center gap-2 px-5 py-2.5 lg:px-6 lg:py-3 rounded-full bg-white text-[#1d1d1f] text-[13px] lg:text-[14px] font-semibold shadow-sm group-hover:bg-[#f5f3ff] group-hover:text-[#6a47bd] transition-colors">
+                            <span class="inline-flex items-center gap-2 px-5 py-2.5 lg:px-7 lg:py-3.5 rounded-full bg-white text-[#1d1d1f] text-[13px] lg:text-[15px] font-semibold shadow-sm group-hover:bg-[#f5f3ff] group-hover:text-[#6a47bd] transition-colors">
                                 <span>{{ __('Начать поиск') }}</span>
                                 <span aria-hidden="true" class="group-hover:translate-x-0.5 transition-transform">&rarr;</span>
                             </span>
@@ -84,47 +84,47 @@
                     </div>
                 </div>
 
-                <!-- Правая карточка Graphite Aura: ДЕСКТОП (вертикальная) -->
+                <!-- Правая карточка Graphite Aura: ДЕСКТОП (506px) -->
                 <button type="button"
                         @click="$dispatch('open-brands')"
-                        class="hidden lg:flex aura-card flex-col justify-between p-6 xl:p-7 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6a47bd] focus-visible:ring-offset-2">
+                        class="hidden lg:flex lg:h-[506px] aura-card flex-col justify-between p-7 xl:p-9 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6a47bd] focus-visible:ring-offset-2">
 
                     <div class="flex items-center justify-between gap-2 w-full">
-                        <span class="aura-muted-text text-[11px] font-bold uppercase tracking-[0.13em]">
+                        <span class="aura-muted-text text-[12px] font-bold uppercase tracking-[0.14em]">
                             {{ __('Каталог A–Z') }}
                         </span>
-                        <span class="aura-card-circle w-9 h-9" aria-hidden="true">
-                            <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                        <span class="aura-card-circle w-10 h-10" aria-hidden="true">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M9 7h8v8" />
                             </svg>
                         </span>
                     </div>
 
-                    <div class="my-auto py-3">
-                        <strong class="aura-count block text-[52px] xl:text-[68px] font-extrabold text-white whitespace-nowrap">
+                    <div class="my-auto py-4">
+                        <strong class="aura-count block text-[58px] xl:text-[76px] font-extrabold text-white whitespace-nowrap">
                             {{ $brandsFormatted }}<span class="aura-plus">+</span>
                         </strong>
-                        <div class="text-[22px] font-semibold text-white mt-2 leading-tight">
+                        <div class="text-[24px] xl:text-[26px] font-semibold text-white mt-3 leading-tight">
                             {{ __('брендов') }}
                         </div>
-                        <div class="aura-muted-text text-[13px] mt-1">
+                        <div class="aura-muted-text text-[14px] mt-1.5">
                             {{ __('Весь выбор — в одном месте') }}
                         </div>
                     </div>
 
-                    <div class="w-full space-y-4">
-                        <div class="flex items-center justify-between gap-3 py-3 border-y border-white/20">
-                            <span class="aura-muted-text text-[12px] leading-snug">
+                    <div class="w-full space-y-5">
+                        <div class="flex items-center justify-between gap-3 py-4 border-y border-white/20">
+                            <span class="aura-muted-text text-[13px] leading-snug">
                                 {{ __('Актуальные скидки') }}
                             </span>
-                            <b class="aura-accent-text text-[22px] xl:text-[24px] font-bold whitespace-nowrap tracking-tight">
+                            <b class="aura-accent-text text-[24px] xl:text-[28px] font-bold whitespace-nowrap tracking-tight">
                                 {{ __('до') }} {{ $maxDisc }}%
                             </b>
                         </div>
 
-                        <div class="flex items-center justify-between gap-2 text-[13px] font-bold text-white">
+                        <div class="flex items-center justify-between gap-2 text-[14px] font-bold text-white">
                             <span>{{ __('Смотреть все бренды') }}</span>
-                            <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6" />
                             </svg>
                         </div>
@@ -272,7 +272,7 @@
                         </a>
                     @endforeach
 
-                    <!-- 9-я плитка: Все категории (десктоп + конец ленты на мобилке) -->
+                    <!-- 9-я плитка: Все категории -->
                     <button type="button"
                             @click="$dispatch('open-categories')"
                             class="w-[96px] sm:w-[116px] lg:w-auto shrink-0 snap-start group flex flex-col items-center text-center gap-2 cursor-pointer">
