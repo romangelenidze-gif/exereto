@@ -295,7 +295,7 @@
              aria-label="{{ __('Поиск') }}"
              @click.self="closeSearch()"
              :class="{ 'is-open': searchOpen }"
-             class="search-sheet-backdrop fixed inset-0 z-[9995] flex flex-col bg-[#f5f5f7]/95 lg:backdrop-blur-xl"
+             class="search-sheet-backdrop fixed inset-0 z-[9995] flex flex-col bg-[#f5f5f7]/100 lg:backdrop-blur-xl"
         >
             <!-- Верхняя строка ввода -->
             <div @click.self="closeSearch()" class="px-4 sm:px-6 pt-5 lg:pt-10 pb-3 shrink-0">
