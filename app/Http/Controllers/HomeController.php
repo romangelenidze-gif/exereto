@@ -46,7 +46,7 @@ class HomeController extends Controller
                 return [
                     'title' => __('Рекомендуемые предложения'),
                     'subtitle' => __('Подборка оригинальной одежды, сумок и аксессуаров от мировых брендов'),
-                    'cta' => __('Смотреть все предложения'),
+                    'cta' => __('Все предложения'),
                     'url' => $target['url'],
                     'count' => (int) $target['count'],
                     'products' => $localized,

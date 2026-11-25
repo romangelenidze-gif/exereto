@@ -1499,7 +1499,7 @@ html .pswp {
 .aura-card-circle {
     display: grid;
     place-items: center;
-    background: var(--aura-accent);
+    background: #ffffff;
     color: #0c1f3a;
     border-radius: 9999px;
     flex-shrink: 0;

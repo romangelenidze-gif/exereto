@@ -65,8 +65,13 @@
                     @endif
 
                     <!-- Двойной градиент (слева и снизу) для чистой читаемости нижнего контента -->
-                    <div class="pointer-events-none absolute inset-0"
-                         style="background: linear-gradient(90deg, rgba(24, 48, 80, 0.88) 0%, rgba(34, 62, 96, 0.64) 44%, rgba(36, 64, 91, 0.05) 76%), linear-gradient(0deg, rgba(18, 34, 58, 0.72) 0%, rgba(18, 34, 58, 0.18) 45%, transparent 72%);"></div>
+                    {{-- Градиент для МОБИЛЬНОГО (< 768px): плотный снизу вверх под текст на всю ширину --}}
+                    <div class="md:hidden pointer-events-none absolute inset-0"
+                        style="background: linear-gradient(0deg, rgba(18, 34, 58, 0.90) 0%, rgba(24, 48, 80, 0.68) 38%, rgba(24, 48, 80, 0.18) 65%, transparent 100%);"></div>
+
+                    {{-- Градиент для ПЛАНШЕТА И ПК (>= 768px): компактный боковой 30% / 55% + мягкий нижний --}}
+                    <div class="hidden md:block pointer-events-none absolute inset-0"
+                        style="background: linear-gradient(90deg, rgba(24, 48, 80, 0.88) 0%, rgba(34, 62, 96, 0.60) 30%, rgba(36, 64, 91, 0) 55%), linear-gradient(0deg, rgba(18, 34, 58, 0.62) 0%, rgba(18, 34, 58, 0.14) 38%, transparent 62%);"></div>
 
                     <div class="relative z-10 p-6 sm:p-9 lg:px-14 lg:pb-12 lg:pt-10 max-w-2xl space-y-3.5 lg:space-y-5">
                         <h1 class="home-hero-title">
@@ -136,19 +141,19 @@
                         @click="$dispatch('open-brands')"
                         class="grid lg:hidden aura-card grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_36px] items-center gap-3 px-4 py-4 text-left cursor-pointer">
                     <div class="min-w-0">
-                        <strong class="aura-count block text-[36px] sm:text-[42px] font-extrabold text-white whitespace-nowrap">
+                        <strong class="aura-count block text-[36px] sm:text-[42px] font-bold text-white whitespace-nowrap">
                             {{ $brandsDisplay }}<span class="aura-plus">+</span>
                         </strong>
-                        <span class="aura-muted-text block text-[13px] mt-1 truncate">
+                        <span class="aura-muted-text block text-[16px] mt-1 truncate">
                             {{ __('брендов') }} · A–Z
                         </span>
                     </div>
 
                     <div class="border-l border-white/20 pl-3 min-w-0">
-                        <span class="aura-muted-text block text-[13px] leading-tight">
+                        <span class="aura-muted-text block text-[16px] leading-tight">
                             {{ __('Скидки до') }}
                         </span>
-                        <strong class="aura-accent-text block text-[28px] sm:text-[32px] font-extrabold leading-tight tracking-tight whitespace-nowrap">
+                        <strong class="aura-accent-text block text-[36px] sm:text-[42px] font-bold leading-tight tracking-tight whitespace-nowrap">
                             {{ $maxDisc }}%
                         </strong>
                     </div>
@@ -165,7 +170,7 @@
             <!-- 2. ПОЛОСА ПРЕИМУЩЕСТВ -->
             <div class="hidden lg:grid lg:grid-cols-4 gap-8 py-5 border-b border-black/[0.06]">
                 <div class="flex items-start gap-3.5">
-                    <svg class="w-8 h-8 text-[#0071e3] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+                    <svg class="w-8 h-8 text-[#4e4e4e] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                     <div class="min-w-0">
@@ -175,7 +180,7 @@
                 </div>
 
                 <div class="flex items-start gap-3.5">
-                    <svg class="w-8 h-8 text-[#0071e3] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+                    <svg class="w-8 h-8 text-[#4e4e4e] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
                     </svg>
                     <div class="min-w-0">
@@ -185,7 +190,7 @@
                 </div>
 
                 <div class="flex items-start gap-3.5">
-                    <svg class="w-8 h-8 text-[#0071e3] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+                    <svg class="w-8 h-8 text-[#4e4e4e] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                     </svg>
                     <div class="min-w-0">
@@ -195,7 +200,7 @@
                 </div>
 
                 <div class="flex items-start gap-3.5">
-                    <svg class="w-8 h-8 text-[#0071e3] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+                    <svg class="w-8 h-8 text-[#4e4e4e] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
                     </svg>
                     <div class="min-w-0">
@@ -208,19 +213,19 @@
             <!-- Компактная мобильная полоса преимуществ -->
             <div class="grid lg:hidden grid-cols-3 gap-2.5 py-3 border-b border-black/[0.06]">
                 <div class="flex items-center gap-1.5 min-w-0">
-                    <svg class="w-6 h-6 text-[#0071e3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg class="w-6 h-6 text-[#4e4e4e] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                     <span class="home-benefit-mobile-text">{{ __('Проверенные магазины') }}</span>
                 </div>
                 <div class="flex items-center gap-1.5 min-w-0">
-                    <svg class="w-6 h-6 text-[#0071e3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg class="w-6 h-6 text-[#4e4e4e] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                     <span class="home-benefit-mobile-text">{{ __('Покупка напрямую') }}</span>
                 </div>
                 <div class="flex items-center gap-1.5 min-w-0">
-                    <svg class="w-6 h-6 text-[#0071e3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg class="w-6 h-6 text-[#4e4e4e] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
                     </svg>
                     <span class="home-benefit-mobile-text">{{ __('Доставка в Грузию') }}</span>
