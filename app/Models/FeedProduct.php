@@ -17,7 +17,7 @@ class FeedProduct extends Model
     protected $guarded = [];
 
     /** @var array<string, array<string, EntityTranslation>>|null */
-    private static ?array $translationCache = null;
+    private static array $translationCache = [];
 
     /** @var array<int, array<string, mixed>>|null */
     private static ?array $compiledTiles = null;
@@ -265,13 +265,60 @@ class FeedProduct extends Model
         return array_keys($labels);
     }
 
-    public static function getTranslationDictionary(): array
+    public static function getTranslationDictionary(?string $locale = null): array
     {
-        if (self::$translationCache !== null) {
-            return self::$translationCache;
+        $cacheKey = $locale ?? '_all';
+
+        if (!app()->runningUnitTests() && isset(self::$translationCache[$cacheKey])) {
+            return self::$translationCache[$cacheKey];
         }
 
-        self::$translationCache = [
+        // Быстрый путь для веб-запросов: плоский словарь строк для одной локали в Redis (без 21k+ Eloquent-моделей)
+        if ($locale !== null) {
+            $loadForLocale = static function () use ($locale): array {
+                $dict = [
+                    'title_prefix' => [],
+                    'category_segment' => [],
+                    'color' => [],
+                    'spec' => [],
+                ];
+
+                $columns = ['entity_type', 'source_hash', 'source_text', 'text_en'];
+                if ($locale === 'ru') {
+                    $columns[] = 'text_ru';
+                } elseif ($locale === 'ka') {
+                    $columns[] = 'text_ka';
+                }
+
+                $rows = \Illuminate\Support\Facades\DB::table('entity_translations')
+                    ->select($columns)
+                    ->whereIn('entity_type', ['title_prefix', 'category_segment', 'color', 'spec'])
+                    ->get();
+
+                foreach ($rows as $row) {
+                    $dict[$row->entity_type][$row->source_hash] = EntityTranslation::resolveForLocale($row, $locale);
+                }
+
+                return $dict;
+            };
+
+            $dict = app()->runningUnitTests()
+                ? $loadForLocale()
+                : \Illuminate\Support\Facades\Cache::remember(
+                    "feed_entity_dict:v1:{$locale}",
+                    now()->addMinutes(15),
+                    $loadForLocale
+                );
+
+            if (!app()->runningUnitTests()) {
+                self::$translationCache[$cacheKey] = $dict;
+            }
+
+            return $dict;
+        }
+
+        // Путь без указания локали (для пакетной индексации Meilisearch в toSearchableArray)
+        $dict = [
             'title_prefix' => [],
             'category_segment' => [],
             'color' => [],
@@ -279,13 +326,18 @@ class FeedProduct extends Model
         ];
 
         EntityTranslation::query()
+            ->select(['entity_type', 'source_hash', 'source_text', 'text_en', 'text_ru', 'text_ka'])
             ->whereIn('entity_type', ['title_prefix', 'category_segment', 'color', 'spec'])
             ->get()
-            ->each(function (EntityTranslation $row) {
-                self::$translationCache[$row->entity_type][$row->source_hash] = $row;
+            ->each(function (EntityTranslation $row) use (&$dict) {
+                $dict[$row->entity_type][$row->source_hash] = $row;
             });
 
-        return self::$translationCache;
+        if (!app()->runningUnitTests()) {
+            self::$translationCache[$cacheKey] = $dict;
+        }
+
+        return $dict;
     }
 
     public function outboundUrl(): string
@@ -315,12 +367,17 @@ class FeedProduct extends Model
         }
 
         if ($locale !== 'el') {
-            $dict = self::getTranslationDictionary();
-            if ($title !== '' && FeedEntityLocalizer::containsGreek($title)) {
-                $title = FeedEntityLocalizer::translateTextWithDictionary($title, $locale, $dict);
-            }
-            if (is_string($colour) && $colour !== '' && FeedEntityLocalizer::containsGreek($colour)) {
-                $colour = FeedEntityLocalizer::translateTextWithDictionary($colour, $locale, $dict);
+            $needsTitle = $title !== '' && FeedEntityLocalizer::containsGreek($title);
+            $needsColour = is_string($colour) && $colour !== '' && FeedEntityLocalizer::containsGreek($colour);
+
+            if ($needsTitle || $needsColour) {
+                $dict = self::getTranslationDictionary($locale);
+                if ($needsTitle) {
+                    $title = FeedEntityLocalizer::translateTextWithDictionary($title, $locale, $dict);
+                }
+                if ($needsColour) {
+                    $colour = FeedEntityLocalizer::translateTextWithDictionary($colour, $locale, $dict);
+                }
             }
         }
 

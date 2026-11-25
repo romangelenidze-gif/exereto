@@ -27,11 +27,21 @@ class EntityTranslation extends Model
 
     public function forLocale(string $locale): string
     {
+        return self::resolveForLocale($this, $locale);
+    }
+
+    public static function resolveForLocale(object $row, string $locale): string
+    {
+        $source = (string) ($row->source_text ?? '');
+        $en = (string) ($row->text_en ?? '');
+        $ru = (string) ($row->text_ru ?? '');
+        $ka = (string) ($row->text_ka ?? '');
+
         $val = match ($locale) {
-            'ru' => $this->text_ru ?: ($this->text_en ?: $this->source_text),
-            'ka' => $this->text_ka ?: ($this->text_en ?: $this->source_text),
-            'en' => $this->text_en ?: $this->source_text,
-            default => $this->source_text,
+            'ru' => $ru !== '' ? $ru : ($en !== '' ? $en : $source),
+            'ka' => $ka !== '' ? $ka : ($en !== '' ? $en : $source),
+            'en' => $en !== '' ? $en : $source,
+            default => $source,
         };
 
         if ($locale === 'ka' || self::hasGeorgian($val)) {
