@@ -99,8 +99,7 @@ class CatalogSmokeTest extends TestCase
 
     public function test_pdp_renders_localized_title_color_specs_and_related_products(): void
     {
-        $ruResponse = $this->withSession(['app_locale' => 'ru'])
-            ->get(route('feed-product.show', ['feed' => 'adidas', 'sku' => $this->testSku]));
+        $ruResponse = $this->get(route('ru.feed-product.show', ['feed' => 'adidas', 'sku' => $this->testSku]));
 
         $ruResponse->assertStatus(200);
         $ruResponse->assertSee('Куртка SmokeRunner Pro');
@@ -108,8 +107,7 @@ class CatalogSmokeTest extends TestCase
         $ruResponse->assertSee('Классический крой');
         $ruResponse->assertSee('Застёжка на молнию');
 
-        $kaResponse = $this->withSession(['app_locale' => 'ka'])
-            ->get(route('feed-product.show', ['feed' => 'adidas', 'sku' => $this->testSku]));
+        $kaResponse = $this->get(route('ka.feed-product.show', ['feed' => 'adidas', 'sku' => $this->testSku]));
 
         $kaResponse->assertStatus(200);
         $kaResponse->assertSee('ქურთუკი SmokeRunner Pro');
@@ -130,16 +128,14 @@ class CatalogSmokeTest extends TestCase
             'is_active' => true,
         ]);
 
-        $resRu = $this->withSession(['app_locale' => 'ru'])
-            ->getJson(route('api.autocomplete', ['q' => 'куртка smokerunner']));
+        $resRu = $this->getJson(route('ru.api.autocomplete', ['q' => 'куртка smokerunner']));
 
         $resRu->assertStatus(200);
         $resRu->assertJsonFragment([
             'label' => 'Куртка SmokeRunner Pro',
         ]);
 
-        $resKa = $this->withSession(['app_locale' => 'ka'])
-            ->getJson(route('api.autocomplete', ['q' => 'ქურთუკი smokerunner']));
+        $resKa = $this->getJson(route('ka.api.autocomplete', ['q' => 'ქურთუკი smokerunner']));
 
         $resKa->assertStatus(200);
         $resKa->assertJsonFragment([
@@ -149,8 +145,7 @@ class CatalogSmokeTest extends TestCase
 
     public function test_product_search_and_redis_sync_command_do_not_fail(): void
     {
-        $searchResponse = $this->withSession(['app_locale' => 'ru'])
-            ->get(route('product-search', ['q' => 'SmokeRunner']));
+        $searchResponse = $this->get(route('ru.product-search', ['q' => 'SmokeRunner']));
 
         $searchResponse->assertStatus(200);
         $searchResponse->assertSee('Куртка SmokeRunner Pro');

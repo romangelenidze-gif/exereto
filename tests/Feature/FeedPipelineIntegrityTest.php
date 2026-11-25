@@ -83,7 +83,7 @@ class FeedPipelineIntegrityTest extends TestCase
 
     public function test_stock_aware_cascade_switches_winner_and_never_touches_other_feeds(): void
     {
-        $common = ['price' => 50, 'currency' => 'EUR', 'deep_link' => 'https://track.test/x', 'is_active' => true, 'cascade_hidden' => false, 'priority_score' => 80];
+        $common = ['price' => 50, 'currency' => 'EUR', 'deep_link' => 'https://track.test/x', 'is_active' => true, 'cascade_hidden' => false, 'priority_score' => 80, 'search_text' => ''];
 
         $toys = FeedProduct::create(array_merge($common, ['feed' => 'toysgr', 'sku' => 'TG-1', 'brand' => 'LEGO', 'name' => 'LEGO Technic 42154', 'ean' => '5702017424736', 'in_stock' => true]));
         $mous = FeedProduct::create(array_merge($common, ['feed' => 'moustakas', 'sku' => 'MS-1', 'brand' => 'LEGO', 'name' => 'LEGO Technic 42154', 'ean' => '5702017424736', 'in_stock' => true]));

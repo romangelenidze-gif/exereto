@@ -14,15 +14,15 @@ class AutocompleteSearchTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         try {
             Redis::del('autocomplete_hits_counter');
-        } catch (\Exception $e) {
-            // Игнорируем, если Redis временно недоступен
+        } catch (\Throwable $e) {
+            // Игнорируем, если Redis локально не запущен
         }
     }
 
-    public function test_autocomplete_endpoint_returns_suggestions()
+    public function test_autocomplete_endpoint_returns_suggestions(): void
     {
         DB::table('learned_autocomplete')->insert([
             'query' => 'кроссовки',
@@ -38,18 +38,19 @@ class AutocompleteSearchTest extends TestCase
                  ->assertJsonStructure();
     }
 
-    public function test_autocomplete_is_protected_by_rate_limiting()
+    public function test_autocomplete_is_protected_by_rate_limiting(): void
     {
-        for ($i = 0; $i < 30; $i++) {
+        // В routes/localized.php стоит throttle:60,1
+        for ($i = 0; $i < 60; $i++) {
             $this->getJson(route('api.autocomplete', ['q' => 'тест']));
         }
 
         $response = $this->getJson(route('api.autocomplete', ['q' => 'тест']));
-        
+
         $response->assertStatus(429);
     }
 
-    public function test_sync_autocomplete_hits_artisan_command_works()
+    public function test_sync_autocomplete_hits_artisan_command_works(): void
     {
         DB::table('learned_autocomplete')->insert([
             'query' => 'сумка',
@@ -60,9 +61,9 @@ class AutocompleteSearchTest extends TestCase
         ]);
 
         try {
-            Redis::zadd('autocomplete_hits_counter', ['сумка' => 5]);
-        } catch (\Exception $e) {
-            // Пропускаем
+            Redis::hset('autocomplete_hits_counter', 'сумка', 5);
+        } catch (\Throwable $e) {
+            $this->markTestSkipped('Redis недоступен локально: ' . $e->getMessage());
         }
 
         $this->artisan('autocomplete:sync-hits')

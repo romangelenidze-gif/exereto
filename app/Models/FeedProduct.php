@@ -43,6 +43,7 @@ class FeedProduct extends Model
             'specs' => 'array',
             'image_urls' => 'array',
             'last_seen_at' => 'datetime',
+            'cascade_hidden' => 'boolean',
         ];
     }
 

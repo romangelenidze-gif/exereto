@@ -429,14 +429,16 @@ class FeedEntityLocalizer
         }
 
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        if (!self::containsGreek($text)) {
-            return $text;
-        }
 
-        // 1. Сначала проверяем, есть ли в entity_translations готовый перевод всей строки целиком (например, для specs)
+        // 1. Сначала проверяем, есть ли в entity_translations готовый перевод всей строки целиком
+        // (до проверки containsGreek, чтобы переводились английские цвета и specs вроде "Core Black")
         $fullMatch = self::lookupInDict($text, $locale, $dict);
         if ($fullMatch !== null && !self::containsGreek($fullMatch)) {
             return $fullMatch;
+        }
+
+        if (!self::containsGreek($text)) {
+            return $text;
         }
 
         // 2. Иначе переводим каждый греческий спан внутри строки
@@ -638,9 +640,18 @@ class FeedEntityLocalizer
 
         // Отправляем неизвестные фразы в фон. Страница загрузится за 50 мс мгновенно, 
         // а воркер спокойно переведет их для следующих посетителей.
-        if ($leftoverSpans !== []) {
-            TranslateFeedEntitiesJob::dispatch('title_prefix', array_values($leftoverSpans));
+if ($leftoverSpans !== []) {
+    $toQueue = [];
+    foreach ($leftoverSpans as $hash => $span) {
+        if (\Illuminate\Support\Facades\Cache::add("ai_translate_queued:{$hash}", 1, now()->addHours(6))) {
+            $toQueue[] = $span;
         }
+    }
+
+    if ($toQueue !== []) {
+        TranslateFeedEntitiesJob::dispatch('title_prefix', $toQueue);
+    }
+}
 
         return [
             'title' => $title,
