@@ -6,7 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PackageStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Order;
-use App\Models\Package;
+use App\Models\IncomingPackage;
 use App\Models\Payment;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -28,7 +28,7 @@ class StatsOverview extends BaseWidget
         $pendingPaymentsSum = Payment::where('status', PaymentStatus::PENDING)->sum('amount');
 
         // 3. Посылки, находящиеся прямо сейчас на складе в Греции
-        $warehousePackagesCount = Package::where('status', PackageStatus::RECEIVED_IN_GREECE)->count();
+        $warehousePackagesCount = IncomingPackage::where('status', PackageStatus::RECEIVED_IN_GREECE)->count();
 
         return [
             Stat::make('Активные заказы', $activeOrdersCount)
