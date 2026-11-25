@@ -21,6 +21,8 @@
 /public/hot
 /public/js/filament
 /public/storage
+/public/sitemap.xml
+/public/sitemap.xml.tmp
 /storage/*.key
 /storage/pail
 /vendor

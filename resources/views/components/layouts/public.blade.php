@@ -6,6 +6,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>{{ $title ?? __('Exereto | Поиск товаров в онлайн магазинах и стоках Греции') }}</title>
+
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+
     @if(isset($description))
         <meta name="description" content="{{ $description }}">
     @endif

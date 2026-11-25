@@ -11,6 +11,9 @@ Schedule::command('autocomplete:sync-hits')->everyTenMinutes();
 // Ежедневный ночной цикл обновления всех фидов, каскада, Meilisearch и кэша (04:30)
 Schedule::command('feeds:sync-all')->dailyAt('04:30')->withoutOverlapping();
 
+// Обновление карты сайта после завершения ночного импорта фидов
+Schedule::command('sitemap:generate')->dailyAt('05:30')->withoutOverlapping();
+
 // Ежемесячная чистка и продвижение популярных запросов автокомплита
 Schedule::call(function () {
     DB::table('learned_autocomplete')
