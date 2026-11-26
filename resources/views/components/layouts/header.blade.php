@@ -117,32 +117,38 @@
                 </div>
             </div>
 
+            @php $showDormant = (bool) config('services.exereto.show_dormant', false); @endphp
+
             <div class="flex items-center gap-5 shrink-0">
                 <nav class="flex items-center space-x-1 shrink-0">
-                    <a href="{{ route('how-it-works') }}" class="apple-nav-link {{ request()->routeIs(['how-it-works', '*.how-it-works']) ? 'active' : '' }}">
-                        {{ __('Как это работает') }}
-                    </a>
-                    <a href="{{ route('buy-for-me') }}" class="apple-nav-link {{ request()->routeIs(['buy-for-me', '*.buy-for-me']) ? 'active' : '' }}">
-                        {{ __('Выкупите за меня') }}
-                    </a>
-                    <a href="{{ route('forwarding') }}" class="apple-nav-link {{ request()->routeIs(['forwarding', '*.forwarding']) ? 'active' : '' }}">
-                        {{ __('Форвардинг') }}
-                    </a>
+                    @if($showDormant)
+                        <a href="{{ route('how-it-works') }}" class="apple-nav-link {{ request()->routeIs(['how-it-works', '*.how-it-works']) ? 'active' : '' }}">
+                            {{ __('Как это работает') }}
+                        </a>
+                        <a href="{{ route('buy-for-me') }}" class="apple-nav-link {{ request()->routeIs(['buy-for-me', '*.buy-for-me']) ? 'active' : '' }}">
+                            {{ __('Выкупите за меня') }}
+                        </a>
+                        <a href="{{ route('forwarding') }}" class="apple-nav-link {{ request()->routeIs(['forwarding', '*.forwarding']) ? 'active' : '' }}">
+                            {{ __('Форвардинг') }}
+                        </a>
+                    @endif
                     <a href="{{ route('help') }}" class="apple-nav-link {{ request()->routeIs(['help', '*.help']) ? 'active' : '' }}">
-                        {{ __('Помощь / FAQ') }}
+                        {{ __('Помощь') }}
                     </a>
                 </nav>
 
                 <div class="flex items-center gap-3 shrink-0">
-                    @auth
-                        <a href="{{ route('dashboard') }}" class="apple-nav-link">
-                            {{ __('Личный кабинет') }}
-                        </a>
-                    @else
-                        <a href="{{ route('login') }}" class="apple-nav-link">
-                            {{ __('Войти') }}
-                        </a>
-                    @endauth
+                    @if($showDormant)
+                        @auth
+                            <a href="{{ route('dashboard') }}" class="apple-nav-link">
+                                {{ __('Личный кабинет') }}
+                            </a>
+                        @else
+                            <a href="{{ route('login') }}" class="apple-nav-link">
+                                {{ __('Войти') }}
+                            </a>
+                        @endauth
+                    @endif
 
                     <x-language-switcher theme="light" />
                 </div>

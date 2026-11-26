@@ -80,15 +80,28 @@
                 </div>
             </div>
 
-            <!-- Single Action Button (Bag/Order) -->
+            @php $showDormant = (bool) config('services.exereto.show_dormant', false); @endphp
+            <!-- Single Action Button -->
             <div class="flex flex-col space-y-2.5">
-                <a href="{{ route('buy-for-me') }}?url={{ urlencode($product['product_url'] ?? '') }}" 
-                   title="{{ __('Оформить заказ') }}"
-                   class="w-12 h-12 rounded-full bg-[#1d1d1f] hover:bg-black text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center transition-all">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
-                </a>
+                @if($showDormant)
+                    <a href="{{ route('buy-for-me') }}?url={{ urlencode($product['product_url'] ?? '') }}"
+                       title="{{ __('Оформить заказ') }}"
+                       class="w-12 h-12 rounded-full bg-[#1d1d1f] hover:bg-black text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center transition-all">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                        </svg>
+                    </a>
+                @else
+                    <a href="{{ $product['product_url'] ?? '#' }}"
+                       target="_blank"
+                       rel="noopener noreferrer sponsored"
+                       title="{{ __('Перейти в магазин') }}"
+                       class="w-12 h-12 rounded-full bg-[#1d1d1f] hover:bg-black text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center transition-all">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </a>
+                @endif
             </div>
 
         </div>

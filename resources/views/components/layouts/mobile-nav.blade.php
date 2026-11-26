@@ -1,19 +1,26 @@
 @php
+    $showDormant = (bool) config('services.exereto.show_dormant', false);
+
     $primaryLinks = [
-        ['route' => 'home',         'label' => __('Главная')],
-        ['route' => 'how-it-works', 'label' => __('Как это работает')],
-        ['route' => 'buy-for-me',   'label' => __('Выкупите за меня')],
-        ['route' => 'forwarding',   'label' => __('Форвардинг')],
+        ['route' => 'home', 'label' => __('Главная')],
     ];
+
+    if ($showDormant) {
+        $primaryLinks[] = ['route' => 'how-it-works', 'label' => __('Как это работает')];
+        $primaryLinks[] = ['route' => 'buy-for-me',   'label' => __('Выкупите за меня')];
+        $primaryLinks[] = ['route' => 'forwarding',   'label' => __('Форвардинг')];
+    }
 
     $secondaryLinks = [
-        ['route' => 'help', 'label' => __('Помощь / FAQ')],
-        auth()->check()
-            ? ['route' => 'dashboard', 'label' => __('Личный кабинет')]
-            : ['route' => 'login', 'label' => __('Войти в аккаунт')],
+        ['route' => 'help', 'label' => __('Помощь')],
     ];
 
-    // Индексы для каскадной анимации: основные пункты, затем вторичный блок и нижняя панель
+    if ($showDormant) {
+        $secondaryLinks[] = auth()->check()
+            ? ['route' => 'dashboard', 'label' => __('Личный кабинет')]
+            : ['route' => 'login', 'label' => __('Войти в аккаунт')];
+    }
+
     $offset = count($primaryLinks);
 @endphp
 

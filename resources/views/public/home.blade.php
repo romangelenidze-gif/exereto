@@ -58,7 +58,7 @@
                                 <source media="(min-width: 768px)" srcset="/{{ $heroDesktop }}">
                             @endif
                             <img src="/{{ $heroDesktop ?: $heroMobile }}"
-                                 alt="{{ __('Мы не продаём — мы помогаем покупать!') }}"
+                                 alt="{{ __('Мы не продаём. Мы помогаем покупать!') }}"
                                  fetchpriority="high"
                                  class="w-full h-full object-cover object-[62%_25%] group-hover:scale-[1.02] transition-transform duration-700 ease-out">
                         </picture>
@@ -75,7 +75,7 @@
 
                     <div class="relative z-10 p-6 sm:p-9 lg:px-14 lg:pb-12 lg:pt-10 max-w-2xl space-y-3.5 lg:space-y-5">
                         <h1 class="home-hero-title">
-                            {{ __('Мы не продаём — мы помогаем покупать!') }}
+                            {{ __('Мы не продаём. Мы помогаем покупать!') }}
                         </h1>
                         <p class="hidden sm:block home-hero-subtitle max-w-xl">
                             {{ __('Exereto — это единая точка доступа к мировым брендам, ценам и скидкам, созданная в интересах покупателя.') }}

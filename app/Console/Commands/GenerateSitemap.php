@@ -19,9 +19,6 @@ class GenerateSitemap extends Command
 
         $staticPaths = [
             ['path' => '',              'freq' => 'daily',   'prio' => '1.0'],
-            ['path' => '/how-it-works', 'freq' => 'monthly', 'prio' => '0.6'],
-            ['path' => '/buy-for-me',   'freq' => 'monthly', 'prio' => '0.7'],
-            ['path' => '/forwarding',   'freq' => 'monthly', 'prio' => '0.7'],
             ['path' => '/help',         'freq' => 'monthly', 'prio' => '0.5'],
             ['path' => '/terms',        'freq' => 'yearly',  'prio' => '0.3'],
             ['path' => '/privacy',      'freq' => 'yearly',  'prio' => '0.3'],
