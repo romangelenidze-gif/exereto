@@ -5,15 +5,55 @@ namespace App\Http\Controllers;
 use App\Models\FeedProduct;
 use App\Services\Feeds\FeedEntityLocalizer;
 use App\Services\Feeds\FeedVariantGrouper;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class FeedProductController extends Controller
 {
-    public function show(Request $request, string $feed, string $sku, FeedEntityLocalizer $localizer): View
+    public function show(Request $request, string $feed, string $sku, FeedEntityLocalizer $localizer): View|RedirectResponse
     {
-        $product = $this->findProduct($feed, $sku);
+        $product = FeedProduct::query()
+            ->where('feed', $feed)
+            ->where('sku', $sku)
+            ->first();
+
+        if ($product === null) {
+            abort(404);
+        }
+
+        if (!$product->is_active) {
+            // 1. Дубль по EAN, скрытый дедупликатором -> 301 на активного победителя
+            if ($product->cascade_hidden && !empty($product->ean)) {
+                $winner = FeedProduct::query()
+                    ->where('ean', $product->ean)
+                    ->where('is_active', true)
+                    ->orderByDesc('in_stock')
+                    ->orderByDesc('priority_score')
+                    ->first(['feed', 'sku']);
+
+                if ($winner && ($winner->feed !== $product->feed || $winner->sku !== $product->sku)) {
+                    return redirect()->route('feed-product.show', [
+                        'feed' => $winner->feed,
+                        'sku' => $winner->sku,
+                    ], 301);
+                }
+            }
+
+            // 2. Нет даты последнего появления (синтетическая/тестовая запись) -> 404
+            if (empty($product->last_seen_at)) {
+                abort(404);
+            }
+
+            // 3. Пропал из фида более 60 дней назад -> 410 Gone
+            if (Carbon::parse($product->last_seen_at)->lt(now()->subDays(60))) {
+                abort(410);
+            }
+        }
+
+        $isUnavailable = !$product->is_active || !$product->in_stock;
         $locale = app()->getLocale();
 
         $rawSiblings = Cache::remember(
@@ -75,9 +115,61 @@ class FeedProductController extends Controller
 
         $previous = url()->previous();
         $backUrl = str_contains($previous, '/product-search') ? $previous : route('product-search');
+        $storeName = (string) config("feeds.feeds.{$feed}.store_name", $product->brand ?: $feed);
+        $canonicalUrl = route('feed-product.show', ['feed' => $product->feed, 'sku' => $product->sku]);
+
+        $schemaImages = array_values(array_filter(
+            is_array($product->image_urls) && $product->image_urls !== []
+                ? $product->image_urls
+                : [$product->image_url]
+        ));
+
+        $productSchema = [
+            '@context' => 'https://schema.org',
+            '@type' => 'Product',
+            'name' => $localized['title'],
+            'sku' => (string) $product->sku,
+            'url' => $canonicalUrl,
+            'offers' => [
+                '@type' => 'Offer',
+                'url' => $canonicalUrl,
+                'priceCurrency' => $product->currency ?: 'EUR',
+                'price' => number_format((float) $product->price, 2, '.', ''),
+                'availability' => $isUnavailable
+                    ? 'https://schema.org/OutOfStock'
+                    : 'https://schema.org/InStock',
+                'itemCondition' => 'https://schema.org/NewCondition',
+            ],
+        ];
+
+        if ($schemaImages !== []) {
+            $productSchema['image'] = $schemaImages;
+        }
+        if (!empty($product->brand)) {
+            $productSchema['brand'] = [
+                '@type' => 'Brand',
+                'name' => (string) $product->brand,
+            ];
+        }
+        if (!empty($product->ean) && preg_match('/^\d{13}$/', (string) $product->ean)) {
+            $productSchema['gtin13'] = (string) $product->ean;
+        }
+
+        $metaDescription = trim(sprintf(
+            '%s — €%s (%s). %s',
+            $localized['title'],
+            number_format((float) $product->price, 2),
+            $storeName,
+            $isUnavailable
+                ? __('Нет в наличии — смотрите похожие предложения в каталоге Exereto.')
+                : __('Официальная цена магазина в Греции на Exereto.')
+        ));
 
         return view('public.feed-product', [
             'product' => $product,
+            'isUnavailable' => $isUnavailable,
+            'productJsonLd' => $productSchema,
+            'metaDescription' => $metaDescription,
             'title' => $localized['title'],
             'colour' => $localized['colour'],
             'specs' => $localized['specs'],
@@ -88,7 +180,7 @@ class FeedProductController extends Controller
             'relatedProducts' => $relatedProducts,
             'backUrl' => $backUrl,
             'outboundUrl' => $product->outboundUrl(),
-            'storeName' => (string) config("feeds.feeds.{$feed}.store_name", $product->brand ?: $feed),
+            'storeName' => $storeName,
         ]);
     }
 
@@ -184,14 +276,5 @@ class FeedProductController extends Controller
         $clean = preg_replace('/\s+/u', ' ', $clean) ?? $clean;
 
         return trim($clean);
-    }
-
-    protected function findProduct(string $feed, string $sku): FeedProduct
-    {
-        return FeedProduct::query()
-            ->where('feed', $feed)
-            ->where('sku', $sku)
-            ->where('is_active', true)
-            ->firstOrFail();
     }
 }
