@@ -3,8 +3,8 @@
     description="{{ __('help.meta_description') }}"
 >
     <div class="py-10 bg-[#f5f5f7] min-h-[calc(100vh-4rem)] text-[#1d1d1f]"
-         x-data="{ activeStore: 'epapoutsia', openFaq: null }">
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+         x-data="{ openFaq: null }">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
 
             {{-- HERO --}}
             <header class="text-center max-w-3xl mx-auto space-y-4">
@@ -25,9 +25,6 @@
                     </a>
                     <a href="#translate-guide" class="px-3.5 py-1.5 rounded-full text-sm font-medium bg-white hover:bg-[#1d1d1f] hover:text-white border border-black/[0.08] transition-colors">
                         {{ __('help.nav.translate') }}
-                    </a>
-                    <a href="#stores-checkout" class="px-3.5 py-1.5 rounded-full text-sm font-medium bg-white hover:bg-[#1d1d1f] hover:text-white border border-black/[0.08] transition-colors">
-                        {{ __('help.nav.stores') }}
                     </a>
                     <a href="#delivery-georgia" class="px-3.5 py-1.5 rounded-full text-sm font-medium bg-white hover:bg-[#1d1d1f] hover:text-white border border-black/[0.08] transition-colors">
                         {{ __('help.nav.delivery') }}
@@ -73,11 +70,11 @@
                     </p>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     {{-- ПК-версия --}}
                     <div class="rounded-2xl bg-[#f5f5f7] p-5 space-y-4 border border-black/[0.05]">
                         <div class="flex items-center gap-2.5">
-                            <span class="w-9 h-9 rounded-xl bg-white border border-black/[0.06] flex items-center justify-center text-[#0071e3]">
+                            <span class="w-9 h-9 rounded-xl bg-white border border-black/[0.06] flex items-center justify-center text-[#0071e3] shrink-0">
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                 </svg>
@@ -85,37 +82,7 @@
                             <h3 class="font-semibold text-lg text-[#1d1d1f]">{{ __('help.translate.desktop_title') }}</h3>
                         </div>
 
-                        {{-- Визуальная схема браузера ПК --}}
-                        <div class="rounded-xl bg-white border border-black/[0.08] overflow-hidden shadow-xs text-xs">
-                            <div class="flex items-center justify-between px-3 py-2 bg-[#ececef] border-b border-black/[0.06]">
-                                <div class="flex items-center gap-1.5">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
-                                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                                </div>
-                                <div class="px-3 py-0.5 rounded-md bg-white text-[#6e6e73] font-mono text-[11px] truncate max-w-[190px]">
-                                    {{ __('help.translate.desktop_mock_url') }}
-                                </div>
-                                <span class="px-2 py-0.5 rounded bg-[#0071e3] text-white font-semibold text-[10px]">G 文A</span>
-                            </div>
-                            <div class="p-3 relative bg-[#fafafa]">
-                                <div class="space-y-1.5 opacity-45 select-none">
-                                    <div class="h-2.5 w-2/3 bg-black/20 rounded"></div>
-                                    <div class="h-2 w-1/2 bg-black/15 rounded"></div>
-                                    <div class="h-6 w-28 bg-black/25 rounded mt-2"></div>
-                                </div>
-                                {{-- Имитация контекстного меню ПКМ --}}
-                                <div class="mt-2 ml-auto w-56 rounded-lg bg-white border border-black/[0.12] shadow-md py-1 text-[12px]">
-                                    @foreach(__('help.translate.desktop_mock_menu') as $mIdx => $mItem)
-                                        <div class="px-3 py-1.5 {{ $mIdx === 1 ? 'bg-[#0071e3] text-white font-semibold' : 'text-[#424245]' }}">
-                                            {{ $mItem }}
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
-
-                        <ol class="space-y-2 text-sm text-[#424245] list-decimal list-inside">
+                        <ol class="space-y-2.5 text-sm text-[#424245] list-decimal list-inside leading-relaxed">
                             @foreach(__('help.translate.desktop_steps') as $step)
                                 <li>{{ $step }}</li>
                             @endforeach
@@ -125,7 +92,7 @@
                     {{-- Мобильная версия --}}
                     <div class="rounded-2xl bg-[#f5f5f7] p-5 space-y-4 border border-black/[0.05]">
                         <div class="flex items-center gap-2.5">
-                            <span class="w-9 h-9 rounded-xl bg-white border border-black/[0.06] flex items-center justify-center text-[#0071e3]">
+                            <span class="w-9 h-9 rounded-xl bg-white border border-black/[0.06] flex items-center justify-center text-[#0071e3] shrink-0">
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                 </svg>
@@ -135,11 +102,11 @@
 
                         {{-- Chrome Android / iOS --}}
                         <div class="rounded-xl bg-white p-4 border border-black/[0.06] space-y-2">
-                            <div class="flex items-center justify-between">
+                            <div class="flex items-center justify-between gap-2">
                                 <span class="font-semibold text-sm text-[#1d1d1f]">{{ __('help.translate.mobile_chrome_title') }}</span>
-                                <span class="px-2 py-0.5 rounded-md bg-[#f5f5f7] text-xs font-mono text-[#0071e3]">⋮ → 文A</span>
+                                <span class="px-2 py-0.5 rounded-md bg-[#f5f5f7] text-xs font-mono text-[#0071e3] shrink-0">⋮ → 文A</span>
                             </div>
-                            <ol class="space-y-1.5 text-sm text-[#424245] list-decimal list-inside">
+                            <ol class="space-y-1.5 text-sm text-[#424245] list-decimal list-inside leading-relaxed">
                                 @foreach(__('help.translate.mobile_chrome_steps') as $step)
                                     <li>{{ $step }}</li>
                                 @endforeach
@@ -148,11 +115,11 @@
 
                         {{-- Safari iPhone --}}
                         <div class="rounded-xl bg-white p-4 border border-black/[0.06] space-y-2">
-                            <div class="flex items-center justify-between">
+                            <div class="flex items-center justify-between gap-2">
                                 <span class="font-semibold text-sm text-[#1d1d1f]">{{ __('help.translate.mobile_safari_title') }}</span>
-                                <span class="px-2 py-0.5 rounded-md bg-[#f5f5f7] text-xs font-mono text-[#0071e3]">aA → 文A</span>
+                                <span class="px-2 py-0.5 rounded-md bg-[#f5f5f7] text-xs font-mono text-[#0071e3] shrink-0">aA → 文A</span>
                             </div>
-                            <ol class="space-y-1.5 text-sm text-[#424245] list-decimal list-inside">
+                            <ol class="space-y-1.5 text-sm text-[#424245] list-decimal list-inside leading-relaxed">
                                 @foreach(__('help.translate.mobile_safari_steps') as $step)
                                     <li>{{ $step }}</li>
                                 @endforeach
@@ -166,94 +133,7 @@
                 </div>
             </section>
 
-            {{-- РАЗДЕЛ 3: РАЗБОР КОРЗИНЫ 4 ОСНОВНЫХ МАГАЗИНОВ --}}
-            <section id="stores-checkout" class="apple-card space-y-6 scroll-mt-24">
-                <div class="space-y-2">
-                    <h2 class="text-2xl font-bold tracking-tight text-[#1d1d1f]">
-                        {{ __('help.stores.title') }}
-                    </h2>
-                    <p class="app-text-body text-[#424245] leading-relaxed">
-                        {{ __('help.stores.subtitle') }}
-                    </p>
-                </div>
-
-                @php $stores = __('help.stores.items'); @endphp
-
-                {{-- Вкладки магазинов --}}
-                <div class="flex flex-wrap gap-2 border-b border-black/[0.08] pb-3">
-                    @foreach($stores as $key => $store)
-                        <button type="button"
-                                @click="activeStore = '{{ $key }}'"
-                                :class="activeStore === '{{ $key }}'
-                                    ? 'bg-[#1d1d1f] text-white shadow-xs'
-                                    : 'bg-[#f5f5f7] text-[#1d1d1f] hover:bg-black/[0.08]'"
-                                class="px-4 py-2 rounded-full text-sm font-semibold transition-colors cursor-pointer">
-                            {{ $store['name'] }}
-                        </button>
-                    @endforeach
-                </div>
-
-                {{-- Карточка выбранного магазина --}}
-                @foreach($stores as $key => $store)
-                    <div x-show="activeStore === '{{ $key }}'" x-cloak class="space-y-5">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div>
-                                <h3 class="text-xl font-bold text-[#1d1d1f]">{{ $store['name'] }}</h3>
-                                <p class="text-sm text-[#6e6e73]">{{ $store['category'] }} · {{ $store['lang_note'] }}</p>
-                            </div>
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#f5f5f7] text-[#424245] border border-black/[0.06] self-start sm:self-auto">
-                                {{ $store['domain'] }}
-                            </span>
-                        </div>
-
-                        <ul class="space-y-1.5 text-sm text-[#424245]">
-                            @foreach($store['tips'] as $tip)
-                                <li class="flex items-start gap-2">
-                                    <span class="text-[#0071e3] font-bold mt-0.5">•</span>
-                                    <span>{{ $tip }}</span>
-                                </li>
-                            @endforeach
-                        </ul>
-
-                        {{-- Визуальная шпаргалка полей греческой формы оформления --}}
-                        <div class="rounded-2xl bg-[#f5f5f7] p-4 sm:p-5 border border-black/[0.06] space-y-3">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="text-sm font-semibold text-[#1d1d1f]">{{ __('help.stores.fields_title') }}</span>
-                                <span class="text-xs text-[#6e6e73]">{{ __('help.stores.sample_badge') }}</span>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                @foreach($store['fields'] as $field)
-                                    <div class="rounded-xl bg-white p-3.5 border border-black/[0.06] space-y-1">
-                                        <div class="flex items-baseline justify-between gap-2">
-                                            <span class="text-xs font-bold text-[#0071e3]">{{ $field['gr'] }}</span>
-                                            <span class="text-xs text-[#6e6e73]">{{ $field['meaning'] }}</span>
-                                        </div>
-                                        <div class="px-2.5 py-1.5 rounded-lg bg-[#f5f5f7] font-mono text-xs text-[#1d1d1f] border border-black/[0.05]">
-                                            {{ $field['example'] }}
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
-                @endforeach
-
-                {{-- Мини-словарь ключевых греческих кнопок --}}
-                <div class="pt-4 border-t border-black/[0.06] space-y-3">
-                    <h3 class="font-semibold text-base text-[#1d1d1f]">{{ __('help.stores.glossary_title') }}</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                        @foreach(__('help.stores.glossary') as $term)
-                            <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-[#f5f5f7] text-xs">
-                                <span class="font-semibold text-[#1d1d1f]">{{ $term['gr'] }}</span>
-                                <span class="text-[#424245] text-right">{{ $term['tr'] }}</span>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </section>
-
-            {{-- РАЗДЕЛ 4: ДОСТАВКА ИЗ ГРЕЦИИ (В ГРУЗИЮ И ПО ГРЕЦИИ) --}}
+            {{-- РАЗДЕЛ 3: ДОСТАВКА ИЗ ГРЕЦИИ (В ГРУЗИЮ И ПО ГРЕЦИИ) --}}
             <section id="delivery-georgia" class="apple-card space-y-6 scroll-mt-24">
                 <div class="space-y-2">
                     <h2 class="text-2xl font-bold tracking-tight text-[#1d1d1f]">
@@ -290,14 +170,44 @@
                     </div>
                 </div>
 
-                {{-- Сводная таблица перевозчиков --}}
+                {{-- Сводная информация по перевозчикам --}}
                 <div class="space-y-3">
                     <div class="space-y-1">
                         <h3 class="font-semibold text-lg text-[#1d1d1f]">{{ __('help.delivery.carriers_title') }}</h3>
-                        <p class="text-xs text-[#6e6e73]">{{ __('help.delivery.carriers_note') }}</p>
+                        <p class="text-xs text-[#6e6e73] leading-relaxed">{{ __('help.delivery.carriers_note') }}</p>
                     </div>
 
-                    <div class="overflow-x-auto rounded-2xl border border-black/[0.08]">
+                    {{-- Мобильный вид (< md): карточки без горизонтального скролла --}}
+                    <div class="space-y-3 md:hidden">
+                        @foreach(__('help.delivery.carriers') as $carrier)
+                            <div class="rounded-2xl bg-[#f5f5f7] p-4 border border-black/[0.06] space-y-2.5">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <div class="font-semibold text-base text-[#1d1d1f]">{{ $carrier['name'] }}</div>
+                                        <a href="{{ $carrier['url'] }}" target="_blank" rel="noopener noreferrer"
+                                           class="text-xs font-medium text-[#0071e3] hover:underline">
+                                            {{ $carrier['domain'] }} ↗
+                                        </a>
+                                    </div>
+                                    <span class="shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-white text-[#1d1d1f] border border-black/[0.06]">
+                                        {{ $carrier['eta'] }}
+                                    </span>
+                                </div>
+
+                                <div class="text-xs text-[#6e6e73]">
+                                    <span class="font-medium text-[#1d1d1f]">{{ __('help.delivery.table_headers.type') }}:</span>
+                                    {{ $carrier['type'] }}
+                                </div>
+
+                                <p class="text-xs text-[#424245] leading-relaxed">
+                                    {{ $carrier['notes'] }}
+                                </p>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    {{-- Десктопный вид (>= md): сводная таблица --}}
+                    <div class="hidden md:block overflow-x-auto rounded-2xl border border-black/[0.08]">
                         <table class="w-full text-left border-collapse text-sm">
                             <thead>
                                 <tr class="bg-[#1d1d1f] text-white text-xs">
@@ -334,7 +244,7 @@
                 </div>
             </section>
 
-            {{-- РАЗДЕЛ 5: ЧАСТЫЕ ВОПРОСЫ (FAQ) --}}
+            {{-- РАЗДЕЛ 4: ЧАСТЫЕ ВОПРОСЫ (FAQ) --}}
             <section id="faq" class="space-y-4 scroll-mt-24">
                 <h2 class="text-2xl font-bold tracking-tight text-[#1d1d1f] px-1">
                     {{ __('help.faq.title') }}
