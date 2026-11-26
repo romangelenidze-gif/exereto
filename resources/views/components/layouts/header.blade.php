@@ -79,8 +79,10 @@
         </div>
 
         <!-- ДЕСКТОПНАЯ ШАПКА (>= lg) -->
-        <div class="hidden lg:flex items-center justify-between gap-6 h-20">
-            <div class="flex items-center gap-6 flex-1 min-w-0 max-w-3xl">
+        @php $showDormant = (bool) config('services.exereto.show_dormant', false); @endphp
+
+        <div class="hidden lg:flex items-center {{ $showDormant ? 'justify-between' : 'justify-center' }} gap-6 h-20">
+            <div class="flex items-center gap-6 {{ $showDormant ? 'flex-1 min-w-0 max-w-3xl' : 'w-full max-w-[720px] min-w-0' }}">
                 <a href="{{ route('home') }}" class="text-[28px] leading-none font-bold tracking-tight text-[#1d1d1f] shrink-0 hover:opacity-85 transition-opacity">
                     exereto
                 </a>
@@ -116,8 +118,6 @@
                     </div>
                 </div>
             </div>
-
-            @php $showDormant = (bool) config('services.exereto.show_dormant', false); @endphp
 
             <div class="flex items-center gap-5 shrink-0">
                 <nav class="flex items-center space-x-1 shrink-0">
