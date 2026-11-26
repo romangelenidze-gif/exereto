@@ -20,12 +20,12 @@
             <div class="order-1 flex flex-col items-center lg:items-start lg:justify-center lg:pr-8 space-y-4">
                 <div class="flex flex-col items-center gap-1.5 lg:flex-row lg:items-center lg:gap-3">
                     <a href="{{ route('home') }}" class="shrink-0 hover:opacity-80 transition-opacity" aria-label="exereto">
-                        <svg class="w-9 h-9 lg:w-8 lg:h-8" viewBox="16 12 96 102" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <path fill="#141416" stroke="#141416" stroke-width="5" stroke-linejoin="round"
-                                  d="M64 16 L104 38.5 L88.5 47.2 L64 33.4 L32.5 51.2 L48 59.9 L84.5 39.4 L99.5 47.8 L56.5 72.1 L22.5 53 Z"/>
-                            <path fill="#141416" stroke="#141416" stroke-width="5" stroke-linejoin="round"
-                                  d="M22.5 72.5 L38 81.2 L64 95.8 L95.5 78 L105.5 83.6 L64 107 L22.5 83.6 Z"/>
-                        </svg>
+                        <img src="{{ asset('favicon.svg') }}"
+                             alt="exereto"
+                             class="w-9 h-9 lg:w-8 lg:h-8 object-contain"
+                             style="mix-blend-mode: multiply;"
+                             width="36"
+                             height="36">
                     </a>
                     <div class="space-y-0.5">
                         <a href="{{ route('home') }}" class="block text-[22px] lg:text-xl leading-none font-bold tracking-tight text-[#1d1d1f]">
