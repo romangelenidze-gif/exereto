@@ -1,0 +1,546 @@
+==================== public/robots.txt ====================
+User-agent: *
+Disallow:
+
+Sitemap: https://exereto.com/sitemap.xml
+==================== resources/views/components/layouts/public.blade.php ====================
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-[#f5f5f7] scroll-smooth">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <title>{{ $title ?? __('Exereto | Поиск товаров в онлайн магазинах и стоках Греции') }}</title>
+
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+
+    @if(isset($description))
+        <meta name="description" content="{{ $description }}">
+    @endif
+
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="flex flex-col min-h-full text-[#1d1d1f] antialiased font-sans bg-[#f5f5f7]"
+      x-data="{ mobileNavOpen: false, searchOpen: false, categoriesDrawerOpen: false }"
+      @open-categories.window="searchOpen = false; categoriesDrawerOpen = true"
+      @open-search.window="categoriesDrawerOpen = false; searchOpen = true"
+>
+
+    <script>
+        window.ExeretoRecent = (() => {
+            const KEY = 'exereto_recent_v1';
+            const MAX = 8;
+
+            const read = () => {
+                try {
+                    const raw = window.sessionStorage.getItem(KEY);
+                    const parsed = raw ? JSON.parse(raw) : [];
+                    return Array.isArray(parsed) ? parsed.filter(i => i && i.feed && i.sku) : [];
+                } catch {
+                    return [];
+                }
+            };
+
+            const write = (items) => {
+                try {
+                    window.sessionStorage.setItem(KEY, JSON.stringify(items.slice(0, MAX)));
+                } catch {}
+            };
+
+            return {
+                get() {
+                    const lang = document.documentElement.lang || 'en';
+                    const prefix = (lang === 'ru' || lang === 'ka') ? '/' + lang : '';
+                    return read().map(item => ({
+                        ...item,
+                        url: `${prefix}/product/${encodeURIComponent(item.feed)}/${encodeURIComponent(item.sku)}`,
+                    }));
+                },
+                push(product) {
+                    if (!product || !product.feed || !product.sku) return;
+                    const id = `${product.feed}:${product.sku}`;
+                    const filtered = read().filter(i => `${i.feed}:${i.sku}` !== id);
+                    filtered.unshift({
+                        feed: String(product.feed),
+                        sku: String(product.sku),
+                        brand: String(product.brand || ''),
+                        title: String(product.title || ''),
+                        price: String(product.price || ''),
+                        discount: Number(product.discount || 0),
+                        image: String(product.image || ''),
+                    });
+                    write(filtered);
+                },
+                clear() {
+                    try {
+                        window.sessionStorage.removeItem(KEY);
+                    } catch {}
+                },
+            };
+        })();
+    </script>
+
+    <!-- Header + Drawer -->
+    <x-layouts.header />
+
+    <!-- Main Content -->
+    <main class="flex-grow relative">
+        {{ $slot }}
+    </main>
+
+    <!-- Footer -->
+    <x-layouts.footer />
+
+</body>
+</html>
+==================== app/Http/Controllers/FeedProductController.php ====================
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\FeedProduct;
+use App\Services\Feeds\FeedEntityLocalizer;
+use App\Services\Feeds\FeedVariantGrouper;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\View\View;
+
+class FeedProductController extends Controller
+{
+    public function show(Request $request, string $feed, string $sku, FeedEntityLocalizer $localizer): View
+    {
+        $product = $this->findProduct($feed, $sku);
+        $locale = app()->getLocale();
+
+        $rawSiblings = Cache::remember(
+            "product:variants:v3:{$feed}:" . ($product->model_code ?: $product->id),
+            now()->addHours(4),
+            fn () => $product->model_code
+                ? FeedProduct::query()
+                    ->where('feed', $feed)
+                    ->where('model_code', $product->model_code)
+                    ->where('is_active', true)
+                    ->orderBy('price')
+                    ->orderBy('colour')
+                    ->get(['id', 'feed', 'sku', 'colour', 'variant_label', 'price', 'in_stock', 'image_url'])
+                    ->toArray()
+                : [$product->only(['id', 'feed', 'sku', 'colour', 'variant_label', 'price', 'in_stock', 'image_url'])]
+        );
+
+        [$colorways, $variantOptions, $variantAxisLabel] = $this->buildVariantSelectors($product, $rawSiblings);
+
+        $rawRelated = Cache::remember(
+            "product:related_raw:v3:{$feed}:{$product->category_top}:{$product->gender}:{$product->id}",
+            now()->addHours(4),
+            fn () => FeedProduct::query()
+                ->where('feed', $feed)
+                ->where('id', '!=', $product->id)
+                ->when($product->model_code, fn ($q) => $q->where(function ($sub) use ($product) {
+                    $sub->whereNull('model_code')->orWhere('model_code', '!=', $product->model_code);
+                }))
+                ->where('is_active', true)
+                ->where('in_stock', true)
+                ->when($product->category_top, fn ($q) => $q->where('category_top', $product->category_top))
+                ->when($product->gender, fn ($q) => $q->where('gender', $product->gender))
+                ->limit(36)
+                ->get()
+                ->unique(fn (FeedProduct $p) => $p->model_code ?: $p->sku)
+                ->take(12)
+                ->map(fn (FeedProduct $p) => $p->toCard())
+                ->values()
+                ->all()
+        );
+
+        $relatedProducts = collect(Cache::remember(
+            "product:related_loc:v3:{$locale}:{$product->id}",
+            now()->addHours(4),
+            fn () => $localizer->localizeCardTitles($rawRelated, $locale)
+        ))->map(function (array $card) {
+            if (!empty($card['feed']) && !empty($card['sku'])) {
+                $card['url'] = route('feed-product.show', ['feed' => $card['feed'], 'sku' => $card['sku']]);
+            }
+
+            return $card;
+        });
+
+        $localized = Cache::remember(
+            "product:localized:v2:{$locale}:{$product->id}",
+            now()->addHours(4),
+            fn () => $localizer->localizeProduct($product, $locale)
+        );
+
+        $previous = url()->previous();
+        $backUrl = str_contains($previous, '/product-search') ? $previous : route('product-search');
+
+        return view('public.feed-product', [
+            'product' => $product,
+            'title' => $localized['title'],
+            'colour' => $localized['colour'],
+            'specs' => $localized['specs'],
+            'categories' => $localized['categories'],
+            'colorways' => $colorways,
+            'variantOptions' => $variantOptions,
+            'variantAxisLabel' => $variantAxisLabel,
+            'relatedProducts' => $relatedProducts,
+            'backUrl' => $backUrl,
+            'outboundUrl' => $product->outboundUrl(),
+            'storeName' => (string) config("feeds.feeds.{$feed}.store_name", $product->brand ?: $feed),
+        ]);
+    }
+
+    /**
+     * Разводит матрицу «Цвет × Конфигурация» на два чистых селектора без дублей.
+     *
+     * @param  array<int, array<string, mixed>>  $rawSiblings
+     * @return array{0: \Illuminate\Support\Collection, 1: array<int, array<string, mixed>>, 2: string}
+     */
+    protected function buildVariantSelectors(FeedProduct $current, array $rawSiblings): array
+    {
+        $curColourKey = $this->normalizeColourKey($current->colour);
+        $curVariantKey = mb_strtolower(trim((string) ($current->variant_label ?? '')));
+
+        // 1. Уникальные цвета: нормализуем grey/gray, приоритет — текущей конфигурации
+        $byColor = [];
+        foreach ($rawSiblings as $row) {
+            $colKey = $this->normalizeColourKey($row['colour'] ?? null);
+            if ($colKey === '') {
+                continue;
+            }
+
+            $isExactCurrent = (string) $row['sku'] === (string) $current->sku;
+            $matchesCurVar = $curVariantKey !== '' && mb_strtolower(trim((string) ($row['variant_label'] ?? ''))) === $curVariantKey;
+            $score = ($isExactCurrent ? 10 : 0) + ($matchesCurVar ? 5 : 0) + (!empty($row['in_stock']) ? 1 : 0);
+
+            if (!isset($byColor[$colKey]) || $score > $byColor[$colKey]['score']) {
+                $byColor[$colKey] = ['row' => $row, 'score' => $score];
+            }
+        }
+
+        $colorRows = $byColor !== []
+            ? array_values(array_map(fn ($item) => $item['row'], $byColor))
+            : array_values(array_filter($rawSiblings, fn ($r) => empty($r['variant_label'])));
+
+        $colorways = FeedProduct::hydrate($colorRows);
+
+        // 2. Уникальные конфигурации (память / связь / объём) для дропдауна: приоритет текущему цвету
+        $byVariant = [];
+        foreach ($rawSiblings as $row) {
+            $label = trim((string) ($row['variant_label'] ?? ''));
+            if ($label === '') {
+                continue;
+            }
+
+            $varKey = mb_strtolower($label);
+            $isExactCurrent = (string) $row['sku'] === (string) $current->sku;
+            $matchesCurCol = $curColourKey !== '' && $this->normalizeColourKey($row['colour'] ?? null) === $curColourKey;
+            $score = ($isExactCurrent ? 10 : 0) + ($matchesCurCol ? 5 : 0) + (!empty($row['in_stock']) ? 1 : 0);
+
+            if (!isset($byVariant[$varKey]) || $score > $byVariant[$varKey]['score']) {
+                $byVariant[$varKey] = [
+                    'row' => $row,
+                    'label' => $label,
+                    'same_color' => $matchesCurCol || $curColourKey === '',
+                    'score' => $score,
+                ];
+            }
+        }
+
+        $variantOptions = [];
+        $labels = [];
+        foreach ($byVariant as $entry) {
+            $row = $entry['row'];
+            $labels[] = $entry['label'];
+            $variantOptions[] = [
+                'label' => $entry['label'],
+                'colour' => trim((string) ($row['colour'] ?? '')),
+                'same_color' => (bool) $entry['same_color'],
+                'price' => (float) $row['price'],
+                'price_formatted' => '€' . number_format((float) $row['price'], 2),
+                'in_stock' => (bool) ($row['in_stock'] ?? true),
+                'is_active' => (string) $row['sku'] === (string) $current->sku,
+                'url' => route('feed-product.show', ['feed' => $row['feed'], 'sku' => $row['sku']]),
+            ];
+        }
+
+        usort($variantOptions, fn (array $a, array $b) => FeedVariantGrouper::compareVariantLabels($a['label'], $b['label']));
+
+        $axisLabel = FeedVariantGrouper::detectAxisLabel($labels);
+
+        return [$colorways, $variantOptions, $axisLabel];
+    }
+
+    protected function normalizeColourKey(?string $colour): string
+    {
+        $clean = mb_strtolower(trim((string) ($colour ?? '')));
+        if ($clean === '') {
+            return '';
+        }
+
+        $clean = preg_replace('/\bgrey\b/u', 'gray', $clean) ?? $clean;
+        $clean = preg_replace('/\s+/u', ' ', $clean) ?? $clean;
+
+        return trim($clean);
+    }
+
+    protected function findProduct(string $feed, string $sku): FeedProduct
+    {
+        return FeedProduct::query()
+            ->where('feed', $feed)
+            ->where('sku', $sku)
+            ->where('is_active', true)
+            ->firstOrFail();
+    }
+}
+==================== app/Http/Controllers/FeedCategoryController.php ====================
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\FeedCategoryTiles;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class FeedCategoryController extends Controller
+{
+    public function show(Request $request, string $slug, FeedCategoryTiles $tiles): View|JsonResponse
+    {
+        $tile = $tiles->tile($slug);
+        if ($tile === null) {
+            abort(404);
+        }
+
+        $page = max(1, (int) $request->input('page', 1));
+        $perPage = (int) config('feeds.search_limit', 24);
+
+        $subIndex = $request->filled('sub') ? (int) $request->input('sub') : null;
+        $filters = [
+            'sub' => $subIndex,
+            'min_price' => $request->filled('min_price') ? (float) $request->input('min_price') : null,
+            'max_price' => $request->filled('max_price') ? (float) $request->input('max_price') : null,
+            'brands' => array_values(array_filter((array) $request->input('brands', []))),
+            'genders' => array_values(array_filter((array) $request->input('genders', []))),
+            'size' => trim((string) $request->input('size', '')),
+            'color' => trim((string) $request->input('color', '')),
+            'discount' => $request->boolean('discount'),
+            'sort' => in_array($request->input('sort'), ['relevance', 'price_asc', 'price_desc', 'discount_desc'], true)
+                ? $request->input('sort')
+                : 'relevance',
+        ];
+
+        $base = $tiles->productsQuery($tile);
+        if ($subIndex !== null && isset($tile['subcategories'][$subIndex])) {
+            $tiles->applyPublicFilter($base, (array) ($tile['subcategories'][$subIndex]['where'] ?? []));
+        }
+
+        $filteredBase = $tiles->applyUserFilters($base, $filters);
+        $normalizedFilters = $tiles->normalizeFiltersForCache($filters);
+        $cachePrefix = 'cat:' . $slug . ':' . md5(json_encode($normalizedFilters));
+
+        [$cards, $total] = $tiles->paginateGroupedCards(
+            $filteredBase,
+            $filters['sort'],
+            $page,
+            $perPage,
+            $cachePrefix
+        );
+
+        $pagination = [
+            'total' => $total,
+            'per_page' => $perPage,
+            'current_page' => $page,
+            'last_page' => max(1, (int) ceil($total / $perPage)),
+        ];
+
+        if ($request->expectsJson()) {
+            $html = '';
+            foreach ($cards as $product) {
+                $html .= view('components.public-ui.product-card', [
+                    'product' => $product,
+                    'isFirst' => false,
+                ])->render();
+            }
+
+            return response()->json([
+                'html' => $html,
+                'pagination' => $pagination,
+            ]);
+        }
+
+        return view('public.catalog', [
+            'isSearchMode' => false,
+            'searchQuery' => '',
+            'formAction' => route('feed-category.show', ['slug' => $tile['slug']]),
+            'resetUrl' => route('feed-category.show', ['slug' => $tile['slug']]),
+            'pageTitle' => (string) $tile['label'],
+            'breadcrumbs' => $tiles->buildBreadcrumbs($tile, $filters['genders']),
+            'allCategories' => $tiles->get(),
+            'subcategories' => $tiles->buildSubcategories($tile, null, $filters),
+            'activeSubIndex' => $subIndex,
+            'facets' => $tiles->buildFacets($tile, $filters),
+            'products' => $cards,
+            'pagination' => $pagination,
+            'filters' => $filters,
+        ]);
+    }
+}
+==================== app/Http/Controllers/ProductSearchController.php ====================
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\CategoryMatcher;
+use App\Services\FeedCategoryTiles;
+use App\Services\Feeds\FeedEntityLocalizer;
+use App\Services\ProductAutocompleteService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Redis;
+use Illuminate\View\View;
+
+class ProductSearchController extends Controller
+{
+    public function index(
+        Request $request,
+        CategoryMatcher $categories,
+        FeedCategoryTiles $tiles,
+        FeedEntityLocalizer $localizer
+    ): View|RedirectResponse|JsonResponse {
+        $query = trim((string) $request->input('q', ''));
+        $page = max(1, (int) $request->input('page', 1));
+        $perPage = (int) config('feeds.search_limit', 24);
+
+        $filters = [
+            'min_price' => $request->filled('min_price') ? (float) $request->input('min_price') : null,
+            'max_price' => $request->filled('max_price') ? (float) $request->input('max_price') : null,
+            'brands' => array_values(array_filter((array) $request->input('brands', []))),
+            'genders' => array_values(array_filter((array) $request->input('genders', []))),
+            'size' => trim((string) $request->input('size', '')),
+            'color' => trim((string) $request->input('color', '')),
+            'discount' => $request->boolean('discount'),
+            'sort' => in_array($request->input('sort'), ['relevance', 'price_asc', 'price_desc', 'discount_desc'], true)
+                ? $request->input('sort')
+                : 'relevance',
+        ];
+
+        $hasAnyExtraFilter = $filters['min_price'] !== null || $filters['max_price'] !== null
+            || $filters['brands'] !== [] || $filters['genders'] !== []
+            || $filters['size'] !== '' || $filters['color'] !== '' || $filters['discount'];
+
+        $products = [];
+        $total = 0;
+
+        if ($query !== '') {
+            $query = mb_substr($query, 0, 200);
+
+            if ($page === 1 && !$request->expectsJson()) {
+                $this->trackQueryHit($query);
+            }
+
+            if (!$hasAnyExtraFilter && !$request->expectsJson() && ($slug = $categories->resolve($query))) {
+                return redirect()->route('feed-category.show', array_filter([
+                    'slug' => $slug,
+                    'sort' => in_array($filters['sort'], ['price_asc', 'price_desc'], true) ? $filters['sort'] : null,
+                ]));
+            }
+
+            $base = $tiles->searchBaseQuery($query);
+            $filteredBase = $tiles->applyUserFilters($base, $filters);
+            $cachePrefix = 'search:' . md5(mb_strtolower($query) . ':' . json_encode($filters));
+
+            [$rawCards, $total] = $tiles->paginateGroupedCards(
+                $filteredBase,
+                $filters['sort'],
+                $page,
+                $perPage,
+                $cachePrefix
+            );
+
+            $products = $localizer->localizeCardTitles($rawCards, app()->getLocale());
+        }
+
+        $pagination = [
+            'total' => $total,
+            'per_page' => $perPage,
+            'current_page' => $page,
+            'last_page' => max(1, (int) ceil($total / $perPage)),
+        ];
+
+        if ($request->expectsJson()) {
+            $html = '';
+            foreach ($products as $product) {
+                $html .= view('components.public-ui.product-card', [
+                    'product' => $product,
+                    'isFirst' => false,
+                ])->render();
+            }
+
+            return response()->json([
+                'html' => $html,
+                'pagination' => $pagination,
+            ]);
+        }
+
+        $allCategories = $tiles->get();
+
+        // Плитки категорий бренда с реальными фото товаров этого бренда и учётом выбранного пола
+        $sourceTiles = $query !== ''
+            ? $tiles->getForBrand($query, $filters['genders'])
+            : $allCategories->take(12);
+
+        $subcategories = $sourceTiles->values()->map(fn ($cat, $idx) => [
+            'index' => $idx,
+            'label' => $cat['label'],
+            'count' => $cat['count'] ?? 0,
+            'image' => !empty($cat['image'])
+                ? $cat['image']
+                : (!empty($cat['img']) && file_exists(public_path('images/categories/' . $cat['img']))
+                    ? asset('images/categories/' . $cat['img'])
+                    : null),
+            'url' => $cat['url'],
+        ])->all();
+
+        $pageTitle = $query !== '' ? $query : __('Каталог и поиск товаров');
+
+        return view('public.catalog', [
+            'isSearchMode' => true,
+            'searchQuery' => $query,
+            'formAction' => route('product-search'),
+            'resetUrl' => $query !== '' ? route('product-search', ['q' => $query]) : route('product-search'),
+            'pageTitle' => $pageTitle,
+            'allCategories' => $allCategories,
+            'subcategories' => $subcategories,
+            'activeSubIndex' => null,
+            'facets' => $tiles->buildFacetsForSearch($query, $filters),
+            'products' => $products,
+            'pagination' => $pagination,
+            'filters' => $filters,
+        ]);
+    }
+
+    public function autocomplete(Request $request, ProductAutocompleteService $autocompleteService): JsonResponse
+    {
+        $query = trim((string) $request->input('q', ''));
+        $suggestions = $autocompleteService->getSuggestions($query, app()->getLocale());
+
+        return response()->json([
+            'suggestions' => $suggestions,
+        ]);
+    }
+
+    private function trackQueryHit(string $query): void
+    {
+        try {
+            $norm = mb_strtolower(trim($query));
+            if (mb_strlen($norm) >= 2 && mb_strlen($norm) <= 100) {
+                Redis::hincrby('autocomplete_hits_counter', $norm, 1);
+            }
+        } catch (\Throwable) {
+        }
+    }
+}
+==================== SEO TAGS IN VIEWS ====================
+resources\views\components\layouts\app.blade.php:8: <!-- STRICT NOINDEX FOR CUSTOMER CABINET -->
+resources\views\components\layouts\app.blade.php:9: <meta name="robots" content="noindex, nofollow">

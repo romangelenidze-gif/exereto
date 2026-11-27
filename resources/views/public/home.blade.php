@@ -378,13 +378,7 @@
             </section>
         @endif
 
-        <!-- Мессенджеры -->
-        <section class="max-w-3xl mx-auto px-6 py-4 text-center space-y-4">
-            <p class="app-text-body">
-                {{ __('Мы на связи и готовы помочь с любым вопросом по выкупу и доставке в Грузию') }}
-            </p>
-            <x-messenger-row align="justify-center" />
-        </section>
+
 
     </div>
 
