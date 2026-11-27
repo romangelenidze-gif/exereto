@@ -106,42 +106,57 @@ return [
             'url_modifier' => null,
         ],
 
-        // 5. Sephora — люксовая парфюмерия и эксклюзивный макияж
-        'sephora' => [
+        // 5. Notino — парфюмерия, люксовая и нишевая косметика, уход за волосами и телом
+        'notino' => [
             'enabled' => true,
-            'store_name' => 'Sephora',
+            'store_name' => 'Notino',
             'base_priority' => 90,
             'brand_priorities' => [
-                'sephora collection' => 220,
-                'rare beauty' => 220,
-                'fenty beauty' => 220,
-                'huda beauty' => 220,
-                'charlotte tilbury' => 220,
-                'drunk elephant' => 220,
-                'sol de janeiro' => 220,
-                'gisou' => 220,
-                'tarte' => 220,
-                'laneige' => 220,
-                'glow recipe' => 220,
-                'westman atelier' => 220,
-                'makeup by mario' => 220,
-                'refy' => 220,
-                'hourglass' => 220,
-                'onesize' => 220,
-                'dior' => 160,
-                'chanel' => 160,
-                'tom ford' => 160,
-                'yves saint laurent' => 160,
-                'gucci' => 160,
-                'guerlain' => 160,
+                'dior' => 170,
+                'chanel' => 170,
+                'tom ford' => 170,
+                'yves saint laurent' => 170,
+                'gucci' => 170,
+                'guerlain' => 170,
+                'giorgio armani' => 165,
+                'armani' => 165,
+                'lancôme' => 165,
+                'lancome' => 165,
+                'estée lauder' => 165,
+                'estee lauder' => 165,
+                'prada' => 165,
+                'valentino' => 165,
+                'versace' => 160,
+                'dolce & gabbana' => 160,
+                'jean paul gaultier' => 165,
+                'creed' => 180,
+                'parfums de marly' => 180,
+                'xerjoff' => 180,
+                'maison margiela' => 175,
+                'montale' => 170,
+                'mancera' => 170,
+                'jo malone london' => 175,
+                'sol de janeiro' => 180,
+                'laneige' => 180,
+                'kérastase' => 175,
+                'kerastase' => 175,
+                'olaplex' => 175,
+                'mac' => 170,
+                'nars' => 170,
+                'bobbi brown' => 170,
+                'clinique' => 165,
+                'shiseido' => 165,
             ],
             'allow_categories' => [],
-            'exclude_categories' => [],
+            'exclude_categories' => [
+                'Ερωτικά', 'Ερωτικά Είδη', 'Erotica', 'Sex', 'Σεξουαλική Ευεξία',
+                'Πάνες', 'Βρεφική Διατροφή', 'Γάλα',
+            ],
             'exclude_brands' => [],
             'url_modifier' => null,
         ],
 
-        // 6. Galerie de Beauté — парфюмерия и косметика со скидками (выигрывает у Sephora на распродажах)
+        // 6. Galerie de Beauté — парфюмерия и косметика со скидками (выигрывает у Notino на распродажах)
         'galeriedebeaute' => [
             'enabled' => true,
             'store_name' => 'Galerie de Beauté',
@@ -189,7 +204,52 @@ return [
             'url_modifier' => null,
         ],
 
-        // 8. Cosselie — солнцезащитные очки и оправы
+        // 8. Markakis Optics — брендовые солнцезащитные очки и оправы
+        'markakis' => [
+            'enabled' => true,
+            'store_name' => 'Markakis Optics',
+            'base_priority' => 115,
+            'brand_priorities' => [
+                'ray-ban' => 220,
+                'ray ban' => 220,
+                'oakley' => 210,
+                'persol' => 210,
+                'prada' => 210,
+                'gucci' => 210,
+                'tom ford' => 210,
+                'saint laurent' => 210,
+                'celine' => 210,
+                'dior' => 210,
+                'miu miu' => 210,
+                'versace' => 200,
+                'dolce & gabbana' => 200,
+                'balenciaga' => 200,
+                'bottega veneta' => 200,
+                'burberry' => 200,
+                'carrera' => 200,
+                'polaroid' => 195,
+                'maui jim' => 205,
+                'vogue' => 195,
+                'arnette' => 195,
+                'police' => 195,
+                'emporio armani' => 195,
+                'giorgio armani' => 200,
+                'boss' => 195,
+                'hugo' => 195,
+                'david beckham' => 200,
+                'moschino' => 195,
+                'jimmy choo' => 200,
+                'fendi' => 205,
+            ],
+            'allow_categories' => [],
+            'exclude_categories' => [
+                'Φακοί Επαφής', 'Υγρά Φακών', 'Διαλύματα', 'Κολλύρια', 'Σταγόνες',
+            ],
+            'exclude_brands' => [],
+            'url_modifier' => null,
+        ],
+
+        // 9. Cosselie — бюджетные солнцезащитные очки и оправы
         'cosselie' => [
             'enabled' => true,
             'store_name' => 'Cosselie',
@@ -203,7 +263,23 @@ return [
             'url_modifier' => null,
         ],
 
-        // 9. Energiers — детская одежда (весь фид, принудительно gender = kids)
+        // 10. Samsonite — чемоданы, рюкзаки, деловые и дорожные сумки
+        'samsonite' => [
+            'enabled' => true,
+            'store_name' => 'Samsonite',
+            'base_priority' => 115,
+            'brand_priorities' => [
+                'samsonite' => 230,
+                'american tourister' => 200,
+                'lipault' => 190,
+            ],
+            'allow_categories' => [],
+            'exclude_categories' => [],
+            'exclude_brands' => [],
+            'url_modifier' => null,
+        ],
+
+        // 11. Energiers — детская одежда (весь фид, принудительно gender = kids)
         'energiers' => [
             'enabled' => true,
             'store_name' => 'Energiers',
@@ -218,7 +294,7 @@ return [
             'url_modifier' => null,
         ],
 
-        // 10. Toys.gr — приоритет №1 в каскаде игрушек
+        // 12. Toys.gr — приоритет №1 в каскаде игрушек
         'toysgr' => [
             'enabled' => true,
             'store_name' => 'Toys.gr',
@@ -243,7 +319,7 @@ return [
             'url_modifier' => null,
         ],
 
-        // 11. Moustakas Toys — приоритет №2 в каскаде игрушек
+        // 13. Moustakas Toys — приоритет №2 в каскаде игрушек
         'moustakas' => [
             'enabled' => true,
             'store_name' => 'Moustakas Toys',
@@ -278,7 +354,7 @@ return [
             'url_modifier' => null,
         ],
 
-        // 12. Public — собственный сток: Tech, Apple, Gaming, Audio/Photo, Drones, 3D, рюкзаки и игрушки (приоритет №3)
+        // 14. Public — собственный сток: Tech, Apple, Gaming, Audio/Photo, Drones, 3D, рюкзаки и игрушки (приоритет №3)
         'public' => [
             'enabled' => true,
             'store_name' => 'Public',

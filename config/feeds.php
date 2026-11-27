@@ -38,12 +38,6 @@ return [
             // Слова бренда, которые не должны попадать в условия поиска по фиду (весь фид и так Adidas).
             'strip_words' => ['adidas', 'originals', 'αντιντάς', 'адидас'],
 
-            // Английская версия страницы магазина по кнопке «Купить». По умолчанию выключена: фид отдаёт только греческие
-            // ссылки, а как выглядит адрес английской версии adidas.gr, нужно проверить в браузере.
-            // Если, например, греческая страница https://www.adidas.gr/<slug>/KI5764.html, а английская
-            // https://www.adidas.gr/en/<slug>/KI5764.html, пропишите в .env:
-            //   FEEDS_ADIDAS_EN_FIND=https://www.adidas.gr/
-            //   FEEDS_ADIDAS_EN_REPLACE=https://www.adidas.gr/en/
             'english_url' => [
                 'find' => env('FEEDS_ADIDAS_EN_FIND'),
                 'replace' => env('FEEDS_ADIDAS_EN_REPLACE'),
@@ -66,7 +60,7 @@ return [
             ],
         ],
 
-    'modivo' => [
+        'modivo' => [
             'enabled' => (bool) env('FEEDS_MODIVO_ENABLED', true),
             'network' => env('FEEDS_MODIVO_NETWORK', 'linkwise'),
             'label' => 'Modivo',
@@ -102,14 +96,14 @@ return [
             'strip_words' => ['stradivarius'],
         ],
 
-        'sephora' => [
-            'enabled' => (bool) env('FEEDS_SEPHORA_ENABLED', true),
-            'network' => env('FEEDS_SEPHORA_NETWORK', 'linkwise'),
-            'label' => 'Sephora',
+        'notino' => [
+            'enabled' => (bool) env('FEEDS_NOTINO_ENABLED', true),
+            'network' => env('FEEDS_NOTINO_NETWORK', 'linkwise'),
+            'label' => 'Notino',
             'brand' => null,
-            'store_name' => 'sephora.gr',
-            'url' => env('FEED_SEPHORA_URL'),
-            'brand_aliases' => ['sephora', 'сефора'],
+            'store_name' => 'notino.gr',
+            'url' => env('FEED_NOTINO_URL'),
+            'brand_aliases' => ['notino', 'нотино', 'ნოტინო'],
             'model_keywords' => [],
             'strip_words' => [],
         ],
@@ -138,6 +132,18 @@ return [
             'strip_words' => [],
         ],
 
+        'markakis' => [
+            'enabled' => (bool) env('FEEDS_MARKAKIS_ENABLED', true),
+            'network' => env('FEEDS_MARKAKIS_NETWORK', 'linkwise'),
+            'label' => 'Markakis Optics',
+            'brand' => null,
+            'store_name' => 'markakis.gr',
+            'url' => env('FEED_MARKAKIS_URL'),
+            'brand_aliases' => ['markakis'],
+            'model_keywords' => [],
+            'strip_words' => [],
+        ],
+
         'cosselie' => [
             'enabled' => (bool) env('FEEDS_COSSELIE_ENABLED', true),
             'network' => env('FEEDS_COSSELIE_NETWORK', 'linkwise'),
@@ -148,6 +154,18 @@ return [
             'brand_aliases' => ['cosselie'],
             'model_keywords' => [],
             'strip_words' => ['cosselie'],
+        ],
+
+        'samsonite' => [
+            'enabled' => (bool) env('FEEDS_SAMSONITE_ENABLED', true),
+            'network' => env('FEEDS_SAMSONITE_NETWORK', 'linkwise'),
+            'label' => 'Samsonite',
+            'brand' => 'Samsonite',
+            'store_name' => 'samsonite.gr',
+            'url' => env('FEED_SAMSONITE_URL'),
+            'brand_aliases' => ['samsonite', 'самсонит', 'სამსონიტ', 'σαμσονάιτ'],
+            'model_keywords' => [],
+            'strip_words' => ['samsonite'],
         ],
 
         'energiers' => [
@@ -161,8 +179,8 @@ return [
             'model_keywords' => [],
             'strip_words' => ['energiers'],
         ],
-    
-    'toysgr' => [
+
+        'toysgr' => [
             'enabled' => (bool) env('FEEDS_TOYSGR_ENABLED', true),
             'network' => env('FEEDS_TOYSGR_NETWORK', 'linkwise'),
             'label' => 'Toys.gr',
@@ -172,7 +190,6 @@ return [
             'brand_aliases' => [],
             'model_keywords' => [],
             'strip_words' => [],
-            
         ],
 
         'moustakas' => [
@@ -185,7 +202,6 @@ return [
             'brand_aliases' => [],
             'model_keywords' => [],
             'strip_words' => [],
-            
         ],
 
         'public' => [
@@ -198,13 +214,9 @@ return [
             'brand_aliases' => ['public'],
             'model_keywords' => [],
             'strip_words' => ['public'],
-            
         ],
-    
-    
-    ],
 
-        
+    ],
 
     // Сколько моделей (карточек) отдавать в выдачу из фида.
     'search_limit' => (int) env('FEEDS_SEARCH_LIMIT', 20),
@@ -217,17 +229,13 @@ return [
     'stop_words' => ['for', 'the', 'and', 'with', 'of', 'in', 'a', 'an', 'για', 'και', 'με', 'σε', 'το', 'τα', 'η', 'ο', 'του', 'των', 'new'],
     'stop_prefixes' => ['αθλητικ', 'sport'],
 
-    // Фразы, которые заменяются целиком до разбора на слова. «Αθλητικά παπούτσια» в греческих магазинах это кроссовки,
-    // а в этом фиде они лежат в категории Sneakers (иначе запрос «кроссовки» вернул бы и гольф, и бутсы).
+    // Фразы, которые заменяются целиком до разбора на слова.
     'phrases' => [
         'αθλητικά παπούτσια' => 'sneakers',
         'αθλητικό παπούτσι' => 'sneakers',
     ],
 
     // Синонимы для поиска: слово запроса -> другие слова, которые тоже считаются совпадением (логика ИЛИ).
-    // Нужны, потому что в фиде названия смешаны: греческие («Παπούτσια»), английские («Sneakers», «Jackets»),
-    // а цвета только английские. Ключи и значения пишутся обычными словами, форма нормализуется кодом.
-    // Пополняйте по журналу storage/logs/search-*.log, когда видите запросы без результатов.
     'synonyms' => [
         // обувь
         'shoes' => ['παπούτσια'],
@@ -251,10 +259,13 @@ return [
         'leggings' => ['κολάν'],
         'swimsuit' => ['μαγιό'],
         'dress' => ['φόρεμα', 'φούστα'],
-        // аксессуары
+        // аксессуары и багаж
         'socks' => ['κάλτσες'],
         'bag' => ['τσάντα', 'σακίδιο'],
         'backpack' => ['σακίδιο', 'τσάντα'],
+        'suitcase' => ['βαλίτσα', 'αποσκευές'],
+        'luggage' => ['βαλίτσα', 'αποσκευές'],
+        'sunglasses' => ['γυαλιά ηλίου'],
         'cap' => ['καπέλο', 'τζόκεϊ'],
         'hat' => ['καπέλο'],
         // греческие запросы -> английские слова в названиях и категориях

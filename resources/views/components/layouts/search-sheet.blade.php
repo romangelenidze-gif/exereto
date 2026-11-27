@@ -18,7 +18,7 @@
             } catch (\Throwable) {
             }
 
-            return ['adidas', 'New Balance', 'Guess', 'Tommy Hilfiger', 'LEGO', 'Sephora'];
+            return ['adidas', 'New Balance', 'Guess', 'Ray-Ban', 'Samsonite', 'LEGO'];
         }
     );
 @endphp

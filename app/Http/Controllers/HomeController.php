@@ -29,7 +29,7 @@ class HomeController extends Controller
                     'home.recommended_block.raw.v3',
                     now()->addHours(30),
                     fn () => $this->fetchBlockCards(
-                        ['modivo', 'notos', 'stradivarius', 'cosselie', 'sephora', 'epapoutsia', 'adidas'],
+                        ['modivo', 'notos', 'stradivarius', 'markakis', 'cosselie', 'notino', 'samsonite', 'epapoutsia', 'adidas'],
                         self::RECOMMENDED_LIMIT
                     )
                 );

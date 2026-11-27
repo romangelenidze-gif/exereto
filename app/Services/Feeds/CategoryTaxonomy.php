@@ -467,7 +467,7 @@ class CategoryTaxonomy
         }
 
         // 1. Вертикальные фиды с жёсткой доменной областью (исключают ложные пересечения)
-        if ($feed === 'cosselie') {
+        if (in_array($feed, ['cosselie', 'markakis'], true)) {
             return $this->classifyCosselie($text);
         }
         if (in_array($feed, ['moustakas', 'toysgr'], true)) {
@@ -476,7 +476,7 @@ class CategoryTaxonomy
         if ($feed === 'public') {
             return $this->classifyPublic($text);
         }
-        if (in_array($feed, ['sephora', 'galeriedebeaute'], true)) {
+        if (in_array($feed, ['notino', 'galeriedebeaute'], true)) {
             return $this->classifyBeauty($text, false);
         }
         if ($feed === 'pharm24') {
