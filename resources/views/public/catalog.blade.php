@@ -1,6 +1,68 @@
+@php
+    $currentPageNum = (int) ($pagination['current_page'] ?? 1);
+    $totalProductsCount = (int) ($pagination['total'] ?? 0);
+    $pageSuffix = $currentPageNum > 1 ? ' — ' . __('Страница') . ' ' . $currentPageNum : '';
+
+    $catalogTitle = $isSearchMode
+        ? $pageTitle . $pageSuffix . ' | Exereto'
+        : $pageTitle . $pageSuffix . ' — ' . __('Официальные цены и скидки в интернет-магазинах Греции') . ' | Exereto';
+
+    $catalogDescription = $totalProductsCount > 0
+        ? __(':title — :count товаров по официальным ценам и скидкам в интернет-магазинах Греции на Exereto.', [
+            'title' => $pageTitle,
+            'count' => number_format($totalProductsCount, 0, '.', ' '),
+        ])
+        : __(':title — официальные цены и скидки в интернет-магазинах Греции на Exereto.', [
+            'title' => $pageTitle,
+        ]);
+
+    $catalogOgImage = !empty($products[0]['image']) ? $products[0]['image'] : null;
+
+    $catalogJsonLd = null;
+    if (!$isSearchMode) {
+        $appUrl = rtrim((string) config('app.url', 'https://exereto.com'), '/');
+        $rawPath = trim(request()->path(), '/');
+        $currentUrl = $rawPath === '' ? $appUrl . '/' : $appUrl . '/' . $rawPath;
+
+        $crumbList = [];
+        $pos = 1;
+        foreach (($breadcrumbs ?? []) as $crumb) {
+            if (empty($crumb['label'])) {
+                continue;
+            }
+            $crumbList[] = [
+                '@type' => 'ListItem',
+                'position' => $pos++,
+                'name' => (string) $crumb['label'],
+                'item' => !empty($crumb['url']) ? (string) $crumb['url'] : $currentUrl,
+            ];
+        }
+
+        $catalogJsonLd = [
+            [
+                '@context' => 'https://schema.org',
+                '@type' => 'CollectionPage',
+                'name' => (string) $pageTitle,
+                'description' => $catalogDescription,
+                'url' => $currentUrl,
+            ],
+        ];
+
+        if (count($crumbList) >= 2) {
+            $catalogJsonLd[] = [
+                '@context' => 'https://schema.org',
+                '@type' => 'BreadcrumbList',
+                'itemListElement' => $crumbList,
+            ];
+        }
+    }
+@endphp
+
 <x-layouts.public
-    title="{{ $pageTitle }} — {{ __('Купить в Греции с доставкой в Грузию') }} | Exereto"
-    description="{{ $pageTitle }} — {{ __('оригинальные бренды из магазинов Греции с доставкой в Грузию.') }}"
+    :title="$catalogTitle"
+    :description="$catalogDescription"
+    :ogImage="$catalogOgImage"
+    :jsonLd="$catalogJsonLd"
 >
 @php
     $activeSort = $filters['sort'] ?? 'relevance';
@@ -635,18 +697,22 @@
                         @endforeach
                     </div>
 
-                    <!-- Кнопка «Показать ещё» -->
-                    <div x-show="currentPage < lastPage" x-cloak class="flex flex-col items-center justify-center pt-6 space-y-2">
-                        <button type="button"
-                                @click="loadMore()"
-                                :disabled="loadingMore"
-                                class="px-8 py-3 rounded-full bg-white hover:bg-[#e8e8ed] text-[#1d1d1f] app-text-body text-sm font-semibold shadow-sm border border-black/[0.08] transition-all cursor-pointer disabled:opacity-60">
-                            <span x-text="loadingMore ? '{{ __('Загружаем...') }}' : '{{ __('Показать ещё') }}'"></span>
-                        </button>
-                        <span class="app-text-xs text-[#86868b]">
-                            {{ __('Показано') }} <span x-text="shownCount"></span> {{ __('из') }} <span x-text="totalItems"></span>
-                        </span>
-                    </div>
+                    <!-- Кнопка «Показать ещё» (реальная ссылка ?page=N для Googlebot + AJAX для пользователей) -->
+                    @if($pagination['current_page'] < $pagination['last_page'])
+                        <div x-show="currentPage < lastPage" class="flex flex-col items-center justify-center pt-6 space-y-2">
+                            <a href="{{ request()->fullUrlWithQuery(['page' => $pagination['current_page'] + 1]) }}"
+                               :href="(() => { const p = new URLSearchParams(window.location.search); p.set('page', String(currentPage + 1)); return `${window.location.pathname}?${p.toString()}`; })()"
+                               @click.prevent="loadMore()"
+                               :class="{ 'opacity-60 pointer-events-none': loadingMore }"
+                               rel="next"
+                               class="px-8 py-3 rounded-full bg-white hover:bg-[#e8e8ed] text-[#1d1d1f] app-text-body text-sm font-semibold shadow-sm border border-black/[0.08] transition-all cursor-pointer">
+                                <span x-text="loadingMore ? '{{ __('Загружаем...') }}' : '{{ __('Показать ещё') }}'">{{ __('Показать ещё') }}</span>
+                            </a>
+                            <span class="app-text-xs text-[#86868b]">
+                                {{ __('Показано') }} <span x-text="shownCount">{{ count($products) }}</span> {{ __('из') }} <span x-text="totalItems">{{ (int) $pagination['total'] }}</span>
+                            </span>
+                        </div>
+                    @endif
                 @else
                     <div class="bg-white rounded-3xl border border-black/[0.06] p-10 sm:p-12 text-center max-w-md mx-auto space-y-3">
                         <h3 class="app-text-title font-semibold">{{ __('Товары не найдены') }}</h3>

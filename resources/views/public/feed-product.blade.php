@@ -1,6 +1,18 @@
+@php
+    $pdpTitle = !empty($product->brand)
+        ? "{$title} | {$product->brand} | Exereto"
+        : "{$title} | Exereto";
+    $pdpDescription = $metaDescription
+        ?? __('Официальная цена магазина в Греции на Exereto.');
+    $isUnavailable = $isUnavailable ?? (!$product->is_active || !$product->in_stock);
+@endphp
+
 <x-layouts.public
-    title="{{ $title }} | {{ $product->brand }} | Buyer Greece"
-    description="{{ __('Цена, размеры и наличие в магазине. Переход в магазин по партнёрской ссылке, цена для вас не меняется.') }}"
+    :title="$pdpTitle"
+    :description="$pdpDescription"
+    ogType="product"
+    :ogImage="$product->image_url"
+    :jsonLd="$productJsonLd ?? null"
 >
 
 <div class="apple-pdp">
@@ -221,14 +233,28 @@
                 </div>
             @endif
 
-            @unless($product->in_stock)
-                <p class="apple-pdp-note">{{ __('Сейчас нет в наличии') }}</p>
-            @endunless
+            @if($isUnavailable)
+                <div class="rounded-2xl bg-amber-50/80 border border-amber-200/70 px-4 py-3 text-sm text-[#1d1d1f] space-y-1.5">
+                    <p class="font-semibold">{{ __('Сейчас нет в наличии') }}</p>
+                    <p class="text-xs text-[#424245]">
+                        {{ __('Товар временно закончился в магазине — посмотрите похожие предложения в наличии ниже.') }}
+                    </p>
+                    @if(isset($relatedProducts) && $relatedProducts->isNotEmpty())
+                        <a href="#related-products" class="inline-flex items-center gap-1 pt-1 text-xs font-semibold text-[#0071e3] hover:underline">
+                            {{ __('Смотреть похожие') }} ↓
+                        </a>
+                    @endif
+                </div>
+            @endif
 
             <!-- Действие -->
             <div class="apple-pdp-actions">
                 <a href="{{ $outboundUrl }}" target="_blank" rel="sponsored nofollow noopener noreferrer" class="apple-btn-primary">
-                    {{ __('Купить на :store', ['store' => $storeName]) }}
+                    @if($isUnavailable)
+                        {{ __('Проверить наличие на :store', ['store' => $storeName]) }}
+                    @else
+                        {{ __('Купить на :store', ['store' => $storeName]) }}
+                    @endif
                 </a>
             </div>
 
@@ -255,7 +281,7 @@
 
 <!-- Релевантные (похожие) товары -->
 @if(isset($relatedProducts) && $relatedProducts->isNotEmpty())
-    <section class="max-w-[1680px] mx-auto px-6 md:px-10 xl:px-14 py-16 mt-0">
+    <section id="related-products" class="max-w-[1680px] mx-auto px-6 md:px-10 xl:px-14 py-16 mt-0 scroll-mt-24">
         <h2 class="text-2xl font-bold tracking-tight text-zinc-900 mb-8">{{ __('Вам также может понравиться') }}</h2>
         <div class="apple-product-grid apple-product-grid--6">
             @foreach($relatedProducts as $related)
