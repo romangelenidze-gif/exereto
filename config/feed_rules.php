@@ -106,11 +106,12 @@ return [
             'url_modifier' => null,
         ],
 
-        // 5. Notino — парфюмерия, люксовая и нишевая косметика, уход за волосами и телом
+        // 5. Notino — парфюмерия, люксовая и нишевая косметика, уход за волосами и телом (только в наличии)
         'notino' => [
             'enabled' => true,
             'store_name' => 'Notino',
             'base_priority' => 90,
+            'require_in_stock' => true,
             'brand_priorities' => [
                 'dior' => 170,
                 'chanel' => 170,
@@ -244,6 +245,7 @@ return [
             'allow_categories' => [],
             'exclude_categories' => [
                 'Φακοί Επαφής', 'Υγρά Φακών', 'Διαλύματα', 'Κολλύρια', 'Σταγόνες',
+                'ΦΑΚΟΙ ΕΠΑΦΗΣ', 'ΥΓΡΑ ΦΑΚΩΝ', 'ΚΡΥΣΤΑΛΛΑ',
             ],
             'exclude_brands' => [],
             'url_modifier' => null,

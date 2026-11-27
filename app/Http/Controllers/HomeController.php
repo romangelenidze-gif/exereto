@@ -7,6 +7,7 @@ use App\Services\FeedCategoryTiles;
 use App\Services\Feeds\FeedEntityLocalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class HomeController extends Controller
@@ -21,13 +22,13 @@ class HomeController extends Controller
         // 1. Единственный товарный блок главной — Рекомендуемые предложения (12 товаров = 2 ряда по 6)
         $recommendedBlock = Cache::remember(
             "home.recommended_block.v3.{$locale}",
-            now()->addHours(30),
+            now()->addHours(48),
             function () use ($localizer, $locale, $tiles) {
                 $target = $this->resolveBlockTarget($tiles, ['clothing', 'sales-offers'], 'Guess');
 
                 $rawCards = Cache::remember(
                     'home.recommended_block.raw.v3',
-                    now()->addHours(30),
+                    now()->addHours(48),
                     fn () => $this->fetchBlockCards(
                         ['modivo', 'notos', 'stradivarius', 'markakis', 'cosselie', 'notino', 'samsonite', 'epapoutsia', 'adidas'],
                         self::RECOMMENDED_LIMIT
@@ -57,7 +58,7 @@ class HomeController extends Controller
         // 2. Полный индекс активных брендов (для шторки A–Z и счётчика в Graphite Aura)
         $allBrandsIndex = Cache::remember(
             'home.all_brands_index.v1',
-            now()->addHours(30),
+            now()->addHours(48),
             fn () => $this->fetchAllBrandsIndex()
         );
 
@@ -89,13 +90,13 @@ class HomeController extends Controller
     }
 
     /**
-     * Все активные бренды с количеством товаров и максимальной скидкой за 1 индексный запрос.
+     * Все активные бренды с количеством товаров и максимальной скидкой за 1 агрегационный запрос без гидрации моделей.
      *
      * @return array<int, array{n: string, c: int, d: int}>
      */
     private function fetchAllBrandsIndex(): array
     {
-        $rows = FeedProduct::query()
+        $rows = DB::table('feed_products')
             ->where('is_active', true)
             ->where('in_stock', true)
             ->whereNotNull('brand')
@@ -229,14 +230,18 @@ class HomeController extends Controller
     }
 
     /**
+     * Двухшаговая выборка (сначала только id, затем один PK-запрос), чтобы не тащить широкие поля в sort-буфер MariaDB.
+     *
      * @param  string[]  $feeds
      * @return array<int, array<string, mixed>>
      */
     private function fetchBlockCards(array $feeds, int $limit): array
     {
-        $pool = collect();
+        $idsByFeed = [];
+        $allIds = [];
+
         foreach ($feeds as $feed) {
-            $chunk = FeedProduct::query()
+            $ids = DB::table('feed_products')
                 ->where('feed', $feed)
                 ->where('is_active', true)
                 ->where('in_stock', true)
@@ -245,7 +250,31 @@ class HomeController extends Controller
                 ->orderByDesc('priority_score')
                 ->orderByDesc('id')
                 ->limit(24)
-                ->get()
+                ->pluck('id')
+                ->all();
+
+            if ($ids !== []) {
+                $idsByFeed[$feed] = $ids;
+                foreach ($ids as $id) {
+                    $allIds[] = $id;
+                }
+            }
+        }
+
+        if ($allIds === []) {
+            return [];
+        }
+
+        $modelsById = FeedProduct::query()
+            ->whereIn('id', $allIds)
+            ->get()
+            ->keyBy('id');
+
+        $pool = collect();
+        foreach ($idsByFeed as $ids) {
+            $chunk = collect($ids)
+                ->map(fn ($id) => $modelsById->get($id))
+                ->filter()
                 ->unique(fn (FeedProduct $p) => $p->model_code ?: $p->sku);
 
             $pool = $pool->merge($chunk);
