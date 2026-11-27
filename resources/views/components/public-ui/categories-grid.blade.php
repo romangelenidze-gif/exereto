@@ -14,7 +14,7 @@
     <div class="apple-categories-grid">
         @foreach($categories as $cat)
             @php
-                $imgFile = $cat['img'] ?? ($cat['slug'] . '.png');
+                $imgFile = $cat['img'] ?? ($cat['slug'] . '.webp');
                 $hasLocalFile = file_exists(public_path('images/categories/' . $imgFile));
             @endphp
             <a href="{{ $cat['url'] ?? '#' }}" class="apple-category-card group">

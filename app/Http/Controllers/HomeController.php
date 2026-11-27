@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\FeedProduct;
 use App\Services\FeedCategoryTiles;
 use App\Services\Feeds\FeedEntityLocalizer;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -55,7 +56,7 @@ class HomeController extends Controller
             }
         );
 
-        // 2. Полный индекс активных брендов (для шторки A–Z и счётчика в Graphite Aura)
+        // 2. Индекс активных брендов в Redis (в HTML главной передаём только счётчик, сам список грузится лениво по клику)
         $allBrandsIndex = Cache::remember(
             'home.all_brands_index.v1',
             now()->addHours(48),
@@ -81,12 +82,27 @@ class HomeController extends Controller
         return view('public.home', compact(
             'recommendedBlock',
             'popularBrands',
-            'allBrandsIndex',
             'totalBrandsCount',
             'maxCatalogDiscount',
             'homeCategories',
             'tiles'
         ));
+    }
+
+    /**
+     * Ленивый JSON-индекс всех активных брендов для шторки A–Z.
+     */
+    public function brandsIndex(): JsonResponse
+    {
+        $brands = Cache::remember(
+            'home.all_brands_index.v1',
+            now()->addHours(48),
+            fn () => $this->fetchAllBrandsIndex()
+        );
+
+        return response()
+            ->json($brands)
+            ->header('Cache-Control', 'public, max-age=3600');
     }
 
     /**

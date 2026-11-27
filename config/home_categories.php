@@ -16,7 +16,7 @@ return [
         [
             'slug' => 'sportswear-tracksuits',
             'label' => 'Спортивная одежда',
-            'img' => 'sportswear.png',
+            'img' => 'sportswear.webp',
             'where' => [
                 'category_path' => ['Αθλητικές Φόρμες', 'Παντελόνια Φόρμας', 'Φόρμες', 'Σορτς', 'Shorts', 'Σπορ'],
             ],
@@ -25,7 +25,7 @@ return [
         [
             'slug' => 'childrens-fashion',
             'label' => 'Детская мода',
-            'img' => 'childrens-fashion.png',
+            'img' => 'childrens-fashion.webp',
             'where' => ['gender' => 'kids'],
             'keywords' => ['kids', 'children', 'детская одежда', 'детская обувь', 'საბავშვო'],
             'subcategories' => [
@@ -37,7 +37,7 @@ return [
         [
             'slug' => 'sales-offers',
             'label' => 'Акции и скидки',
-            'img' => 'sales-offers.png',
+            'img' => 'sales-offers.webp',
             'where' => ['discount' => true],
             'keywords' => ['sale', 'discount', 'скидки', 'распродажа', 'ფასდაკლება'],
         ],
@@ -46,7 +46,7 @@ return [
         [
             'slug' => 'womens-sneakers',
             'label' => 'Женские кроссовки',
-            'img' => 'womens-sneakers.png',
+            'img' => 'womens-sneakers.webp',
             'where' => [
                 'gender' => 'women',
                 'category_path' => ['Sneakers', 'Αθλητικά', 'Χαμηλά Αθλητικά', 'Κοντά Αθλητικά', 'Running', 'Τρέξιμο'],
@@ -60,7 +60,7 @@ return [
         [
             'slug' => 'mens-sports-shoes',
             'label' => 'Мужские кроссовки',
-            'img' => 'mens-sports-shoes.png',
+            'img' => 'mens-sports-shoes.webp',
             'where' => [
                 'gender' => 'men',
                 'category_path' => ['Sneakers', 'Χαμηλά Αθλητικά', 'Κοντά Αθλητικά', 'Παπούτσια Τρεξίματος', 'Τρέξιμο', 'Παπούτσια Γυμναστηρίου', 'Παπούτσια Ποδοσφαίρου', 'Μπασκετικά', 'Αθλητικά'],
@@ -76,7 +76,7 @@ return [
         [
             'slug' => 'womens-boots',
             'label' => 'Женские ботинки и сапоги',
-            'img' => 'womens-boots.png',
+            'img' => 'womens-boots.webp',
             'where' => [
                 'gender' => 'women',
                 'category_path' => ['Μποτάκια', 'Μπότες', 'Chelsea', 'Ορειβατικά Παπούτσια', 'Boots'],
@@ -86,7 +86,7 @@ return [
         [
             'slug' => 'mens-boots-shoes',
             'label' => 'Мужские ботинки и туфли',
-            'img' => 'mens-boots.png',
+            'img' => 'mens-boots.webp',
             'where' => [
                 'gender' => 'men',
                 'category_path' => ['Μποτάκια', 'Μπότες', 'Chelsea Boots', 'Κλειστά Παπούτσια', 'Μοκασίνια', 'Loafers', 'Δερμάτινα', 'Επίσημα', 'Ορειβατικά'],
@@ -96,7 +96,7 @@ return [
         [
             'slug' => 'womens-heels-loafers',
             'label' => 'Туфли, лоферы и балетки',
-            'img' => 'womens-shoes.png',
+            'img' => 'womens-shoes.webp',
             'where' => [
                 'gender' => 'women',
                 'category_path' => ['Γόβες', 'Κλειστά Παπούτσια', 'Μοκασίνια', 'Loafers', 'Μπαλαρίνες', 'Εσπαντρίγιες', 'Shoes'],
@@ -106,7 +106,7 @@ return [
         [
             'slug' => 'sandals-slides',
             'label' => 'Сандалии и шлёпанцы',
-            'img' => 'sandals.png',
+            'img' => 'sandals.webp',
             'where' => [
                 'category_path' => ['Παντόφλες', 'σαγιονάρες', 'Σαγιονάρες', 'Σανδάλια', 'Πέδιλα', 'Πλατφόρμες'],
             ],
@@ -117,7 +117,7 @@ return [
         [
             'slug' => 'womens-jackets',
             'label' => 'Женские куртки и пальто',
-            'img' => 'womens-jackets.png',
+            'img' => 'womens-jackets.webp',
             'where' => [
                 'gender' => 'women',
                 'category_path' => ['Μπουφάν', 'Παλτό', 'Πανωφόρια', 'Jackets', 'Coats', 'Outerwear', 'Vests', 'Σακάκια', 'Γιλέκα'],
@@ -132,7 +132,7 @@ return [
         [
             'slug' => 'mens-jackets',
             'label' => 'Мужские куртки и пальто',
-            'img' => 'mens-jackets.png',
+            'img' => 'mens-jackets.webp',
             'where' => [
                 'gender' => 'men',
                 'category_path' => ['Μπουφάν', 'Παλτό', 'Πανωφόρια', 'Jackets', 'Σακάκια', 'Γιλέκα'],
@@ -149,7 +149,7 @@ return [
         [
             'slug' => 'hoodies-sweatshirts',
             'label' => 'Худи и свитшоты',
-            'img' => 'hoodies.png',
+            'img' => 'hoodies.webp',
             'where' => [
                 'category_path' => ['Φούτερ', 'Ζακέτες', 'Μπλούζες & Fleece', 'Fleece', 'Sweatshirts', 'Hoodies'],
             ],
@@ -158,7 +158,7 @@ return [
         [
             'slug' => 'knitwear-sweaters',
             'label' => 'Свитеры и кардиганы',
-            'img' => 'sweaters.png',
+            'img' => 'sweaters.webp',
             'where' => [
                 'category_path' => ['Πλεκτά', 'Πουλόβερ', 'Ζακέτες Πλεκτές', 'Knitwear', 'Sweaters'],
             ],
@@ -167,7 +167,7 @@ return [
         [
             'slug' => 'shirts-blouses',
             'label' => 'Рубашки и блузки',
-            'img' => 'shirts.png',
+            'img' => 'shirts.webp',
             'where' => [
                 'category_path' => ['Πουκάμισα', 'Μπλούζες', 'Shirts & Tops', 'Shirts', 'Blouses'],
             ],
@@ -176,7 +176,7 @@ return [
         [
             'slug' => 'tshirts-polos',
             'label' => 'Футболки и поло',
-            'img' => 'tshirts.png',
+            'img' => 'tshirts.webp',
             'where' => [
                 'category_path' => ['T-Shirts', 'T-shirts', 'Polo', 'Πολο', 'Φανέλες', 'Tops', 'Shirts & Tops'],
             ],
@@ -185,7 +185,7 @@ return [
         [
             'slug' => 'dresses',
             'label' => 'Платья и юбки',
-            'img' => 'dresses.png',
+            'img' => 'dresses.webp',
             'where' => [
                 'category_path' => ['Φορέματα', 'Φούστες', 'Ολόσωμες Φόρμες', 'Dresses', 'Skirts'],
             ],
@@ -194,7 +194,7 @@ return [
         [
             'slug' => 'womens-jeans',
             'label' => 'Женские джинсы и брюки',
-            'img' => 'womens-jeans.png',
+            'img' => 'womens-jeans.webp',
             'where' => [
                 'gender' => 'women',
                 'category_path' => ['Τζιν', 'Παντελόνια', 'Κολάν', 'Pants', 'Shorts', 'Jeans'],
@@ -204,7 +204,7 @@ return [
         [
             'slug' => 'mens-jeans-trousers',
             'label' => 'Мужские джинсы и брюки',
-            'img' => 'mens-jeans.png',
+            'img' => 'mens-jeans.webp',
             'where' => [
                 'gender' => 'men',
                 'category_path' => ['Τζιν', 'Παντελόνια', 'Chinos', 'Pants', 'Jeans'],
@@ -214,7 +214,7 @@ return [
         [
             'slug' => 'underwear-socks',
             'label' => 'Бельё, купальники и носки',
-            'img' => 'underwear.png',
+            'img' => 'underwear.webp',
             'where' => [
                 'category_path' => ['Εσώρουχα', 'Σουτιέν', 'Μαγιό', 'Μόδα Παραλίας', 'Μπικίνι', 'κάλτσες', 'Κάλτσες'],
             ],
@@ -225,7 +225,7 @@ return [
         [
             'slug' => 'bags-backpacks',
             'label' => 'Сумки и рюкзаки',
-            'img' => 'bags.png',
+            'img' => 'bags-backpacks.webp',
             'where' => [
                 'category_path' => ['Τσάντες', 'Σακίδια', 'Handbags', 'Wallets & Cases'],
             ],
@@ -238,7 +238,7 @@ return [
         [
             'slug' => 'accessories-belts-watches',
             'label' => 'Очки, часы и аксессуары',
-            'img' => 'smartwatches.png',
+            'img' => 'smartwatches.webp',
             'where' => [
                 'category_path' => ['Γυαλιά', 'Γυαλιά Ηλίου', 'Σκελετοί Γυαλιών', 'Ρολόγια', 'Ζώνες', 'Πορτοφόλια', 'Κοσμήματα', 'Jewelry', 'Scarves', 'Clothing Accessories', 'Αξεσουάρ'],
             ],
@@ -254,7 +254,7 @@ return [
         [
             'slug' => 'toys-lego-gadgets',
             'label' => 'Игрушки и LEGO',
-            'img' => 'toys.png', // положи любую иконку в public/images/categories/toys.png (иначе покажется аккуратная SVG-сумка)
+            'img' => 'toys.webp', // положи любую иконку в public/images/categories/toys.webp (иначе покажется аккуратная SVG-сумка)
             'where' => [
                 'category_path' => [
                     'Παιχνίδια', 'ΠΑΙΧΝΙΔΙΑ', 'Toys', 'LEGO', 'Lego', 'Playmobil', 'Funko',
@@ -274,7 +274,7 @@ return [
         [
             'slug' => 'electronics-gaming-tech',
             'label' => 'Гаджеты, Гейминг и 3D',
-            'img' => 'electronics.png',
+            'img' => 'electronics.webp',
             'where' => [
                 'category_path' => [
                     'Apple', 'iPhone', 'iPad', 'MacBook', 'AirPods', 'Smartwatch', 'Smartwatches',
@@ -298,7 +298,7 @@ return [
         [
             'slug' => 'perfumes',
             'label' => 'Парфюмерия',
-            'img' => 'perfume.png',
+            'img' => 'perfume.webp',
             'where' => [
                 'category_path' => ['ΑΡΩΜΑΤΑ', 'Αρώματα', 'Parfum', 'Perfume', 'Eau de Parfum', 'Eau de Toilette', 'Body Mist'],
             ],
@@ -311,7 +311,7 @@ return [
         [
             'slug' => 'face-body-care',
             'label' => 'Уход за кожей и витамины',
-            'img' => 'face-creams.png',
+            'img' => 'face-creams.webp',
             'where' => [
                 'category_path' => [
                     'Πρόσωπο', 'ΠΡΟΣΩΠΟ', 'Περιποίηση Προσώπου', 'Ομορφιά',
@@ -331,7 +331,7 @@ return [
         [
             'slug' => 'makeup-beauty',
             'label' => 'Макияж и косметика',
-            'img' => 'makeup.png',
+            'img' => 'makeup.webp',
             'where' => [
                 'category_path' => ['Μακιγιάζ', 'ΜΑΚΙΓΙΑΖ', 'Προϊόντα Μακιγιάζ'],
             ],

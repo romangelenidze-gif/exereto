@@ -19,16 +19,16 @@ class FeedCategoryTiles
 
     /** Картинки департаментов L1 / хабов (если лежат в public/images/categories/) */
     private const CATEGORY_IMAGES = [
-        'clothing' => 'womens-jackets.png',
-        'shoes' => 'womens-sneakers.png',
-        'accessories' => 'bags-backpacks.png',
-        'beauty' => 'perfume.png',
-        'toys' => 'toys-lego.png',
-        'baby-mom' => 'childrens-fashion.png',
-        'tech' => 'gadgets-gaming.png',
-        'kids' => 'childrens-fashion.png',
-        'childrens-fashion' => 'childrens-fashion.png',
-        'sales-offers' => 'sales-offers.png',
+        'clothing' => 'womens-jackets.webp',
+        'shoes' => 'womens-sneakers.webp',
+        'accessories' => 'bags-backpacks.webp',
+        'beauty' => 'perfume.webp',
+        'toys' => 'toys.webp',
+        'baby-mom' => 'childrens-fashion.webp',
+        'tech' => 'electronics.webp',
+        'kids' => 'childrens-fashion.webp',
+        'childrens-fashion' => 'childrens-fashion.webp',
+        'sales-offers' => 'sales-offers.webp',
     ];
 
     /** Подборка ключевых L2 для виртуального хаба «Детям» */
@@ -233,7 +233,7 @@ class FeedCategoryTiles
                 foreach ($candidates as $entry) {
                     $node = $entry['node'];
                     $slug = (string) $node['slug'];
-                    $imgFile = self::CATEGORY_IMAGES[$slug] ?? ($slug . '.png');
+                    $imgFile = self::CATEGORY_IMAGES[$slug] ?? ($slug . '.webp');
 
                     // Одним запросом забираем реальное фото товара этого бренда в категории + только активные суббренды этой категории
                     $catFilters = array_merge($baseFilters, ['category_slugs = ' . $this->meiliQuote($slug)]);
@@ -1571,7 +1571,7 @@ class FeedCategoryTiles
             }
 
             $topBrands = $this->fetchTopBrandsForClause('category_slugs = ' . $this->meiliQuote($slug));
-            $imgFile = self::CATEGORY_IMAGES[$slug] ?? ($slug . '.png');
+            $imgFile = self::CATEGORY_IMAGES[$slug] ?? ($slug . '.webp');
 
             $tiles[] = [
                 'slug' => $slug,
@@ -1688,7 +1688,7 @@ class FeedCategoryTiles
                     ];
                 }
 
-                $imgFile = self::CATEGORY_IMAGES[$rSlug] ?? ($rSlug . '.png');
+                $imgFile = self::CATEGORY_IMAGES[$rSlug] ?? ($rSlug . '.webp');
 
                 $depts[] = [
                     'slug' => $rSlug,

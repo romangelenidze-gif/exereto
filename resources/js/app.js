@@ -1,13 +1,20 @@
 import Alpine from 'alpinejs';
 
-// Вычисление ширины скроллбара для предотвращения сдвига контента (Layout Shift)
+// Вычисление ширины скроллбара для десктопа без Forced Reflow на первом рендере
+let scrollbarRaf = null;
 const updateScrollbarWidth = () => {
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    document.documentElement.style.setProperty('--scrollbar-width', `${scrollbarWidth}px`);
+    if (window.matchMedia && !window.matchMedia('(pointer: fine)').matches) {
+        return;
+    }
+    if (scrollbarRaf) cancelAnimationFrame(scrollbarRaf);
+    scrollbarRaf = requestAnimationFrame(() => {
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+        document.documentElement.style.setProperty('--scrollbar-width', `${scrollbarWidth}px`);
+    });
 };
 
-window.addEventListener('resize', updateScrollbarWidth);
-document.addEventListener('DOMContentLoaded', updateScrollbarWidth);
+window.addEventListener('resize', updateScrollbarWidth, { passive: true });
+window.addEventListener('load', updateScrollbarWidth, { once: true, passive: true });
 
 // Ленивая загрузка PhotoSwipe (JS + CSS подгружаются только при первом клике на фото)
 let photoSwipePromise = null;
@@ -46,7 +53,6 @@ document.addEventListener('click', async (e) => {
             Math.min(parseInt(trigger.dataset.pswpIndex || '0', 10) || 0, urls.length - 1)
         );
 
-        // Собираем реальные naturalWidth/naturalHeight всех уже загруженных на странице фото (главное + миниатюры)
         const knownDims = new Map();
         const mediaWrap = trigger.closest('.apple-pdp-media');
         if (mediaWrap) {
@@ -117,7 +123,6 @@ document.addEventListener('click', async (e) => {
         pswp.on('contentLoadImage', ({ content }) => syncRealDimensions(content));
         pswp.on('loadComplete', ({ content }) => syncRealDimensions(content));
 
-        // Синхронизируем выбранный кадр обратно в карточку товара и страхуем пропорции активного слайда
         pswp.on('change', () => {
             if (pswp.currSlide?.content) {
                 syncRealDimensions(pswp.currSlide.content);

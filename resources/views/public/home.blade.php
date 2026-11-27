@@ -264,6 +264,8 @@
                                 @if(!empty($tImg))
                                     <img src="{{ $tImg }}"
                                          alt="{{ $tLabel }}"
+                                         width="120"
+                                         height="120"
                                          loading="lazy"
                                          decoding="async"
                                          class="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300">
@@ -336,7 +338,7 @@
             </section>
 
             <!-- Шторка всех брендов A–Z -->
-            <x-public-ui.brands-drawer :brands="$allBrandsIndex ?? []" />
+            <x-public-ui.brands-drawer :total-count="$totalBrandsCount ?? 0" />
         @endif
 
         <!-- 5. РЕКОМЕНДУЕМЫЕ ПРЕДЛОЖЕНИЯ -->

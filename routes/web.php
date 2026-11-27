@@ -26,3 +26,6 @@ Route::prefix('ka')
     ->name('ka.')
     ->middleware(SetLocale::class . ':ka')
     ->group(base_path('routes/localized.php'));
+
+Route::get('/api/brands-index', [\App\Http\Controllers\HomeController::class, 'brandsIndex'])
+    ->name('brands.index');

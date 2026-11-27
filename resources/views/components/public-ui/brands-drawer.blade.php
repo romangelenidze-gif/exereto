@@ -1,7 +1,9 @@
-@props(['brands' => []])
+@props(['brands' => [], 'totalCount' => null])
 
 @php
     $searchBaseUrl = route('product-search');
+    $brandsApiUrl = route('brands.index');
+    $initialCount = (int) ($totalCount ?? count($brands));
 @endphp
 
 <template x-teleport="body">
@@ -10,9 +12,19 @@
             q: '',
             activeLetter: 'TOP',
             brands: @js($brands),
+            totalCount: {{ $initialCount }},
+            loaded: {{ count($brands) > 0 ? 'true' : 'false' }},
+            loading: false,
+            loadError: false,
             searchBaseUrl: @js($searchBaseUrl),
+            brandsApiUrl: @js($brandsApiUrl),
             letters: [],
             init() {
+                if (this.brands.length > 0) {
+                    this.buildLetters();
+                }
+            },
+            buildLetters() {
                 const set = new Set();
                 for (const b of this.brands) {
                     const ch = (b.n || '').trim().charAt(0).toUpperCase();
@@ -21,10 +33,31 @@
                 }
                 this.letters = ['TOP', ...Array.from(set).filter(l => l !== '#').sort(), ...(set.has('#') ? ['#'] : [])];
             },
+            async ensureLoaded() {
+                if (this.loaded || this.loading) return;
+                this.loading = true;
+                this.loadError = false;
+                try {
+                    const res = await fetch(this.brandsApiUrl, {
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const data = await res.json();
+                    this.brands = Array.isArray(data) ? data : [];
+                    this.totalCount = this.brands.length;
+                    this.buildLetters();
+                    this.loaded = true;
+                } catch {
+                    this.loadError = true;
+                } finally {
+                    this.loading = false;
+                }
+            },
             openDrawer() {
                 this.open = true;
                 this.q = '';
                 this.activeLetter = 'TOP';
+                this.ensureLoaded();
                 this.$nextTick(() => {
                     if (this.$refs.listContainer) this.$refs.listContainer.scrollTop = 0;
                 });
@@ -43,7 +76,7 @@
                 return this.searchBaseUrl + '?q=' + encodeURIComponent(name);
             },
             get visibleBrands() {
-                if (!this.open) return [];
+                if (!this.open || !this.loaded) return [];
                 const term = this.q.trim().toLowerCase();
                 if (term.length > 0) {
                     const starts = [];
@@ -115,7 +148,7 @@
                         {{ __('Все бренды') }}
                     </h2>
                     <span class="px-2 py-0.5 rounded-full bg-black/[0.06] text-[12px] font-semibold text-[#6e6e73] tabular-nums"
-                          x-text="brands.length.toLocaleString()"></span>
+                          x-text="(loaded ? brands.length : totalCount).toLocaleString()"></span>
                 </div>
                 <button type="button"
                         @click="closeDrawer()"
@@ -129,8 +162,8 @@
 
             <!-- Поиск по брендам -->
             <div class="px-4 pb-3 shrink-0">
-                <div class="flex items-center gap-2 px-3.5 h-11 rounded-full bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-black/[0.06] focus-within:border-[#0071e3]/40 focus-within:ring-2 focus-within:ring-[#0071e3]/15 transition-all">
-                    <svg class="w-4 h-4 text-[#0071e3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <div class="flex items-center gap-2 px-3.5 h-11 rounded-full bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-black/[0.06] focus-within:border-[#0066cc]/40 focus-within:ring-2 focus-within:ring-[#0066cc]/15 transition-all">
+                    <svg class="w-4 h-4 text-[#0066cc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <input type="search"
@@ -150,7 +183,7 @@
             </div>
 
             <!-- Алфавитная лента Top / A–Z -->
-            <div x-show="q.trim().length === 0" class="px-4 pb-3 border-b border-black/[0.06] shrink-0">
+            <div x-show="loaded && q.trim().length === 0" class="px-4 pb-3 border-b border-black/[0.06] shrink-0">
                 <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                     <template x-for="letter in letters" :key="letter">
                         <button type="button"
@@ -165,7 +198,23 @@
 
             <!-- Список брендов -->
             <div x-ref="listContainer" class="flex-1 overflow-y-auto p-4 pb-10">
-                <div x-show="visibleBrands.length > 0"
+                <div x-show="loading" class="py-12 flex justify-center">
+                    <svg class="animate-spin h-7 w-7 text-[#0066cc]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+
+                <div x-show="!loading && loadError" class="py-12 text-center space-y-3">
+                    <p class="text-sm text-[#6e6e73]">{{ __('Не удалось загрузить список брендов') }}</p>
+                    <button type="button"
+                            @click="ensureLoaded()"
+                            class="px-4 py-2 rounded-full bg-[#1d1d1f] text-white text-xs font-semibold cursor-pointer">
+                        {{ __('Повторить') }}
+                    </button>
+                </div>
+
+                <div x-show="!loading && !loadError && visibleBrands.length > 0"
                      class="bg-white rounded-2xl border border-black/[0.05] divide-y divide-black/[0.04] overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
                     <template x-for="item in visibleBrands" :key="item.n">
                         <a :href="brandUrl(item.n)"
@@ -178,7 +227,7 @@
                                       class="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[11px] font-bold tabular-nums"></span>
                                 <span class="text-[13px] font-medium text-[#6e6e73] tabular-nums"
                                       x-text="item.c.toLocaleString()"></span>
-                                <svg class="w-4 h-4 text-[#86868b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <svg class="w-4 h-4 text-[#6e6e73]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                                 </svg>
                             </div>
@@ -186,7 +235,7 @@
                     </template>
                 </div>
 
-                <div x-show="visibleBrands.length === 0" class="py-12 text-center text-sm text-[#6e6e73]">
+                <div x-show="!loading && !loadError && loaded && visibleBrands.length === 0" class="py-12 text-center text-sm text-[#6e6e73]">
                     {{ __('Бренды не найдены') }}
                 </div>
             </div>
