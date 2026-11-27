@@ -1,16 +1,4 @@
-import './bootstrap';
 import Alpine from 'alpinejs';
-import Swiper from 'swiper';
-import { Navigation, Pagination } from 'swiper/modules';
-
-import 'swiper/css';
-import 'swiper/css/navigation';
-
-import PhotoSwipe from 'photoswipe';
-import 'photoswipe/style.css';
-
-window.Swiper = Swiper;
-window.SwiperModules = [Navigation, Pagination];
 
 // Вычисление ширины скроллбара для предотвращения сдвига контента (Layout Shift)
 const updateScrollbarWidth = () => {
@@ -21,10 +9,22 @@ const updateScrollbarWidth = () => {
 window.addEventListener('resize', updateScrollbarWidth);
 document.addEventListener('DOMContentLoaded', updateScrollbarWidth);
 
+// Ленивая загрузка PhotoSwipe (JS + CSS подгружаются только при первом клике на фото)
+let photoSwipePromise = null;
+const loadPhotoSwipe = () => {
+    if (!photoSwipePromise) {
+        photoSwipePromise = Promise.all([
+            import('photoswipe'),
+            import('photoswipe/style.css'),
+        ]).then(([mod]) => mod.default);
+    }
+    return photoSwipePromise;
+};
+
 // Просмотр фото на весь экран (нативный PhotoSwipe 5):
 // - [data-pswp-gallery] — полноценная галерея со всеми фото товара, стрелками, счётчиком и ленивой подгрузкой
 // - [data-pswp-src]     — одиночное фото (обратная совместимость для остальных страниц)
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
     const trigger = e.target.closest('[data-pswp-gallery], [data-pswp-src]');
     if (!trigger) return;
 
@@ -69,6 +69,8 @@ document.addEventListener('click', (e) => {
                 _resolved: Boolean(dim),
             };
         });
+
+        const PhotoSwipe = await loadPhotoSwipe();
 
         const pswp = new PhotoSwipe({
             dataSource,
@@ -132,6 +134,8 @@ document.addEventListener('click', (e) => {
 
     const src = trigger.dataset.pswpSrc;
     if (!src) return;
+
+    const PhotoSwipe = await loadPhotoSwipe();
 
     const probe = new Image();
     probe.onload = () => {
