@@ -11,13 +11,30 @@
         return;
     }
 
-    // Разбиваем цвета по слешу или запятой и убираем пустые элементы
-    $rawColors = array_values(array_filter(
-        array_map('trim', preg_split('/[\/,]+/', (string) $colour) ?: []),
-        fn (string $v) => $v !== ''
-    ));
+    // Разбиваем по слешу/запятой и убираем дубли (без учёта регистра), сохраняя порядок
+    $dedupeParts = static function (string $value): array {
+        $parts = preg_split('/[\/,]+/', $value) ?: [];
+        $unique = [];
+        $seen = [];
 
-    if (count($rawColors) < (int) $minColors) {
+        foreach ($parts as $part) {
+            $trimmed = trim($part);
+            if ($trimmed === '') {
+                continue;
+            }
+            $key = mb_strtolower($trimmed);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $unique[] = $trimmed;
+        }
+
+        return $unique;
+    };
+
+    $rawColors = $dedupeParts((string) $colour);
+    if ($rawColors === []) {
         return;
     }
 
@@ -75,6 +92,7 @@
     ];
 
     $dots = [];
+    $seenHex = [];
     foreach ($rawColors as $cName) {
         $cleanName = mb_strtolower($cName);
         $hex = '#CCCCCC';
@@ -86,17 +104,26 @@
             }
         }
 
+        if (isset($seenHex[$hex])) {
+            continue;
+        }
+        $seenHex[$hex] = true;
+
         $dots[] = [
             'name' => $cName,
             'hex' => $hex,
         ];
     }
 
+    if (count($dots) < (int) $minColors) {
+        return;
+    }
+
     if ($onlyDots && count($dots) > 6) {
         $dots = array_slice($dots, 0, 6);
     }
 
-    $displayLabel = $label ?: $colour;
+    $displayLabel = implode(' / ', $dedupeParts((string) ($label ?: $colour)));
 @endphp
 
 @if($pill)

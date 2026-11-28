@@ -29,16 +29,22 @@ private const CATEGORY_IMAGES = [
         'kids' => 'childrens-fashion.webp',
         'childrens-fashion' => 'childrens-fashion.webp',
         'sales-offers' => 'sales-offers.webp',
-        // L2 подкатегории с готовыми локальными WebP
+        // L2 подкатегории с уже готовыми локальными WebP
         'sneakers' => 'womens-sneakers.webp',
         'sports-shoes' => 'mens-sports-shoes.webp',
         'boots' => 'womens-boots.webp',
         'sandals' => 'sandals.webp',
+        'dress-casual-shoes' => 'womens-shoes.webp',
         'jackets' => 'womens-jackets.webp',
         'jeans' => 'womens-jeans.webp',
         't-shirts' => 'tshirts.webp',
+        'underwear-socks' => 'underwear.webp',
         'bags' => 'bags-backpacks.webp',
         'backpacks' => 'bags-backpacks.webp',
+        'computers-laptops' => 'laptops.webp',
+        'wearables' => 'smartwatches.webp',
+        'photo-drones-gadgets' => 'cameras.webp',
+        'phones-tablets' => 'mobile.webp',
         'smartphones' => 'mobile.webp',
         'skincare' => 'face-creams.webp',
     ];
