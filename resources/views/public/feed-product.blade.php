@@ -156,7 +156,7 @@
 
             <p class="apple-pdp-photo-note">
                 {{ __('Больше фото этого товара:') }}
-                <a href="{{ $outboundUrl }}" target="_blank" rel="sponsored nofollow noopener noreferrer">{{ __('смотреть на :store', ['store' => $storeName]) }}</a>
+                <a href="{{ $outboundUrl }}" target="_blank" rel="sponsored nofollow noopener noreferrer" class="underline underline-offset-2">{{ __('смотреть на :store', ['store' => $storeName]) }}</a>
             </p>
         </div>
 
@@ -207,7 +207,7 @@
                     <div class="relative">
                         <select id="pdp-variant-select"
                                 onchange="if (this.value && this.value !== window.location.href) window.location.href = this.value;"
-                                class="w-full appearance-none rounded-2xl bg-white border border-black/12 hover:border-black/25 focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/15 pl-4 pr-11 py-3.5 text-[15px] font-semibold text-[#1d1d1f] shadow-[0_2px_8px_rgba(0,0,0,0.03)] transition-all cursor-pointer focus:outline-none">
+                                class="w-full appearance-none rounded-2xl bg-white border border-black/12 hover:border-black/25 focus:border-[#0066cc] focus:ring-2 focus:ring-[#0066cc]/15 pl-4 pr-11 py-3.5 text-[15px] font-semibold text-[#1d1d1f] shadow-[0_2px_8px_rgba(0,0,0,0.03)] transition-all cursor-pointer focus:outline-none">
                             @foreach($variantOptions as $opt)
                                 <option value="{{ $opt['url'] }}" @selected($opt['is_active'])>
                                     {{ $opt['label'] }} — {{ $opt['price_formatted'] }}@if(!$opt['same_color'] && $opt['colour'] !== '') ({{ $opt['colour'] }})@endif
@@ -240,7 +240,7 @@
                         {{ __('Товар временно закончился в магазине — посмотрите похожие предложения в наличии ниже.') }}
                     </p>
                     @if(isset($relatedProducts) && $relatedProducts->isNotEmpty())
-                        <a href="#related-products" class="inline-flex items-center gap-1 pt-1 text-xs font-semibold text-[#0071e3] hover:underline">
+                        <a href="#related-products" class="inline-flex items-center gap-1 pt-1 text-xs font-semibold text-[#0066cc] hover:underline">
                             {{ __('Смотреть похожие') }} ↓
                         </a>
                     @endif

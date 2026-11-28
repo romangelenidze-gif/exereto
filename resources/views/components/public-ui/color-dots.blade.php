@@ -101,20 +101,19 @@
 
 @if($pill)
     <div {{ $attributes->merge(['class' => 'inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/85 backdrop-blur-sm border border-black/[0.08] shadow-sm']) }}
-         title="{{ $displayLabel }}">
+         title="{{ $displayLabel }}"
+         aria-hidden="true">
         @foreach($dots as $dot)
             <span class="inline-block w-3 h-3 rounded-full border border-black/15 shrink-0"
-                  style="background-color: {{ $dot['hex'] }};"
-                  aria-label="{{ $dot['name'] }}"></span>
+                  style="background-color: {{ $dot['hex'] }};"></span>
         @endforeach
     </div>
 @else
     <div {{ $attributes->merge(['class' => 'inline-flex items-center gap-1.5']) }} title="{{ $displayLabel }}">
-        <div class="inline-flex items-center gap-1">
+        <div class="inline-flex items-center gap-1" aria-hidden="true">
             @foreach($dots as $dot)
                 <span class="inline-block w-3.5 h-3.5 rounded-full border border-black/15 shadow-2xs shrink-0"
-                      style="background-color: {{ $dot['hex'] }};"
-                      aria-label="{{ $dot['name'] }}"></span>
+                      style="background-color: {{ $dot['hex'] }};"></span>
             @endforeach
         </div>
         @unless($onlyDots)

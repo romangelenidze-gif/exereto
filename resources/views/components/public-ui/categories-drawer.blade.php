@@ -167,7 +167,7 @@
                                          loading="lazy"
                                          x-on:error="imgError = true"
                                          class="w-full h-full object-contain mix-blend-multiply">
-                                    <div x-show="!dept.image || imgError" x-cloak class="w-12 h-12 rounded-xl bg-[#f5f5f7] flex items-center justify-center text-[#86868b]">
+                                    <div x-show="!dept.image || imgError" x-cloak class="w-12 h-12 rounded-xl bg-[#f5f5f7] flex items-center justify-center text-[#6e6e73]">
                                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                         </svg>
@@ -180,7 +180,7 @@
                                          x-text="dept.count.toLocaleString()"></div>
                                 </div>
                             </div>
-                            <svg class="w-5 h-5 text-[#86868b] shrink-0 transition-transform duration-200"
+                            <svg class="w-5 h-5 text-[#6e6e73] shrink-0 transition-transform duration-200"
                                  :class="openDept === dept.slug ? 'rotate-90 text-[#1d1d1f]' : ''"
                                  fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -193,7 +193,7 @@
                             <div class="overflow-hidden">
                                 <div class="bg-white border-t border-black/[0.05] divide-y divide-black/[0.04]">
                                     <a :href="dept.url"
-                                       class="flex items-center justify-between px-4 py-3 text-[15px] font-semibold text-[#0071e3] hover:bg-[#0071e3]/[0.05] transition-colors">
+                                       class="flex items-center justify-between px-4 py-3 text-[15px] font-semibold text-[#0066cc] hover:bg-[#0066cc]/[0.05] transition-colors">
                                         <span>{{ __('Смотреть все') }} &rarr;</span>
                                         <span class="text-[13px] text-[#6e6e73] font-normal" x-text="dept.count.toLocaleString()"></span>
                                     </a>

@@ -30,7 +30,10 @@
         @if(!empty($imgUrl))
             <img src="{{ $imgUrl }}"
                  alt="{{ $name }}"
+                 width="400"
+                 height="400"
                  loading="{{ $isFirst ? 'eager' : 'lazy' }}"
+                 @if($isFirst) fetchpriority="high" @endif
                  decoding="async"
                  class="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500">
         @endif
@@ -55,11 +58,11 @@
     <div class="adidas-product-bottom">
         <div class="space-y-1 mb-2 min-w-0">
             @if($brand)
-                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider truncate">{{ $brand }}</div>
+                <div class="text-xs font-bold text-[#6e6e73] uppercase tracking-wider truncate">{{ $brand }}</div>
             @endif
-            <h3 class="font-semibold text-zinc-900 text-sm line-clamp-2 leading-snug">
+            <div class="font-semibold text-zinc-900 text-sm line-clamp-2 leading-snug">
                 {{ $name }}
-            </h3>
+            </div>
         </div>
 
         <div class="flex items-end justify-between gap-2 pt-3 border-t border-zinc-100">
@@ -72,13 +75,13 @@
                     @endif
                 </div>
                 @if(!empty($oldPrice))
-                    <div class="text-xs text-zinc-400 line-through whitespace-nowrap mt-0.5">€{{ number_format((float) $oldPrice, 2) }}</div>
+                    <div class="text-xs text-[#6e6e73] line-through whitespace-nowrap mt-0.5">€{{ number_format((float) $oldPrice, 2) }}</div>
                 @endif
             </div>
 
             <div class="relative z-20 shrink-0">
-                <a href="{{ $detailUrl }}" class="adidas-card-action-btn" title="{{ __('Открыть') }}">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <a href="{{ $detailUrl }}" class="adidas-card-action-btn" title="{{ __('Открыть') }}" aria-label="{{ __('Открыть') }}">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                     </svg>
                 </a>
