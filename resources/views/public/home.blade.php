@@ -123,7 +123,7 @@
                                 {{ __('Актуальные скидки') }}
                             </span>
                             <b class="aura-deal-value">
-                                {{ __('до') }} {{ $maxDisc }}%
+                                {{ __('до :percent%', ['percent' => $maxDisc]) }}
                             </b>
                         </div>
 

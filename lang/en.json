@@ -670,6 +670,8 @@
 "Объём": "Volume",
 "Вариант": "Option",
 
+"до :percent%": "up to :percent%",
+
 "Все права защищены": "All rights reserved",
     "Все товары на exereto представлены по официальным ценам и скидкам магазинов-партнёров, без дополнительных наценок. Комиссию сервиса оплачивают партнёры, а не покупатели.": "All products on exereto are listed at official partner store prices and discounts, with no extra markups. Service commissions are paid by partners, never by shoppers.",
 
@@ -687,7 +689,7 @@
     "Официальные цены и скидки в интернет-магазинах Греции": "Official Prices & Discounts in Greek Online Stores",
     ":title — :count товаров по официальным ценам и скидкам в интернет-магазинах Греции на Exereto.": ":title — :count products at official prices and discounts from Greek online stores on Exereto.",
     ":title — официальные цены и скидки в интернет-магазинах Греции на Exereto.": ":title — official prices and discounts from Greek online stores on Exereto.",
-    
+
 
 "Найти товар или бренд": "Search product or brand",
 "Мы не продаём. Мы помогаем покупать!": "We don't sell. We help you buy!",
