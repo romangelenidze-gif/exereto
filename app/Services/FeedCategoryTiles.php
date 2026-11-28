@@ -18,7 +18,7 @@ class FeedCategoryTiles
     private const CACHE_HOURS = 30;
 
     /** Картинки департаментов L1 / хабов (если лежат в public/images/categories/) */
-    private const CATEGORY_IMAGES = [
+private const CATEGORY_IMAGES = [
         'clothing' => 'womens-jackets.webp',
         'shoes' => 'womens-sneakers.webp',
         'accessories' => 'bags-backpacks.webp',
@@ -29,6 +29,18 @@ class FeedCategoryTiles
         'kids' => 'childrens-fashion.webp',
         'childrens-fashion' => 'childrens-fashion.webp',
         'sales-offers' => 'sales-offers.webp',
+        // L2 подкатегории с готовыми локальными WebP
+        'sneakers' => 'womens-sneakers.webp',
+        'sports-shoes' => 'mens-sports-shoes.webp',
+        'boots' => 'womens-boots.webp',
+        'sandals' => 'sandals.webp',
+        'jackets' => 'womens-jackets.webp',
+        'jeans' => 'womens-jeans.webp',
+        't-shirts' => 'tshirts.webp',
+        'bags' => 'bags-backpacks.webp',
+        'backpacks' => 'bags-backpacks.webp',
+        'smartphones' => 'mobile.webp',
+        'skincare' => 'face-creams.webp',
     ];
 
     /** Подборка ключевых L2 для виртуального хаба «Детям» */
@@ -620,7 +632,7 @@ class FeedCategoryTiles
             $genders = array_values(array_filter((array) ($activeFilters['genders'] ?? [])));
             sort($genders);
             $genderSuffix = $genders !== [] ? implode('_', $genders) : 'all';
-            $cacheKey = "category.tree_subs.v{$v}.{$slug}.{$genderSuffix}";
+            $cacheKey = "category.tree_subs.webp.v{$v}.{$slug}.{$genderSuffix}";
 
             $raw = Cache::remember($cacheKey, now()->addHours(self::CACHE_HOURS), function () use ($tile, $mode, $slug, $genders) {
                 $catMap = $this->loadCategoriesMap();
@@ -671,6 +683,13 @@ class FeedCategoryTiles
                     ]);
                     $slugCounts = $this->extractFacetDistribution($facetRes)['category_slugs'] ?? [];
 
+                    $menMap = [
+                        'sneakers' => 'mens-sports-shoes.webp',
+                        'boots' => 'mens-boots.webp',
+                        'jackets' => 'mens-jackets.webp',
+                        'jeans' => 'mens-jeans.webp',
+                    ];
+
                     $result = [];
                     foreach ($candidateNodes as $idx => $node) {
                         $nSlug = (string) $node['slug'];
@@ -679,23 +698,37 @@ class FeedCategoryTiles
                             continue;
                         }
 
-                        $imgClauses = array_merge(
-                            ['is_active = true', 'in_stock = true', 'category_slugs = ' . $this->meiliQuote($nSlug)],
-                            $extraClauses
-                        );
-
-                        $imgRes = $this->meiliIndex()->search('', [
-                            'filter' => implode(' AND ', $imgClauses),
-                            'sort' => ['priority_score:desc'],
-                            'limit' => 4,
-                            'attributesToRetrieve' => ['id', 'image_url'],
-                        ]);
-                        $hits = is_object($imgRes) ? $imgRes->getHits() : ($imgRes['hits'] ?? []);
                         $sampleImage = null;
-                        foreach ($hits as $h) {
-                            if (!empty($h['image_url'])) {
-                                $sampleImage = (string) $h['image_url'];
-                                break;
+
+                        if ($genders === ['men'] && isset($menMap[$nSlug]) && is_file(public_path('images/categories/' . $menMap[$nSlug]))) {
+                            $sampleImage = '/images/categories/' . $menMap[$nSlug];
+                        }
+
+                        if ($sampleImage === null) {
+                            $imgFile = self::CATEGORY_IMAGES[$nSlug] ?? ($nSlug . '.webp');
+                            if (is_file(public_path('images/categories/' . $imgFile))) {
+                                $sampleImage = '/images/categories/' . $imgFile;
+                            }
+                        }
+
+                        if ($sampleImage === null) {
+                            $imgClauses = array_merge(
+                                ['is_active = true', 'in_stock = true', 'category_slugs = ' . $this->meiliQuote($nSlug)],
+                                $extraClauses
+                            );
+
+                            $imgRes = $this->meiliIndex()->search('', [
+                                'filter' => implode(' AND ', $imgClauses),
+                                'sort' => ['priority_score:desc'],
+                                'limit' => 4,
+                                'attributesToRetrieve' => ['id', 'image_url'],
+                            ]);
+                            $hits = is_object($imgRes) ? $imgRes->getHits() : ($imgRes['hits'] ?? []);
+                            foreach ($hits as $h) {
+                                if (!empty($h['image_url'])) {
+                                    $sampleImage = (string) $h['image_url'];
+                                    break;
+                                }
                             }
                         }
 
